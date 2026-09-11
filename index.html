@@ -38,20 +38,296 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
   min-height:500px;
 }
 
-.hero-mockup{
-  width:115%;
+/* HERO — NOTEBOOK + CELULAR EM CAMADAS */
+.hero-showcase{
+  position:relative;
+  width:118%;
   max-width:none;
-  height:auto;
+  height:510px;
+  transform-origin:center center;
+  filter:drop-shadow(0 30px 60px rgba(0,0,0,.38));
+}
+
+/* brilho roxo atrás dos dispositivos */
+.hero-showcase::before,
+.hero-showcase::after{
+  content:"";
+  position:absolute;
+  border-radius:50%;
+  border:2px solid rgba(168,85,247,.72);
+  box-shadow:
+    0 0 22px rgba(168,85,247,.7),
+    inset 0 0 18px rgba(168,85,247,.25);
+  pointer-events:none;
+}
+.hero-showcase::before{
+  width:470px;
+  height:250px;
+  left:30px;
+  top:105px;
+  transform:rotate(-9deg);
+}
+.hero-showcase::after{
+  width:290px;
+  height:360px;
+  right:-35px;
+  top:40px;
+  opacity:.7;
+}
+
+/* NOTEBOOK */
+.laptop{
+  position:absolute;
+  width:79%;
+  left:0;
+  top:62px;
+  z-index:3;
+  transform:perspective(1100px) rotateY(-7deg) rotateX(2deg) rotateZ(1deg);
+  transform-origin:center bottom;
+}
+
+.laptop-lid{
+  position:relative;
+  width:100%;
+  aspect-ratio:16/10;
+  padding:11px 11px 18px;
+  background:linear-gradient(145deg,#202333,#070910 62%,#1c1730);
+  border:1px solid rgba(199,154,255,.65);
+  border-radius:20px 20px 12px 12px;
+  box-shadow:
+    0 0 0 2px rgba(255,255,255,.03) inset,
+    0 0 32px rgba(124,58,237,.38);
+}
+
+.laptop-camera{
+  position:absolute;
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  top:5px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#03040a;
+  box-shadow:0 0 0 1px rgba(255,255,255,.08);
+  z-index:7;
+}
+
+.laptop-screen{
+  position:relative;
+  width:100%;
+  aspect-ratio:16/9;
+  overflow:hidden;
+  border-radius:10px;
+  background:#05060a;
+  border:1px solid rgba(255,255,255,.08);
+}
+
+.laptop-base{
+  position:relative;
+  width:110%;
+  height:34px;
+  left:-5%;
+  margin-top:-2px;
+  border-radius:3px 3px 20px 20px;
+  background:linear-gradient(180deg,#8f879d 0%,#524b63 38%,#272331 100%);
+  box-shadow:0 14px 18px rgba(0,0,0,.35);
+}
+.laptop-base::after{
+  content:"";
+  position:absolute;
+  width:23%;
+  height:5px;
+  left:38.5%;
+  top:1px;
+  background:rgba(255,255,255,.28);
+  border-radius:0 0 8px 8px;
+}
+
+/* CELULAR */
+.phone{
+  position:absolute;
+  width:26%;
+  right:0;
+  top:148px;
+  z-index:6;
+  padding:8px;
+  border-radius:30px;
+  background:linear-gradient(145deg,#262431,#07080d 58%,#302545);
+  border:1px solid rgba(210,174,255,.75);
+  box-shadow:
+    0 0 30px rgba(124,58,237,.52),
+    0 20px 35px rgba(0,0,0,.4);
+  transform:perspective(900px) rotateY(-8deg) rotateZ(4deg);
+}
+
+.phone-screen{
+  position:relative;
+  width:100%;
+  aspect-ratio:1080/2340;
+  border-radius:23px;
+  overflow:hidden;
+  background:#05060a;
+}
+
+.phone-notch{
+  position:absolute;
+  width:38%;
+  height:14px;
+  top:5px;
+  left:31%;
+  border-radius:0 0 12px 12px;
+  background:#07080d;
+  z-index:8;
+}
+
+/* imagens trocadas dentro das telas */
+.desktop-screen-img,
+.mobile-screen-img{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
   display:block;
-  object-fit:contain;
-  filter:drop-shadow(0 30px 60px rgba(0,0,0,.35));
+  opacity:0;
+  transform:scale(1.035);
+  will-change:opacity,transform;
+}
+
+.desktop-screen-img.active,
+.mobile-screen-img.active{
+  opacity:1;
+  transform:scale(1);
+}
+
+/* reflexo que passa nas telas durante as trocas */
+.screen-shine{
+  position:absolute;
+  inset:-20% auto -20% -35%;
+  width:24%;
+  transform:skewX(-18deg);
+  background:linear-gradient(
+    90deg,
+    transparent,
+    rgba(255,255,255,.03),
+    rgba(214,184,255,.24),
+    rgba(255,255,255,.04),
+    transparent
+  );
+  opacity:0;
+  pointer-events:none;
+  z-index:10;
+}
+
+/* selos decorativos do mockup original */
+.showcase-badge{
+  position:absolute;
+  z-index:12;
+  border:1px solid rgba(168,85,247,.85);
+  background:linear-gradient(145deg,rgba(18,18,31,.96),rgba(35,16,62,.96));
+  color:#fff;
+  box-shadow:
+    0 0 16px rgba(168,85,247,.65),
+    0 10px 24px rgba(0,0,0,.32);
+  border-radius:10px;
+  font-size:.72rem;
+  font-weight:700;
+  line-height:1.25;
+}
+
+.badge-visits{
+  right:14px;
+  top:30px;
+  padding:10px 14px 10px 39px;
+}
+.badge-visits::before{
+  content:"▥";
+  position:absolute;
+  left:13px;
+  top:11px;
+  font-size:1.25rem;
+}
+.badge-visits strong{color:var(--lime)}
+
+.badge-fast{
+  left:2%;
+  bottom:27px;
+  padding:10px 15px 10px 39px;
+}
+.badge-fast::before{
+  content:"⚡";
+  position:absolute;
+  left:13px;
+  top:10px;
+  font-size:1.15rem;
+}
+.badge-fast strong{color:var(--lime)}
+
+.badge-anywhere{
+  right:-18px;
+  top:106px;
+  color:#d7a8ff;
+  padding:0;
+  border:0;
+  box-shadow:none;
+  background:none;
+  font-family:cursive;
+  font-size:.83rem;
+  transform:rotate(-7deg);
+  text-align:center;
+}
+
+/* indicador pequeno do projeto atual */
+.showcase-project-name{
+  position:absolute;
+  right:12px;
+  bottom:22px;
+  z-index:12;
+  color:#c7ccda;
+  font-size:.68rem;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  opacity:.78;
+}
+
+@media(max-width:950px){
+  .hero-showcase{
+    width:min(760px,100%);
+    height:500px;
+    margin:0 auto;
+  }
+}
+
+@media(max-width:650px){
+  .hero-showcase{
+    width:100%;
+    height:350px;
+  }
+  .laptop{
+    width:78%;
+    top:55px;
+    left:-2%;
+  }
+  .phone{
+    width:27%;
+    right:0;
+    top:122px;
+    padding:5px;
+    border-radius:20px;
+  }
+  .phone-screen{border-radius:15px}
+  .phone-notch{height:9px}
+  .badge-visits{right:0;top:8px;transform:scale(.78);transform-origin:right top}
+  .badge-fast{left:0;bottom:5px;transform:scale(.78);transform-origin:left bottom}
+  .badge-anywhere{display:none}
+  .showcase-project-name{right:0;bottom:2px;font-size:.56rem}
 }
     .audience{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#0d1020;padding:30px 0}.audience-title{text-align:center;font-size:.78rem;font-weight:800;letter-spacing:.08em;margin-bottom:22px}.audience-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:18px}.audience-item{text-align:center;color:#c4cada;font-size:.82rem}.audience-item b{display:block;color:#a987ff;font-size:1.2rem;margin-bottom:7px}
     .problems{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.problem{padding:28px;border-radius:14px;background:#eef0f8;border:1px solid #e4e7f0}.problem span,.benefit .icon{display:grid;place-items:center;width:42px;height:42px;border-radius:10px;background:#e4d9ff;color:var(--purple);font-weight:800;margin-bottom:18px}.problem h3{margin-bottom:10px}.problem p{color:#687086;line-height:1.65;margin:0}
     .benefits{background:#0b0e19}.benefits-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.benefit{border:1px solid var(--line);border-radius:14px;padding:27px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.018));transition:.25s}.benefit:hover{transform:translateY(-4px);border-color:rgba(168,85,247,.55)}.benefit .icon{background:linear-gradient(135deg,var(--purple),#4c1d95);color:#fff}.benefit h3{margin-bottom:10px}.benefit p{color:var(--muted);line-height:1.65;margin:0}
     .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:28px}.step{position:relative}.step:not(:last-child):after{content:"→";position:absolute;right:-18px;top:12px;color:#8b92a5;font-size:1.3rem}.number{display:grid;place-items:center;width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--purple),var(--lilac));color:#fff;font-weight:800;margin-bottom:20px}.step h3{font-size:1.06rem;margin-bottom:9px}.step p{color:#687086;line-height:1.6}
     .portfolio{background:#0b0e19}.project-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}.project{border:1px solid var(--line);border-radius:15px;background:var(--card);padding:10px;overflow:hidden}.project-window{height:235px;border-radius:10px;padding:25px;background:#f7f7fb;color:#171a28;position:relative;overflow:hidden}.project-window small{font-weight:800}.project-window h3{font-size:1.7rem;line-height:1.08;width:70%;margin:35px 0 12px}.project-window p{font-size:.68rem;color:#72798b;width:60%;line-height:1.4}.project-window:after{content:"";position:absolute;width:105px;height:170px;border-radius:60px 60px 8px 8px;right:18px;bottom:-12px;background:linear-gradient(160deg,#c4b5fd,var(--purple))}.project:nth-child(2) .project-window{background:#111;color:#fff}.project:nth-child(2) .project-window:after{background:linear-gradient(160deg,#fde68a,#d97706)}.project:nth-child(3) .project-window:after{background:linear-gradient(160deg,#d9f99d,#16a34a)}.project-info{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:17px 10px 10px}.project-info strong{font-size:.94rem}.result-tag{color:#d8c7ff;background:rgba(124,58,237,.2);padding:7px 9px;border-radius:6px;font-size:.68rem;font-weight:800}
-    .pricing{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;align-items:stretch}.price-card{position:relative;background:#fff;border:1px solid #e2e5ee;border-radius:15px;padding:28px;display:flex;flex-direction:column}.price-card.featured{border:2px solid var(--purple);box-shadow:0 25px 60px rgba(124,58,237,.17);transform:translateY(-9px)}.popular{position:absolute;left:-2px;right:-2px;top:-35px;height:35px;border-radius:12px 12px 0 0;background:linear-gradient(90deg,var(--purple),var(--lilac));color:#fff;text-align:center;padding:9px;font-size:.7rem;font-weight:800;letter-spacing:.08em}.price-card h3{font-size:1.25rem;margin-bottom:6px}.price-card>p{color:#687086;min-height:44px}.price-card small{color:#687086}.price{display:block;font-family:'Manrope';font-size:2.1rem;margin:3px 0 22px}.price-card ul{list-style:none;padding:0;margin:0 0 28px;flex:1}.price-card li{padding:7px 0;color:#4f566a}.price-card li:before{content:"✓";color:var(--purple);font-weight:900;margin-right:10px}.price-card .btn-outline{color:var(--ink);border-color:#9aa1b2}
+    .pricing{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:stretch}.price-card{position:relative;background:#fff;border:1px solid #e2e5ee;border-radius:15px;padding:28px;display:flex;flex-direction:column}.price-card.featured{border:2px solid var(--purple);box-shadow:0 25px 60px rgba(124,58,237,.17);transform:translateY(-9px)}.popular{position:absolute;left:-2px;right:-2px;top:-35px;height:35px;border-radius:12px 12px 0 0;background:linear-gradient(90deg,var(--purple),var(--lilac));color:#fff;text-align:center;padding:9px;font-size:.7rem;font-weight:800;letter-spacing:.08em}.price-card h3{font-size:1.25rem;margin-bottom:6px}.price-card>p{color:#687086;min-height:44px}.price-card small{color:#687086}.price{display:block;font-family:'Manrope';font-size:2.1rem;margin:3px 0 22px}.price-card ul{list-style:none;padding:0;margin:0 0 28px;flex:1}.price-card li{padding:7px 0;color:#4f566a}.price-card li:before{content:"✓";color:var(--purple);font-weight:900;margin-right:10px}.price-card .btn-outline{color:var(--ink);border-color:#9aa1b2}
     .trust{background:#0b0e19}.trust-grid{display:grid;grid-template-columns:1fr 1fr;gap:65px;align-items:center}.trust h2{font-size:clamp(2rem,4vw,3.3rem);line-height:1.08}.checklist{display:grid;gap:12px;color:#d2d7e5}.checklist div:before{content:"✓";display:inline-grid;place-items:center;width:22px;height:22px;border:2px solid var(--lime);border-radius:50%;color:var(--lime);font-size:.7rem;font-weight:900;margin-right:12px}.testimonial{padding:38px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(145deg,rgba(124,58,237,.16),rgba(255,255,255,.03))}.testimonial b{color:#b99aff;font-size:.75rem;letter-spacing:.12em}.testimonial p{font-family:'Manrope';font-size:1.35rem;line-height:1.55;margin:22px 0 0;color:#dfe3ef}
     .faq-wrap{display:grid;grid-template-columns:.65fr 1.35fr;gap:70px}.faq-wrap h2{font-size:clamp(2.1rem,4vw,3.3rem)}.faq{border-top:1px solid #dfe2eb}.faq-item{border-bottom:1px solid #dfe2eb}.faq-question{width:100%;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:23px 0;border:0;background:none;color:var(--darktext);font-weight:800;cursor:pointer}.faq-question span{font-size:1.4rem;color:var(--purple);transition:.2s}.faq-item.open .faq-question span{transform:rotate(45deg)}.faq-answer{max-height:0;overflow:hidden;color:#687086;line-height:1.7;transition:max-height .35s ease}.faq-answer p{padding:0 30px 22px 0;margin:0}.faq-item.open .faq-answer{max-height:180px}
     .final-cta{position:relative;padding:85px 0;background:radial-gradient(circle at 90% 50%,rgba(124,58,237,.55),transparent 25%),linear-gradient(135deg,#090b14,#11142a);overflow:hidden}.final-grid{display:grid;grid-template-columns:1fr auto;align-items:center;gap:40px}.final-cta h2{font-size:clamp(2.2rem,4vw,3.6rem);line-height:1.07;max-width:750px;margin:12px 0 16px}.final-cta p{color:#c6ccdc}.final-note{display:flex;gap:18px;margin-top:13px;color:#ccd2e0;font-size:.75rem}.final-note span:before{content:"✓";color:var(--lime);margin-right:6px}footer{padding:28px 0;border-top:1px solid var(--line);background:#080a12}.footer-row{display:flex;justify-content:space-between;align-items:center;color:#8e96aa;font-size:.8rem}.footer-links{display:flex;gap:22px}
@@ -200,11 +476,52 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
         </div>
       </div>
      <div class="devices">
-  <img
-    src="mockup-restaurante-moara.png"
-    alt="Exemplo de landing page para restaurante no computador e celular"
-    class="hero-mockup"
-  >
+  <div class="hero-showcase" aria-label="Exemplos de landing pages em computador e celular">
+
+    <div class="showcase-badge badge-visits">
+      Mais visitas<br><strong>Mais clientes</strong>
+    </div>
+
+    <div class="showcase-badge badge-fast">
+      Site rápido<br><strong>e seguro</strong>
+    </div>
+
+    <div class="showcase-badge badge-anywhere">
+      Seu comércio<br>em qualquer lugar ↘
+    </div>
+
+    <div class="laptop">
+      <div class="laptop-lid">
+        <span class="laptop-camera"></span>
+
+        <div class="laptop-screen">
+          <img src="site-restaurante-desktop.png" class="desktop-screen-img active" alt="Site de restaurante">
+          <img src="site-clinica-desktop.png" class="desktop-screen-img" alt="Site de clínica">
+          <img src="site-moda-desktop.png" class="desktop-screen-img" alt="Site de moda">
+          <img src="site-pizzaria-desktop.png" class="desktop-screen-img" alt="Site de pizzaria">
+          <img src="site-presentes-desktop.png" class="desktop-screen-img" alt="Site de presentes">
+          <span class="screen-shine laptop-shine"></span>
+        </div>
+
+      </div>
+      <div class="laptop-base"></div>
+    </div>
+
+    <div class="phone">
+      <div class="phone-screen">
+        <span class="phone-notch"></span>
+
+        <img src="site-restaurante-mobile.png" class="mobile-screen-img active" alt="Site mobile de restaurante">
+        <img src="site-clinica-mobile.png" class="mobile-screen-img" alt="Site mobile de clínica">
+        <img src="site-moda-mobile.png" class="mobile-screen-img" alt="Site mobile de moda">
+        <img src="site-pizzaria-mobile.png" class="mobile-screen-img" alt="Site mobile de pizzaria">
+        <img src="site-presentes-mobile.png" class="mobile-screen-img" alt="Site mobile de presentes">
+        <span class="screen-shine phone-shine"></span>
+      </div>
+    </div>
+
+    <div class="showcase-project-name">Restaurante</div>
+  </div>
 </div>
     </div></section>
     <section class="audience"><div class="container"><div class="audience-title">PARA QUEM QUER TRANSFORMAR CLIQUES EM CLIENTES</div><div class="audience-grid"><div class="audience-item"><b>◈</b>Pequenas e médias empresas</div><div class="audience-item"><b>▣</b>Prestadores de serviços</div><div class="audience-item"><b>♙</b>Profissionais liberais</div><div class="audience-item"><b>▥</b>Negócios locais</div><div class="audience-item"><b>◎</b>Lançamentos e infoprodutos</div></div></div></section>
@@ -397,25 +714,9 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
         <div class="pricing">
 
           <article class="price-card reveal">
-            <h3>Prestador de serviço</h3>
-            <p>Para profissionais que precisam apresentar seus serviços de forma clara e profissional.</p>
-            <small>A partir de</small>
-            <strong class="price">R$ 550</strong>
-            <ul>
-              <li>Página objetiva e profissional</li>
-              <li>Apresentação dos serviços</li>
-              <li>Versão para celular</li>
-              <li>WhatsApp integrado</li>
-              <li>Uma rodada de ajustes</li>
-            </ul>
-            <a class="btn btn-outline" href="#contato">Solicitar orçamento</a>
-          </article>
-
-          <article class="price-card reveal">
             <h3>Essencial</h3>
             <p>Para quem precisa começar com uma presença profissional.</p>
-            <small>A partir de</small>
-            <strong class="price">R$ 1.200</strong>
+            <strong class="price">R$ 1.000</strong>
             <ul>
               <li>Página de até 5 seções</li>
               <li>Design personalizado</li>
@@ -430,8 +731,7 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
             <span class="popular">MAIS ESCOLHIDO</span>
             <h3>Profissional</h3>
             <p>Para transformar sua oferta em uma página completa.</p>
-            <small>A partir de</small>
-            <strong class="price">R$ 1.800</strong>
+            <strong class="price">R$ 1.500</strong>
             <ul>
               <li>Página de até 8 seções</li>
               <li>Estrutura estratégica</li>
@@ -444,7 +744,7 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
           </article>
 
           <article class="price-card reveal">
-            <h3>Estratégica</h3>
+            <h3>Estratégico</h3>
             <p>Para negócios que precisam de uma estrutura mais completa.</p>
             <small>A partir de</small>
             <strong class="price">R$ 2.500</strong>
@@ -504,7 +804,7 @@ heroTimeline
     y: 15,
     stagger: 0.12
   }, "-=0.4")
-  .from(".hero-mockup", {
+  .from(".hero-showcase", {
     opacity: 0,
     x: 100,
     scale: 0.85,
@@ -533,9 +833,9 @@ gsap.fromTo(".problem",
     ease: "power3.out"
   }
 );
-// EFEITO PARALLAX NO MOCKUP DO HERO
-gsap.to(".hero-mockup", {
-  y: 120,
+// EFEITO PARALLAX NO SHOWCASE DO HERO
+gsap.to(".hero-showcase", {
+  y: 105,
   scrollTrigger: {
     trigger: ".hero",
     start: "top top",
@@ -740,6 +1040,120 @@ ScrollTrigger.matchMedia({
   }
 
 });
+
+
+// TROCA AUTOMÁTICA DOS PROJETOS NO NOTEBOOK + CELULAR
+(() => {
+  const desktopScreens = [...document.querySelectorAll(".desktop-screen-img")];
+  const mobileScreens = [...document.querySelectorAll(".mobile-screen-img")];
+  const projectName = document.querySelector(".showcase-project-name");
+
+  if (!desktopScreens.length || desktopScreens.length !== mobileScreens.length) return;
+
+  const projectNames = [
+    "Restaurante",
+    "Clínica",
+    "Moda",
+    "Pizzaria",
+    "Presentes"
+  ];
+
+  let currentIndex = 0;
+  let rotationTimer = null;
+
+  function animateShine() {
+    gsap.fromTo(
+      [".laptop-shine", ".phone-shine"],
+      { xPercent: 0, opacity: 0 },
+      {
+        xPercent: 620,
+        opacity: .9,
+        duration: .75,
+        ease: "power2.inOut",
+        stagger: .04,
+        onComplete: () => gsap.set([".laptop-shine", ".phone-shine"], { opacity: 0 })
+      }
+    );
+  }
+
+  function showProject(nextIndex) {
+    if (nextIndex === currentIndex) return;
+
+    const oldDesktop = desktopScreens[currentIndex];
+    const oldMobile = mobileScreens[currentIndex];
+    const newDesktop = desktopScreens[nextIndex];
+    const newMobile = mobileScreens[nextIndex];
+
+    gsap.set([newDesktop, newMobile], {
+      opacity: 0,
+      scale: 1.035,
+      zIndex: 3
+    });
+
+    const tl = gsap.timeline();
+
+    tl.to([oldDesktop, oldMobile], {
+      opacity: 0,
+      scale: .985,
+      duration: .5,
+      ease: "power2.inOut"
+    })
+    .to([newDesktop, newMobile], {
+      opacity: 1,
+      scale: 1,
+      duration: .75,
+      ease: "power3.out"
+    }, "-=.12");
+
+    animateShine();
+
+    oldDesktop.classList.remove("active");
+    oldMobile.classList.remove("active");
+    newDesktop.classList.add("active");
+    newMobile.classList.add("active");
+
+    if (projectName) {
+      gsap.to(projectName, {
+        opacity: 0,
+        y: 5,
+        duration: .2,
+        onComplete: () => {
+          projectName.textContent = projectNames[nextIndex];
+          gsap.fromTo(
+            projectName,
+            { opacity: 0, y: 5 },
+            { opacity: .78, y: 0, duration: .3 }
+          );
+        }
+      });
+    }
+
+    currentIndex = nextIndex;
+  }
+
+  function startRotation() {
+    if (rotationTimer) clearInterval(rotationTimer);
+
+    rotationTimer = setInterval(() => {
+      const next = (currentIndex + 1) % desktopScreens.length;
+      showProject(next);
+    }, 2500);
+  }
+
+  // começa após a animação de entrada do Hero
+  setTimeout(startRotation, 1800);
+
+  // evita trocar telas quando a aba não está visível
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      clearInterval(rotationTimer);
+      rotationTimer = null;
+    } else {
+      startRotation();
+    }
+  });
+})();
+
 
   </script>
 
