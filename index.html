@@ -299,9 +299,19 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
 }
 
 @media(max-width:650px){
+  .devices{
+    height:auto;
+    min-height:0;
+    margin-top:10px;
+  }
+
+  .hero-grid{
+    gap:12px;
+  }
+
   .hero-showcase{
     width:100%;
-    height:350px;
+    height:330px;
   }
   .laptop{
     width:78%;
@@ -442,7 +452,7 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
 
     @media(max-width:1100px){.pricing{grid-template-columns:1fr 1fr}.price-card.featured{transform:none;margin-top:34px}}
     @media(max-width:950px){nav{position:fixed;inset:0;background:#090b14;flex-direction:column;justify-content:center;gap:28px;transform:translateX(100%);transition:.3s}body.menu-open nav{transform:none}.menu-btn{display:block;position:relative;z-index:31}.hero-grid,.trust-grid{grid-template-columns:1fr}.hero{padding-top:135px}.devices{height:470px}.benefits-grid,.problems,.project-grid{grid-template-columns:1fr 1fr}.steps{grid-template-columns:1fr 1fr}.step:nth-child(2):after{display:none}.audience-grid{grid-template-columns:repeat(3,1fr)}.faq-wrap{grid-template-columns:1fr}.final-grid{grid-template-columns:1fr}}
-    @media(max-width:650px){.whatsapp-float{width:56px;height:56px;right:16px;bottom:16px}.container{width:min(100% - 28px,1160px)}.section{padding:72px 0}.nav{height:72px}.nav>.btn{display:none}.hero{min-height:auto;padding-bottom:60px}.hero-grid{gap:35px}.hero h1{font-size:2.85rem}.hero-actions{flex-direction:column}.hero-actions .btn{width:100%}.devices{height:360px}.audience-grid,.benefits-grid,.problems,.pricing,.project-grid,.steps{grid-template-columns:1fr}.audience-grid{gap:22px}.step:after{display:none!important}.project-window{height:215px}.price-card.featured{margin-top:34px;transform:none}.faq-wrap{gap:25px}.final-grid{text-align:center}.final-grid .btn{width:100%}.final-note{justify-content:center;flex-wrap:wrap}.footer-row{flex-direction:column;gap:18px}.footer-links{flex-wrap:wrap;justify-content:center}}
+    @media(max-width:650px){.whatsapp-float{width:56px;height:56px;right:16px;bottom:16px}.container{width:min(100% - 28px,1160px)}.section{padding:72px 0}.nav{height:72px}.nav>.btn{display:none}.hero{min-height:auto;padding-bottom:60px}.hero h1{font-size:2.85rem}.hero-actions{flex-direction:column}.hero-actions .btn{width:100%}.audience-grid,.benefits-grid,.problems,.pricing,.project-grid,.steps{grid-template-columns:1fr}.audience-grid{gap:22px}.step:after{display:none!important}.project-window{height:215px}.price-card.featured{margin-top:34px;transform:none}.faq-wrap{gap:25px}.final-grid{text-align:center}.final-grid .btn{width:100%}.final-note{justify-content:center;flex-wrap:wrap}.footer-row{flex-direction:column;gap:18px}.footer-links{flex-wrap:wrap;justify-content:center}}
   </style>
 </head>
 <body>
@@ -833,25 +843,59 @@ gsap.fromTo(".problem",
     ease: "power3.out"
   }
 );
-// EFEITO PARALLAX NO SHOWCASE DO HERO
-gsap.to(".hero-showcase", {
-  y: 105,
-  scrollTrigger: {
-    trigger: ".hero",
-    start: "top top",
-    end: "bottom top",
-    scrub: 1
+// PARALLAX DO HERO — DIFERENTE NO COMPUTADOR E NO CELULAR
+ScrollTrigger.matchMedia({
+
+  // COMPUTADOR — mantém exatamente o efeito atual
+  "(min-width: 651px)": function() {
+
+    gsap.to(".hero-showcase", {
+      y: 105,
+      scrollTrigger: {
+        trigger: ".hero",
+        start: "top top",
+        end: "bottom top",
+        scrub: 1
+      }
+    });
+
+    gsap.to(".hero-copy", {
+      y: -60,
+      scrollTrigger: {
+        trigger: ".hero",
+        start: "top top",
+        end: "bottom top",
+        scrub: 1
+      }
+    });
+
+  },
+
+  // CELULAR — movimento bem menor para evitar o espaço vazio
+  "(max-width: 650px)": function() {
+
+    gsap.to(".hero-showcase", {
+      y: 18,
+      scrollTrigger: {
+        trigger: ".hero",
+        start: "top top",
+        end: "bottom top",
+        scrub: 1
+      }
+    });
+
+    gsap.to(".hero-copy", {
+      y: -8,
+      scrollTrigger: {
+        trigger: ".hero",
+        start: "top top",
+        end: "bottom top",
+        scrub: 1
+      }
+    });
+
   }
-});
-// PARALLAX DO TEXTO DO HERO
-gsap.to(".hero-copy", {
-  y: -60,
-  scrollTrigger: {
-    trigger: ".hero",
-    start: "top top",
-    end: "bottom top",
-    scrub: 1
-  }
+
 });
 // ENTRADA DO TÍTULO DA SEÇÃO "O PROBLEMA"
 const problemTitleTimeline = gsap.timeline({
