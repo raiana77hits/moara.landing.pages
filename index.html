@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Landing pages estratégicas, personalizadas e construídas para gerar contatos e vendas.">
+<title>Moara | Landing Pages Estratégicas</title>
+<link rel="icon" type="image/png" href="favicon-moara.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{--ink:#090b14;--card:#141827;--paper:#f7f8fc;--purple:#7c3aed;--lilac:#a855f7;--lime:#b7ff3c;--white:#fff;--muted:#aab1c5;--darktext:#171a28;--line:rgba(255,255,255,.12);--shadow:0 28px 80px rgba(2,4,13,.28)}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--ink);color:var(--white);font-family:'DM Sans',Arial,sans-serif;overflow-x:hidden}body.menu-open{overflow:hidden}a{color:inherit;text-decoration:none}button{font:inherit}img{max-width:100%}h1,h2,h3,p{margin-top:0}h1,h2,h3{font-family:'Manrope',Arial,sans-serif}.container{width:min(1160px,calc(100% - 40px));margin:auto}.eyebrow{display:inline-block;color:#a987ff;font-size:.76rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase}.gradient-text{background:linear-gradient(90deg,#c084fc,var(--purple));-webkit-background-clip:text;background-clip:text;color:transparent}.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:0 24px;border:1px solid transparent;border-radius:8px;font-weight:800;font-size:.84rem;letter-spacing:.02em;text-transform:uppercase;transition:.25s ease;cursor:pointer}.btn:hover{transform:translateY(-2px)}.btn-primary{background:var(--lime);color:var(--ink);box-shadow:0 10px 30px rgba(183,255,60,.17)}.btn-primary:hover{box-shadow:0 14px 40px rgba(183,255,60,.3)}.btn-outline{border-color:rgba(255,255,255,.35);color:#fff;background:rgba(255,255,255,.02)}.section{padding:98px 0}.section-head{text-align:center;max-width:800px;margin:0 auto 46px}.section-head h2{font-size:clamp(2rem,4vw,3.35rem);line-height:1.08;margin:12px 0 16px}.section-head p{color:#687086;font-size:1.05rem;line-height:1.75}.light{background:var(--paper);color:var(--darktext)}
+    header{position:absolute;inset:0 0 auto;z-index:30;border-bottom:1px solid rgba(255,255,255,.08)}.nav{height:84px;display:flex;align-items:center;justify-content:space-between}.brand{font-family:'Manrope';font-weight:800;letter-spacing:.08em}.brand i{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--lime);margin-left:7px;box-shadow:0 0 18px var(--lime)}
+.brand-logo{
+  display:flex;
+  align-items:center;
+}
+
+.brand-logo img{
+  width:150px;
+  height:auto;
+  display:block;
+}
+nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:700;color:#d7dbeb;transition:.2s}nav a:hover{color:var(--lime)}.menu-btn{display:none;background:none;border:0;color:#fff;font-weight:800}
+    .hero{position:relative;min-height:790px;padding:160px 0 88px;display:flex;align-items:center;background:radial-gradient(circle at 78% 30%,rgba(124,58,237,.35),transparent 31%),linear-gradient(135deg,#080a13 0%,#0d1020 100%);overflow:hidden}.hero:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:46px 46px;mask-image:linear-gradient(to bottom,black,transparent)}.glow{position:absolute;width:450px;height:450px;border:2px solid rgba(168,85,247,.3);border-radius:50%;right:-180px;top:90px;box-shadow:0 0 100px rgba(124,58,237,.24)}.hero-grid{position:relative;display:grid;grid-template-columns:1.05fr .95fr;gap:72px;align-items:center}.hero h1{
+  font-size:clamp(2.5rem,4.3vw,4.3rem);
+  line-height:1.02;
+  letter-spacing:-.045em;
+  margin:20px 0 26px;
+}.hero-copy>p{max-width:610px;color:#c1c7d8;line-height:1.7;font-size:1.08rem}.hero-actions{display:flex;gap:13px;margin:34px 0}.hero-actions .btn{opacity:1!important;visibility:visible!important;transform:none!important}.micro-proof{display:flex;flex-wrap:wrap;gap:24px;color:#bec5d7;font-size:.86rem}.micro-proof span:before{content:"✓";color:var(--lime);font-weight:900;margin-right:8px}
+    .devices{
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:500px;
+}
+
+.hero-mockup{
+  width:115%;
+  max-width:none;
+  height:auto;
+  display:block;
+  object-fit:contain;
+  filter:drop-shadow(0 30px 60px rgba(0,0,0,.35));
+}
+    .audience{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#0d1020;padding:30px 0}.audience-title{text-align:center;font-size:.78rem;font-weight:800;letter-spacing:.08em;margin-bottom:22px}.audience-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:18px}.audience-item{text-align:center;color:#c4cada;font-size:.82rem}.audience-item b{display:block;color:#a987ff;font-size:1.2rem;margin-bottom:7px}
+    .problems{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.problem{padding:28px;border-radius:14px;background:#eef0f8;border:1px solid #e4e7f0}.problem span,.benefit .icon{display:grid;place-items:center;width:42px;height:42px;border-radius:10px;background:#e4d9ff;color:var(--purple);font-weight:800;margin-bottom:18px}.problem h3{margin-bottom:10px}.problem p{color:#687086;line-height:1.65;margin:0}
+    .benefits{background:#0b0e19}.benefits-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.benefit{border:1px solid var(--line);border-radius:14px;padding:27px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.018));transition:.25s}.benefit:hover{transform:translateY(-4px);border-color:rgba(168,85,247,.55)}.benefit .icon{background:linear-gradient(135deg,var(--purple),#4c1d95);color:#fff}.benefit h3{margin-bottom:10px}.benefit p{color:var(--muted);line-height:1.65;margin:0}
+    .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:28px}.step{position:relative}.step:not(:last-child):after{content:"→";position:absolute;right:-18px;top:12px;color:#8b92a5;font-size:1.3rem}.number{display:grid;place-items:center;width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--purple),var(--lilac));color:#fff;font-weight:800;margin-bottom:20px}.step h3{font-size:1.06rem;margin-bottom:9px}.step p{color:#687086;line-height:1.6}
+    .portfolio{background:#0b0e19}.project-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}.project{border:1px solid var(--line);border-radius:15px;background:var(--card);padding:10px;overflow:hidden}.project-window{height:235px;border-radius:10px;padding:25px;background:#f7f7fb;color:#171a28;position:relative;overflow:hidden}.project-window small{font-weight:800}.project-window h3{font-size:1.7rem;line-height:1.08;width:70%;margin:35px 0 12px}.project-window p{font-size:.68rem;color:#72798b;width:60%;line-height:1.4}.project-window:after{content:"";position:absolute;width:105px;height:170px;border-radius:60px 60px 8px 8px;right:18px;bottom:-12px;background:linear-gradient(160deg,#c4b5fd,var(--purple))}.project:nth-child(2) .project-window{background:#111;color:#fff}.project:nth-child(2) .project-window:after{background:linear-gradient(160deg,#fde68a,#d97706)}.project:nth-child(3) .project-window:after{background:linear-gradient(160deg,#d9f99d,#16a34a)}.project-info{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:17px 10px 10px}.project-info strong{font-size:.94rem}.result-tag{color:#d8c7ff;background:rgba(124,58,237,.2);padding:7px 9px;border-radius:6px;font-size:.68rem;font-weight:800}
+    .pricing{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;align-items:stretch}.price-card{position:relative;background:#fff;border:1px solid #e2e5ee;border-radius:15px;padding:28px;display:flex;flex-direction:column}.price-card.featured{border:2px solid var(--purple);box-shadow:0 25px 60px rgba(124,58,237,.17);transform:translateY(-9px)}.popular{position:absolute;left:-2px;right:-2px;top:-35px;height:35px;border-radius:12px 12px 0 0;background:linear-gradient(90deg,var(--purple),var(--lilac));color:#fff;text-align:center;padding:9px;font-size:.7rem;font-weight:800;letter-spacing:.08em}.price-card h3{font-size:1.25rem;margin-bottom:6px}.price-card>p{color:#687086;min-height:44px}.price-card small{color:#687086}.price{display:block;font-family:'Manrope';font-size:2.1rem;margin:3px 0 22px}.price-card ul{list-style:none;padding:0;margin:0 0 28px;flex:1}.price-card li{padding:7px 0;color:#4f566a}.price-card li:before{content:"✓";color:var(--purple);font-weight:900;margin-right:10px}.price-card .btn-outline{color:var(--ink);border-color:#9aa1b2}
+    .trust{background:#0b0e19}.trust-grid{display:grid;grid-template-columns:1fr 1fr;gap:65px;align-items:center}.trust h2{font-size:clamp(2rem,4vw,3.3rem);line-height:1.08}.checklist{display:grid;gap:12px;color:#d2d7e5}.checklist div:before{content:"✓";display:inline-grid;place-items:center;width:22px;height:22px;border:2px solid var(--lime);border-radius:50%;color:var(--lime);font-size:.7rem;font-weight:900;margin-right:12px}.testimonial{padding:38px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(145deg,rgba(124,58,237,.16),rgba(255,255,255,.03))}.testimonial b{color:#b99aff;font-size:.75rem;letter-spacing:.12em}.testimonial p{font-family:'Manrope';font-size:1.35rem;line-height:1.55;margin:22px 0 0;color:#dfe3ef}
+    .faq-wrap{display:grid;grid-template-columns:.65fr 1.35fr;gap:70px}.faq-wrap h2{font-size:clamp(2.1rem,4vw,3.3rem)}.faq{border-top:1px solid #dfe2eb}.faq-item{border-bottom:1px solid #dfe2eb}.faq-question{width:100%;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:23px 0;border:0;background:none;color:var(--darktext);font-weight:800;cursor:pointer}.faq-question span{font-size:1.4rem;color:var(--purple);transition:.2s}.faq-item.open .faq-question span{transform:rotate(45deg)}.faq-answer{max-height:0;overflow:hidden;color:#687086;line-height:1.7;transition:max-height .35s ease}.faq-answer p{padding:0 30px 22px 0;margin:0}.faq-item.open .faq-answer{max-height:180px}
+    .final-cta{position:relative;padding:85px 0;background:radial-gradient(circle at 90% 50%,rgba(124,58,237,.55),transparent 25%),linear-gradient(135deg,#090b14,#11142a);overflow:hidden}.final-grid{display:grid;grid-template-columns:1fr auto;align-items:center;gap:40px}.final-cta h2{font-size:clamp(2.2rem,4vw,3.6rem);line-height:1.07;max-width:750px;margin:12px 0 16px}.final-cta p{color:#c6ccdc}.final-note{display:flex;gap:18px;margin-top:13px;color:#ccd2e0;font-size:.75rem}.final-note span:before{content:"✓";color:var(--lime);margin-right:6px}footer{padding:28px 0;border-top:1px solid var(--line);background:#080a12}.footer-row{display:flex;justify-content:space-between;align-items:center;color:#8e96aa;font-size:.8rem}.footer-links{display:flex;gap:22px}
+    .reveal{opacity:0;transform:translateY(18px);transition:.7s ease}.reveal.visible{opacity:1;transform:none}
+
+    /* ANIMAÇÃO / ESTABILIDADE DA SEÇÃO COMO FUNCIONA */
+    #processo .process-head,
+    #processo .process-step{will-change:transform,opacity}
+
+
+    /* WHATSAPP FLUTUANTE — usa o PNG salvo no projeto */
+    .whatsapp-float{
+      position:fixed;
+      right:24px;
+      bottom:24px;
+      width:64px;
+      height:64px;
+      z-index:90;
+      display:block;
+      filter:drop-shadow(0 12px 24px rgba(0,0,0,.28));
+      transition:transform .25s ease;
+    }
+    .whatsapp-float:hover{transform:translateY(-4px) scale(1.05)}
+    .whatsapp-float img{width:100%;height:100%;object-fit:contain;display:block}
+
+
+    /* PROJETOS — SCROLL CINEMATOGRÁFICO */
+    .projects-pin-section{
+      min-height:100vh;
+      overflow:hidden;
+      position:relative;
+      background:#0b0e19;
+    }
+    .projects-pin-container{
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      padding-top:40px;
+      padding-bottom:40px;
+    }
+    .projects-head{
+      margin-bottom:28px;
+    }
+    .projects-head h2{
+      margin-bottom:12px;
+    }
+    .projects-scroll-hint{
+      color:#8e96aa!important;
+      font-size:.82rem!important;
+      letter-spacing:.04em;
+      margin:0!important;
+    }
+    .projects-stage{
+      position:relative;
+      height:430px;
+      width:100%;
+      max-width:900px;
+      margin:0 auto;
+    }
+    .project-stack{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      padding:12px;
+      border-radius:18px;
+      transform-origin:center bottom;
+      will-change:transform,opacity;
+      box-shadow:0 32px 80px rgba(0,0,0,.30);
+      background:var(--card);
+    }
+    .project-stack .project-window{
+      flex:1;
+      height:auto;
+      min-height:0;
+    }
+    .project-stack .project-info{
+      margin-top:auto;
+      min-height:62px;
+    }
+    .project-1{z-index:1}
+    .project-2{z-index:2}
+    .project-3{z-index:3}
+
+    @media(max-width:950px){
+      .projects-pin-section{min-height:auto;overflow:visible}
+      .projects-pin-container{min-height:auto;display:block;padding-top:0;padding-bottom:0}
+      .projects-stage{
+        height:auto;
+        max-width:none;
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:20px;
+      }
+      .project-stack{
+        position:relative;
+        inset:auto;
+        width:auto;
+        height:auto;
+        transform:none!important;
+        opacity:1!important;
+      }
+    }
+
+    @media(max-width:650px){
+      .projects-stage{grid-template-columns:1fr}
+      .projects-scroll-hint{display:none}
+    }
+
+    @media(max-width:1100px){.pricing{grid-template-columns:1fr 1fr}.price-card.featured{transform:none;margin-top:34px}}
+    @media(max-width:950px){nav{position:fixed;inset:0;background:#090b14;flex-direction:column;justify-content:center;gap:28px;transform:translateX(100%);transition:.3s}body.menu-open nav{transform:none}.menu-btn{display:block;position:relative;z-index:31}.hero-grid,.trust-grid{grid-template-columns:1fr}.hero{padding-top:135px}.devices{height:470px}.benefits-grid,.problems,.project-grid{grid-template-columns:1fr 1fr}.steps{grid-template-columns:1fr 1fr}.step:nth-child(2):after{display:none}.audience-grid{grid-template-columns:repeat(3,1fr)}.faq-wrap{grid-template-columns:1fr}.final-grid{grid-template-columns:1fr}}
+    @media(max-width:650px){.whatsapp-float{width:56px;height:56px;right:16px;bottom:16px}.container{width:min(100% - 28px,1160px)}.section{padding:72px 0}.nav{height:72px}.nav>.btn{display:none}.hero{min-height:auto;padding-bottom:60px}.hero-grid{gap:35px}.hero h1{font-size:2.85rem}.hero-actions{flex-direction:column}.hero-actions .btn{width:100%}.devices{height:360px}.audience-grid,.benefits-grid,.problems,.pricing,.project-grid,.steps{grid-template-columns:1fr}.audience-grid{gap:22px}.step:after{display:none!important}.project-window{height:215px}.price-card.featured{margin-top:34px;transform:none}.faq-wrap{gap:25px}.final-grid{text-align:center}.final-grid .btn{width:100%}.final-note{justify-content:center;flex-wrap:wrap}.footer-row{flex-direction:column;gap:18px}.footer-links{flex-wrap:wrap;justify-content:center}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container nav">
+    <a class="brand brand-logo" href="#inicio">
+  <img src="logo-moara.png" alt="Moara">
+</a>
+      <nav id="menu">
+        <a href="#beneficios">Benefícios</a><a href="#processo">Como funciona</a><a href="#projetos">Projetos</a><a href="#planos">Planos</a><a href="#contato">Contato</a>
+      </nav>
+      <a class="btn btn-primary" href="#contato">Solicitar orçamento</a>
+      <button class="menu-btn" aria-label="Abrir menu" aria-expanded="false">MENU</button>
+    </div>
+  </header>
+  <main>
+    <section class="hero" id="inicio"><div class="glow"></div><div class="container hero-grid">
+      <div class="hero-copy">
+        <span class="eyebrow">Landing pages estratégicas</span>
+        <h1>Enquanto você não tem uma página que vende,<span class="gradient-text">seu concorrente tem.</span></h1>
+        <p>Criamos landing pages estratégicas para transformar seus cliques em clientes.</p>
+
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#planos">QUERO UMA LANDING PAGE →</a>
+        </div>
+
+        <div class="micro-proof">
+          <span>Mais clientes</span>
+          <span>Comunicação clara</span>
+          <span>Suporte de verdade</span>
+        </div>
+      </div>
+     <div class="devices">
+  <img
+    src="mockup-restaurante-moara.png"
+    alt="Exemplo de landing page para restaurante no computador e celular"
+    class="hero-mockup"
+  >
+</div>
+    </div></section>
+    <section class="audience"><div class="container"><div class="audience-title">PARA QUEM QUER TRANSFORMAR CLIQUES EM CLIENTES</div><div class="audience-grid"><div class="audience-item"><b>◈</b>Pequenas e médias empresas</div><div class="audience-item"><b>▣</b>Prestadores de serviços</div><div class="audience-item"><b>♙</b>Profissionais liberais</div><div class="audience-item"><b>▥</b>Negócios locais</div><div class="audience-item"><b>◎</b>Lançamentos e infoprodutos</div></div></div></section>
+   <section class="section light">
+  <div class="container">
+
+   <div class="section-head problem-head">
+  <h2 class="problem-title">
+    Sua empresa existe. Mas será que ela é encontrada por quem procura?
+  </h2>
+</div>
+
+    <div class="problems">
+
+      <article class="problem reveal">
+        <span>01</span>
+        <h3>Difícil de encontrar online</h3>
+        <p>
+          Sem uma presença digital própria, sua empresa perde oportunidades
+          de ser encontrada por pessoas que já procuram pelo que você oferece.
+        </p>
+      </article>
+
+      <article class="problem reveal">
+        <span>02</span>
+        <h3>Falta de credibilidade</h3>
+        <p>
+          Sem um site profissional, o cliente pode ter dificuldade para
+          conhecer sua empresa e confiar antes de entrar em contato.
+        </p>
+      </article>
+
+     <article class="problem reveal">
+  <span>03</span>
+  <h3>Informações pouco acessíveis</h3>
+  <p>
+    Sem um espaço próprio para apresentar seus serviços, diferenciais e
+    formas de contato, o cliente pode ter dificuldade para entender tudo
+    o que sua empresa oferece.
+  </p>
+</article>
+
+    </div>
+  </div>
+</section>
+    <section class="section benefits" id="beneficios">
+  <div class="container">
+
+    <div class="section-head benefits-head">
+      <h2 class="benefits-title">
+        Mais do que uma página, uma ferramenta de crescimento.
+      </h2>
+    </div>
+
+    <div class="benefits-grid">
+
+      <article class="benefit">
+        <div class="icon">✦</div>
+        <h3>Design personalizado</h3>
+        <p>Uma página exclusiva, alinhada à identidade do seu negócio.</p>
+      </article>
+
+      <article class="benefit">
+        <div class="icon">⌁</div>
+        <h3>Estrutura estratégica</h3>
+        <p>Seções pensadas para gerar confiança e incentivar a ação.</p>
+      </article>
+
+      <article class="benefit">
+        <div class="icon">▯</div>
+        <h3>Versão para celular</h3>
+        <p>Perfeita em qualquer tela, com foco na melhor experiência.</p>
+      </article>
+
+      <article class="benefit">
+        <div class="icon">◉</div>
+        <h3>WhatsApp integrado</h3>
+        <p>Seus clientes entram em contato com apenas um clique.</p>
+      </article>
+
+      <article class="benefit">
+        <div class="icon">◷</div>
+        <h3>Carregamento rápido</h3>
+        <p>Mais desempenho e menos desistências no caminho.</p>
+      </article>
+
+      <article class="benefit">
+        <div class="icon">◎</div>
+        <h3>Domínio profissional</h3>
+        <p>Sua marca com mais credibilidade e independência.</p>
+      </article>
+
+    </div>
+  </div>
+</section>
+    <section class="section light" id="processo">
+  <div class="container">
+
+    <div class="section-head process-head">
+      <h2 class="process-title">Da ideia à página publicada</h2>
+    </div>
+
+    <div class="steps">
+      <article class="step process-step">
+        <div class="number">01</div>
+        <h3>Briefing</h3>
+        <p>Entendemos seu negócio, objetivos e público.</p>
+      </article>
+
+      <article class="step process-step">
+        <div class="number">02</div>
+        <h3>Estratégia e texto</h3>
+        <p>Definimos a estrutura e criamos os conteúdos.</p>
+      </article>
+
+      <article class="step process-step">
+        <div class="number">03</div>
+        <h3>Design e desenvolvimento</h3>
+        <p>Transformamos tudo em uma página moderna e responsiva.</p>
+      </article>
+
+      <article class="step process-step">
+        <div class="number">04</div>
+        <h3>Revisão e publicação</h3>
+        <p>Ajustes finais e sua página no ar, pronta para gerar resultados.</p>
+      </article>
+    </div>
+
+  </div>
+</section>
+    <section class="section portfolio projects-pin-section" id="projetos">
+  <div class="container projects-pin-container">
+
+    <div class="section-head projects-head">
+      <span class="eyebrow">Projetos</span>
+      <h2>Páginas criadas para transformar visitas em oportunidades</h2>
+      <p class="projects-scroll-hint">Role para conhecer os projetos ↓</p>
+    </div>
+
+    <div class="projects-stage">
+
+      <article class="project project-stack project-1">
+        <div class="project-window">
+          <small>CLÍNICA VITA</small>
+          <h3>Cuidando da sua saúde todos os dias</h3>
+          <p>Atendimento humano e cuidado completo.</p>
+        </div>
+        <div class="project-info">
+          <strong>Clínica e saúde</strong>
+          <span class="result-tag">Mais agendamentos</span>
+        </div>
+      </article>
+
+      <article class="project project-stack project-2">
+        <div class="project-window">
+          <small>TRATTO</small>
+          <h3>Sabor que une pessoas</h3>
+          <p>Uma experiência especial à mesa.</p>
+        </div>
+        <div class="project-info">
+          <strong>Restaurante</strong>
+          <span class="result-tag">Mais reservas</span>
+        </div>
+      </article>
+
+      <article class="project project-stack project-3">
+        <div class="project-window">
+          <small>ALFA</small>
+          <h3>Soluções que transformam projetos</h3>
+          <p>Confiança para construir melhor.</p>
+        </div>
+        <div class="project-info">
+          <strong>Serviços</strong>
+          <span class="result-tag">Mais oportunidades</span>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+    <section class="section light" id="planos">
+      <div class="container">
+
+        <div class="section-head reveal">
+          <span class="eyebrow">Planos</span>
+          <h2>Escolha o melhor ponto de partida para o seu negócio</h2>
+          <p>Os valores e itens poderão ser ajustados quando definirmos sua oferta final.</p>
+        </div>
+
+        <div class="pricing">
+
+          <article class="price-card reveal">
+            <h3>Prestador de serviço</h3>
+            <p>Para profissionais que precisam apresentar seus serviços de forma clara e profissional.</p>
+            <small>A partir de</small>
+            <strong class="price">R$ 550</strong>
+            <ul>
+              <li>Página objetiva e profissional</li>
+              <li>Apresentação dos serviços</li>
+              <li>Versão para celular</li>
+              <li>WhatsApp integrado</li>
+              <li>Uma rodada de ajustes</li>
+            </ul>
+            <a class="btn btn-outline" href="#contato">Solicitar orçamento</a>
+          </article>
+
+          <article class="price-card reveal">
+            <h3>Essencial</h3>
+            <p>Para quem precisa começar com uma presença profissional.</p>
+            <small>A partir de</small>
+            <strong class="price">R$ 1.200</strong>
+            <ul>
+              <li>Página de até 5 seções</li>
+              <li>Design personalizado</li>
+              <li>Versão para celular</li>
+              <li>WhatsApp integrado</li>
+              <li>Uma rodada de ajustes</li>
+            </ul>
+            <a class="btn btn-outline" href="#contato">Solicitar orçamento</a>
+          </article>
+
+          <article class="price-card featured reveal">
+            <span class="popular">MAIS ESCOLHIDO</span>
+            <h3>Profissional</h3>
+            <p>Para transformar sua oferta em uma página completa.</p>
+            <small>A partir de</small>
+            <strong class="price">R$ 1.800</strong>
+            <ul>
+              <li>Página de até 8 seções</li>
+              <li>Estrutura estratégica</li>
+              <li>Texto comercial</li>
+              <li>Versão para celular</li>
+              <li>WhatsApp integrado</li>
+              <li>Duas rodadas de ajustes</li>
+            </ul>
+            <a class="btn btn-primary" href="#contato">Solicitar orçamento</a>
+          </article>
+
+          <article class="price-card reveal">
+            <h3>Estratégica</h3>
+            <p>Para negócios que precisam de uma estrutura mais completa.</p>
+            <small>A partir de</small>
+            <strong class="price">R$ 2.500</strong>
+            <ul>
+              <li>Página personalizada</li>
+              <li>Estratégia e texto completos</li>
+              <li>Integrações necessárias</li>
+              <li>Configuração de domínio</li>
+              <li>Otimização de desempenho</li>
+              <li>Suporte na publicação</li>
+            </ul>
+            <a class="btn btn-outline" href="#contato">Solicitar orçamento</a>
+          </article>
+
+        </div>
+      </div>
+    </section>
+    <section class="section trust"><div class="container trust-grid"><div class="reveal"><span class="eyebrow">Muito além do design</span><h2>Você não recebe apenas um arquivo. Recebe uma estrutura preparada para vender.</h2><div class="checklist"><div>Atendimento próximo e estratégico</div><div>Comunicação construída para o seu público</div><div>Página adaptada para computador e celular</div><div>Suporte para colocar tudo no ar</div></div></div><article class="testimonial reveal"><b>DEPOIMENTO DE CLIENTE</b><p>Este espaço receberá uma avaliação verdadeira de quem já contratou o serviço.</p></article></div></section>
+    <section class="section light"><div class="container faq-wrap"><div class="reveal"><span class="eyebrow">Perguntas frequentes</span><h2>Ainda ficou alguma dúvida?</h2></div><div class="faq reveal"><article class="faq-item"><button class="faq-question">Quanto tempo leva para a página ficar pronta?<span>+</span></button><div class="faq-answer"><p>O prazo depende do tamanho e das integrações, mas será definido claramente antes do início do projeto.</p></div></article><article class="faq-item"><button class="faq-question">Preciso pagar domínio e hospedagem?<span>+</span></button><div class="faq-answer"><p>Domínio e hospedagem são serviços externos. Podemos orientar a contratação e fazer toda a configuração.</p></div></article><article class="faq-item"><button class="faq-question">Vocês também criam os textos?<span>+</span></button><div class="faq-answer"><p>Sim. Dependendo do plano, estruturamos os textos comerciais a partir das informações do seu negócio.</p></div></article><article class="faq-item"><button class="faq-question">Posso solicitar alterações depois?<span>+</span></button><div class="faq-answer"><p>Sim. Cada plano inclui rodadas de ajustes e também podemos oferecer manutenção após a entrega.</p></div></article></div></div></section>
+    <section class="final-cta" id="contato"><div class="container final-grid"><div class="reveal"><span class="eyebrow">Vamos conversar?</span><h2>Pronta para ter uma página que trabalha pelo seu negócio?</h2><p>Conte sobre o seu projeto e receba uma proposta personalizada.</p></div><div><a class="btn btn-primary" href="https://wa.me/5511914894352?text=Olá!%20Quero%20solicitar%20um%20orçamento%20para%20uma%20landing%20page." target="_blank" rel="noopener">Solicitar meu orçamento →</a><div class="final-note"><span>Resposta rápida</span><span>Sem compromisso</span></div></div></div></section>
+  </main>
+  <footer><div class="container footer-row"><a class="brand" href="#inicio">SUA MARCA<i></i></a><div class="footer-links"><a href="#beneficios">Benefícios</a><a href="#processo">Como funciona</a><a href="#projetos">Projetos</a><a href="#planos">Planos</a></div><span>© <span id="year"></span> Sua Marca</span></div></footer>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/ScrollTrigger.min.js"></script>
+  <script>
+    const menuButton=document.querySelector('.menu-btn');
+    menuButton.addEventListener('click',()=>{document.body.classList.toggle('menu-open');const open=document.body.classList.contains('menu-open');menuButton.setAttribute('aria-expanded',open);menuButton.textContent=open?'FECHAR':'MENU'});
+    document.querySelectorAll('nav a').forEach(link=>link.addEventListener('click',()=>{document.body.classList.remove('menu-open');menuButton.setAttribute('aria-expanded','false');menuButton.textContent='MENU'}));
+    document.querySelectorAll('.faq-question').forEach(button=>button.addEventListener('click',()=>button.closest('.faq-item').classList.toggle('open')));
+    const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('visible');observer.unobserve(entry.target)}}),{threshold:.12});
+    document.querySelectorAll('.reveal').forEach(item=>observer.observe(item));
+    document.getElementById('year').textContent=new Date().getFullYear();
+   gsap.registerPlugin(ScrollTrigger);
+    // ANIMAÇÃO DE ENTRADA DO HERO
+const heroTimeline = gsap.timeline({
+  defaults: {
+    duration: 0.8,
+    ease: "power3.out"
+  }
+});
+
+heroTimeline
+  .from(".hero .eyebrow", {
+    opacity: 0,
+    y: 20
+  })
+  .from(".hero h1", {
+    opacity: 0,
+    x: -60
+  }, "-=0.5")
+  .from(".hero-copy > p", {
+    opacity: 0,
+    y: 25
+  }, "-=0.5")
+  .from(".micro-proof span", {
+    opacity: 0,
+    y: 15,
+    stagger: 0.12
+  }, "-=0.4")
+  .from(".hero-mockup", {
+    opacity: 0,
+    x: 100,
+    scale: 0.85,
+    rotation: 4,
+    duration: 1.2
+  }, "-=1");
+ // ANIMAÇÃO DA SEÇÃO "O PROBLEMA"
+gsap.fromTo(".problem",
+  {
+    opacity: 0,
+    y: 70,
+    scale: 0.92
+  },
+  {
+    scrollTrigger: {
+      trigger: ".problems",
+      start: "top 80%"
+    },
+
+    opacity: 1,
+    y: 0,
+    scale: 1,
+
+    duration: 0.8,
+    stagger: 0.18,
+    ease: "power3.out"
+  }
+);
+// EFEITO PARALLAX NO MOCKUP DO HERO
+gsap.to(".hero-mockup", {
+  y: 120,
+  scrollTrigger: {
+    trigger: ".hero",
+    start: "top top",
+    end: "bottom top",
+    scrub: 1
+  }
+});
+// PARALLAX DO TEXTO DO HERO
+gsap.to(".hero-copy", {
+  y: -60,
+  scrollTrigger: {
+    trigger: ".hero",
+    start: "top top",
+    end: "bottom top",
+    scrub: 1
+  }
+});
+// ENTRADA DO TÍTULO DA SEÇÃO "O PROBLEMA"
+const problemTitleTimeline = gsap.timeline({
+  scrollTrigger: {
+    trigger: ".problem-head",
+    start: "top 82%"
+  }
+});
+
+problemTitleTimeline
+  .from(".problem-title", {
+    opacity: 0,
+    y: 70,
+    duration: 0.9,
+    ease: "power3.out"
+  }, "-=0.2");
+  // ANIMAÇÃO DA SEÇÃO "OS BENEFÍCIOS"
+
+// Título da seção
+const benefitsTimeline = gsap.timeline({
+  scrollTrigger: {
+    trigger: ".benefits-head",
+    start: "top 85%",
+    once: true
+  }
+});
+
+benefitsTimeline
+  .from(".benefits-title", {
+    opacity: 0,
+    y: 55,
+    duration: 0.8,
+    ease: "power3.out"
+  }, "-=0.2");
+
+// Cards: ficam sempre visíveis e apenas ganham movimento.
+// Assim, mesmo se o ScrollTrigger falhar, eles nunca somem.
+gsap.fromTo(".benefit",
+  {
+    y: 70,
+    scale: 0.94
+  },
+  {
+    y: 0,
+    scale: 1,
+    duration: 0.75,
+    stagger: 0.12,
+    ease: "power3.out",
+    scrollTrigger: {
+      trigger: ".benefits-grid",
+      start: "top 88%",
+      once: true
+    }
+  }
+);
+
+// ANIMAÇÃO DA SEÇÃO "DA IDEIA À PÁGINA PUBLICADA"
+const processTimeline = gsap.timeline({
+  scrollTrigger: {
+    trigger: "#processo",
+    start: "top 76%",
+    once: true
+  }
+});
+
+processTimeline
+  .fromTo(".process-title",
+    {
+      opacity: 0,
+      y: 45
+    },
+    {
+      opacity: 1,
+      y: 0,
+      duration: 0.75,
+      ease: "power3.out"
+    }
+  )
+  .fromTo(".process-step",
+    {
+      opacity: 0,
+      y: 50
+    },
+    {
+      opacity: 1,
+      y: 0,
+      duration: 0.55,
+      stagger: 0.22,
+      ease: "power3.out"
+    },
+    "-=0.2"
+  )
+  .fromTo(".process-step .number",
+    {
+      scale: 0.55,
+      rotation: -8
+    },
+    {
+      scale: 1,
+      rotation: 0,
+      duration: 0.4,
+      stagger: 0.22,
+      ease: "back.out(1.8)"
+    },
+    "-=1.05"
+  );
+
+
+// PROJETOS — PINNING + CARDS ENTRANDO CONFORME O SCROLL
+ScrollTrigger.matchMedia({
+
+  // Desktop
+  "(min-width: 951px)": function() {
+
+    gsap.set(".project-1", {
+      yPercent: 0,
+      scale: 1,
+      rotation: 0,
+      opacity: 1
+    });
+
+    gsap.set(".project-2", {
+      yPercent: 115,
+      scale: 0.96,
+      rotation: 2,
+      opacity: 1
+    });
+
+    gsap.set(".project-3", {
+      yPercent: 115,
+      scale: 0.96,
+      rotation: -2,
+      opacity: 1
+    });
+
+    const projectsPinTimeline = gsap.timeline({
+      scrollTrigger: {
+        trigger: "#projetos",
+        start: "top top",
+        end: "+=2200",
+        scrub: 1,
+        pin: true,
+        anticipatePin: 1
+      }
+    });
+
+    projectsPinTimeline
+      .to(".projects-scroll-hint", {
+        opacity: 0,
+        duration: 0.15
+      })
+      .to(".project-1", {
+        scale: 0.92,
+        yPercent: -6,
+        rotation: -2,
+        opacity: 0.45,
+        duration: 1
+      }, 0.2)
+      .to(".project-2", {
+        yPercent: 0,
+        scale: 1,
+        rotation: 0,
+        duration: 1
+      }, 0.2)
+
+      .to(".project-2", {
+        scale: 0.92,
+        yPercent: -6,
+        rotation: 2,
+        opacity: 0.45,
+        duration: 1
+      }, 1.25)
+      .to(".project-3", {
+        yPercent: 0,
+        scale: 1,
+        rotation: 0,
+        duration: 1
+      }, 1.25);
+  },
+
+  // Tablet e celular: cards normais, sem prender a tela
+  "(max-width: 950px)": function() {
+    gsap.set(".project-stack", {
+      clearProps: "all"
+    });
+  }
+
+});
+
+  </script>
+
+  <a
+    class="whatsapp-float"
+    href="https://wa.me/5511914894352?text=Olá!%20Quero%20solicitar%20um%20orçamento."
+    target="_blank"
+    rel="noopener"
+    aria-label="Falar pelo WhatsApp"
+  >
+    <img src="botao-whatsapp.png" alt="WhatsApp">
+  </a>
+
+</body>
+</html>
