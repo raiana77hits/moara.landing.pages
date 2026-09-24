@@ -3,9 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Landing pages estratégicas, personalizadas e construídas para gerar contatos e vendas.">
-<title>Moara | Landing Pages Estratégicas</title>
-<link rel="icon" type="image/png" href="favicon-moara.png">
+
+  <!-- SEO BÁSICO -->
+  <title>Moara | Criação de Sites e Landing Pages para Pequenos Negócios</title>
+  <meta name="description" content="Landing pages e sites personalizados, rápidos e pensados para o celular, com botão de WhatsApp. Planos a partir de R$ 1.200 e entrega de 7 a 15 dias úteis.">
+  <meta name="theme-color" content="#090b14">
+  <link rel="canonical" href="https://landing-pages-moara.vercel.app/">
+  <link rel="icon" type="image/png" href="favicon-moara.png">
+
+  <!-- COMPARTILHAMENTO (WhatsApp, Facebook, Instagram, LinkedIn) -->
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="Moara">
+  <meta property="og:title" content="Moara | Sites e landing pages que transformam cliques em clientes">
+  <meta property="og:description" content="Páginas personalizadas, rápidas e com WhatsApp integrado para o seu negócio vender mais na internet.">
+  <meta property="og:url" content="https://landing-pages-moara.vercel.app/">
+  <!-- Se criar uma imagem de compartilhamento (1200x630), troque o arquivo abaixo -->
+  <meta property="og:image" content="https://landing-pages-moara.vercel.app/logo-moara.png">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <!--
+    PIXEL DA META
+    Quando for rodar anúncios, cole aqui o código do Pixel copiado do Gerenciador de Eventos.
+  -->
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
@@ -450,6 +471,135 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
       .projects-scroll-hint{display:none}
     }
 
+    /* ===================================================
+       AJUSTES NOVOS — mesma paleta, fontes e estilo do site
+       =================================================== */
+
+    /* respostas do FAQ mais longas */
+    .faq-item.open .faq-answer{max-height:420px}
+
+    /* prazo abaixo do "Como funciona" */
+    .process-note{
+      margin:42px auto 0;
+      max-width:720px;
+      text-align:center;
+      padding:18px 22px;
+      border-radius:12px;
+      background:#eef0f8;
+      border:1px solid #e4e7f0;
+      color:#4f566a;
+      line-height:1.6;
+    }
+    .process-note strong{color:var(--purple)}
+
+    /* botão abaixo dos modelos */
+    .projects-cta{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:10px;
+      margin-top:30px;
+      text-align:center;
+    }
+    .projects-cta small{color:#8e96aa;font-size:.8rem}
+    .model-tag{
+      display:inline-block;
+      margin-left:8px;
+      padding:3px 7px;
+      border-radius:5px;
+      background:rgba(124,58,237,.14);
+      color:var(--purple);
+      font-size:.62rem;
+      letter-spacing:.08em;
+      vertical-align:middle;
+    }
+    .project:nth-child(2) .model-tag{background:rgba(255,255,255,.14);color:#e9ddff}
+
+    /* informações abaixo dos planos */
+    .price-card .plan-number{
+      display:block;
+      color:var(--purple);
+      font-size:.72rem;
+      font-weight:800;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      margin-bottom:8px;
+    }
+    .pricing-notes{
+      margin-top:34px;
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:18px;
+    }
+    .pricing-note{
+      padding:20px 22px;
+      border-radius:12px;
+      background:#eef0f8;
+      border:1px solid #e4e7f0;
+      color:#4f566a;
+      font-size:.92rem;
+      line-height:1.6;
+    }
+    .pricing-note strong{display:block;color:var(--darktext);font-family:'Manrope';margin-bottom:4px}
+
+    /* PROMOÇÃO */
+    .promo{
+      position:relative;
+      padding:98px 0;
+      background:radial-gradient(circle at 12% 30%,rgba(124,58,237,.45),transparent 30%),radial-gradient(circle at 92% 80%,rgba(183,255,60,.10),transparent 26%),linear-gradient(135deg,#090b14,#11142a);
+      border-top:1px solid var(--line);
+      border-bottom:1px solid var(--line);
+      overflow:hidden;
+    }
+    .promo-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:60px;align-items:center}
+    .promo h2{font-size:clamp(2.1rem,4vw,3.4rem);line-height:1.07;margin:12px 0 18px}
+    .promo-copy>p{color:#c1c7d8;line-height:1.7;font-size:1.05rem;max-width:560px}
+    .promo-seats{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      margin-top:10px;
+      padding:10px 16px;
+      border-radius:999px;
+      border:1px solid rgba(183,255,60,.45);
+      color:var(--lime);
+      font-weight:800;
+      font-size:.85rem;
+    }
+    .promo-seats:before{content:"";width:8px;height:8px;border-radius:50%;background:var(--lime);box-shadow:0 0 14px var(--lime)}
+    .promo-card{
+      padding:32px;
+      border-radius:16px;
+      border:1px solid rgba(168,85,247,.6);
+      background:linear-gradient(145deg,rgba(124,58,237,.18),rgba(255,255,255,.03));
+      box-shadow:0 0 40px rgba(124,58,237,.22);
+    }
+    .promo-card h3{font-size:1.1rem;margin-bottom:18px}
+    .promo-price{font-family:'Manrope';font-weight:800;font-size:clamp(2.6rem,5vw,3.4rem);line-height:1;color:var(--lime);margin-bottom:6px}
+    .promo-price-label{color:#aab1c5;font-size:.85rem;margin-bottom:22px;display:block}
+    .promo-list{list-style:none;padding:0;margin:0 0 20px;border-top:1px solid var(--line)}
+    .promo-list li{display:flex;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--line);color:#d2d7e5;font-size:.93rem}
+    .promo-list li.total{color:#fff;font-weight:800;font-size:1rem}
+    .promo-list li.total span:last-child{color:var(--lime)}
+    .promo-after{color:#aab1c5;font-size:.88rem;line-height:1.6;margin-bottom:24px}
+    .promo-card .btn{width:100%}
+
+    /* rodapé */
+    .footer-brand img{width:110px;height:auto;display:block}
+    .footer-contact{display:flex;flex-direction:column;gap:4px;text-align:right}
+    .footer-contact a:hover,.footer-links a:hover{color:var(--lime)}
+    .footer-bottom{margin-top:20px;padding-top:18px;border-top:1px solid var(--line);text-align:center;color:#6f778c;font-size:.74rem}
+
+    @media(max-width:950px){
+      .promo-grid{grid-template-columns:1fr;gap:36px}
+      .pricing-notes{grid-template-columns:1fr}
+    }
+    @media(max-width:650px){
+      .promo{padding:72px 0}
+      .promo-card{padding:24px}
+      .footer-contact{text-align:center}
+    }
+
     @media(max-width:1100px){.pricing{grid-template-columns:1fr 1fr}.price-card.featured{transform:none;margin-top:34px}}
     @media(max-width:950px){nav{position:fixed;inset:0;background:#090b14;flex-direction:column;justify-content:center;gap:28px;transform:translateX(100%);transition:.3s}body.menu-open nav{transform:none}.menu-btn{display:block;position:relative;z-index:31}.hero-grid,.trust-grid{grid-template-columns:1fr}.hero{padding-top:135px}.devices{height:470px}.benefits-grid,.problems,.project-grid{grid-template-columns:1fr 1fr}.steps{grid-template-columns:1fr 1fr}.step:nth-child(2):after{display:none}.audience-grid{grid-template-columns:repeat(3,1fr)}.faq-wrap{grid-template-columns:1fr}.final-grid{grid-template-columns:1fr}}
     @media(max-width:650px){.whatsapp-float{width:56px;height:56px;right:16px;bottom:16px}.container{width:min(100% - 28px,1160px)}.section{padding:72px 0}.nav{height:72px}.nav>.btn{display:none}.hero{min-height:auto;padding-bottom:60px}.hero h1{font-size:2.85rem}.hero-actions{flex-direction:column}.hero-actions .btn{width:100%}.audience-grid,.benefits-grid,.problems,.pricing,.project-grid,.steps{grid-template-columns:1fr}.audience-grid{gap:22px}.step:after{display:none!important}.project-window{height:215px}.price-card.featured{margin-top:34px;transform:none}.faq-wrap{gap:25px}.final-grid{text-align:center}.final-grid .btn{width:100%}.final-note{justify-content:center;flex-wrap:wrap}.footer-row{flex-direction:column;gap:18px}.footer-links{flex-wrap:wrap;justify-content:center}}
@@ -462,27 +612,28 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
   <img src="logo-moara.png" alt="Moara">
 </a>
       <nav id="menu">
-        <a href="#beneficios">Benefícios</a><a href="#processo">Como funciona</a><a href="#projetos">Projetos</a><a href="#planos">Planos</a><a href="#contato">Contato</a>
+        <a href="#beneficios">Benefícios</a><a href="#processo">Como funciona</a><a href="#projetos">Modelos</a><a href="#planos">Planos</a><a href="#promocao">Promoção</a><a href="#contato">Contato</a>
       </nav>
-      <a class="btn btn-primary" href="https://wa.me/5511914894352?text=Olá!%20Quero%20solicitar%20um%20orçamento%20para%20uma%20landing%20page." target="_blank" rel="noopener">Solicitar orçamento</a>
+      <a class="btn btn-primary" href="https://wa.me/5511945409653?text=Olá!%20Vim%20pelo%20site%20da%20Moara%20e%20quero%20um%20orçamento." target="_blank" rel="noopener">Solicitar orçamento</a>
       <button class="menu-btn" aria-label="Abrir menu" aria-expanded="false">MENU</button>
     </div>
   </header>
   <main>
     <section class="hero" id="inicio"><div class="glow"></div><div class="container hero-grid">
       <div class="hero-copy">
-        <span class="eyebrow">Landing pages estratégicas</span>
+        <span class="eyebrow">Sites e landing pages</span>
         <h1>Enquanto você não tem uma página que vende,<span class="gradient-text">seu concorrente tem.</span></h1>
-        <p>Criamos landing pages estratégicas para transformar seus cliques em clientes.</p>
+        <p>Criamos landing pages personalizadas, rápidas e pensadas para o celular, com botão de WhatsApp para transformar seus cliques em clientes.</p>
 
         <div class="hero-actions">
-          <a class="btn btn-primary" href="#planos">QUERO UMA LANDING PAGE →</a>
+          <a class="btn btn-primary" href="#planos">VER PLANOS E PREÇOS →</a>
+          <a class="btn btn-outline" href="#promocao">PROMOÇÃO R$ 99,99</a>
         </div>
 
         <div class="micro-proof">
-          <span>Mais clientes</span>
-          <span>Comunicação clara</span>
-          <span>Suporte de verdade</span>
+          <span>Entrega de 7 a 15 dias úteis</span>
+          <span>Pensada para o celular</span>
+          <span>Atendimento todos os dias</span>
         </div>
       </div>
      <div class="devices">
@@ -505,11 +656,11 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
         <span class="laptop-camera"></span>
 
         <div class="laptop-screen">
-          <img src="site-restaurante-desktop.png" class="desktop-screen-img active" alt="Site de restaurante">
-          <img src="site-clinica-desktop.png" class="desktop-screen-img" alt="Site de clínica">
-          <img src="site-moda-desktop.png" class="desktop-screen-img" alt="Site de moda">
-          <img src="site-pizzaria-desktop.png" class="desktop-screen-img" alt="Site de pizzaria">
-          <img src="site-presentes-desktop.png" class="desktop-screen-img" alt="Site de presentes">
+          <img src="site-restaurante-desktop.png" class="desktop-screen-img active" alt="Modelo de site para restaurante">
+          <img src="site-clinica-desktop.png" class="desktop-screen-img" alt="Modelo de site para clínica">
+          <img src="site-moda-desktop.png" class="desktop-screen-img" alt="Modelo de site para loja de moda">
+          <img src="site-pizzaria-desktop.png" class="desktop-screen-img" alt="Modelo de site para pizzaria">
+          <img src="site-presentes-desktop.png" class="desktop-screen-img" alt="Modelo de site para loja de presentes">
           <span class="screen-shine laptop-shine"></span>
         </div>
 
@@ -521,11 +672,11 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
       <div class="phone-screen">
         <span class="phone-notch"></span>
 
-        <img src="site-restaurante-mobile.png" class="mobile-screen-img active" alt="Site mobile de restaurante">
-        <img src="site-clinica-mobile.png" class="mobile-screen-img" alt="Site mobile de clínica">
-        <img src="site-moda-mobile.png" class="mobile-screen-img" alt="Site mobile de moda">
-        <img src="site-pizzaria-mobile.png" class="mobile-screen-img" alt="Site mobile de pizzaria">
-        <img src="site-presentes-mobile.png" class="mobile-screen-img" alt="Site mobile de presentes">
+        <img src="site-restaurante-mobile.png" class="mobile-screen-img active" alt="Modelo mobile para restaurante">
+        <img src="site-clinica-mobile.png" class="mobile-screen-img" alt="Modelo mobile para clínica">
+        <img src="site-moda-mobile.png" class="mobile-screen-img" alt="Modelo mobile para loja de moda">
+        <img src="site-pizzaria-mobile.png" class="mobile-screen-img" alt="Modelo mobile para pizzaria">
+        <img src="site-presentes-mobile.png" class="mobile-screen-img" alt="Modelo mobile para loja de presentes">
         <span class="screen-shine phone-shine"></span>
       </div>
     </div>
@@ -534,7 +685,7 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
   </div>
 </div>
     </div></section>
-    <section class="audience"><div class="container"><div class="audience-title">PARA QUEM QUER TRANSFORMAR CLIQUES EM CLIENTES</div><div class="audience-grid"><div class="audience-item"><b>◈</b>Pequenas e médias empresas</div><div class="audience-item"><b>▣</b>Prestadores de serviços</div><div class="audience-item"><b>♙</b>Profissionais liberais</div><div class="audience-item"><b>▥</b>Negócios locais</div><div class="audience-item"><b>◎</b>Lançamentos e infoprodutos</div></div></div></section>
+    <section class="audience"><div class="container"><div class="audience-title">PARA QUEM QUER TRANSFORMAR CLIQUES EM CLIENTES</div><div class="audience-grid"><div class="audience-item"><b>◈</b>Pequenas e médias empresas</div><div class="audience-item"><b>▣</b>Prestadores de serviços</div><div class="audience-item"><b>♙</b>Profissionais liberais</div><div class="audience-item"><b>▥</b>Negócios locais</div><div class="audience-item"><b>◎</b>Lojas e e-commerces</div></div></div></section>
    <section class="section light">
   <div class="container">
 
@@ -582,7 +733,7 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
 
     <div class="section-head benefits-head">
       <h2 class="benefits-title">
-        Mais do que uma página, uma ferramenta de crescimento.
+        Mais do que uma página, uma ferramenta de vendas.
       </h2>
     </div>
 
@@ -591,37 +742,37 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
       <article class="benefit">
         <div class="icon">✦</div>
         <h3>Design personalizado</h3>
-        <p>Uma página exclusiva, alinhada à identidade do seu negócio.</p>
+        <p>Uma página exclusiva, com as cores, a logo e a cara do seu negócio. Nada de modelo pronto.</p>
       </article>
 
       <article class="benefit">
         <div class="icon">⌁</div>
         <h3>Estrutura estratégica</h3>
-        <p>Seções pensadas para gerar confiança e incentivar a ação.</p>
+        <p>Seções pensadas para gerar confiança e levar o visitante até o contato.</p>
       </article>
 
       <article class="benefit">
         <div class="icon">▯</div>
-        <h3>Versão para celular</h3>
-        <p>Perfeita em qualquer tela, com foco na melhor experiência.</p>
+        <h3>Feita primeiro para o celular</h3>
+        <p>A maioria dos seus clientes vai abrir pelo celular. Por isso, começamos por ele.</p>
       </article>
 
       <article class="benefit">
         <div class="icon">◉</div>
         <h3>WhatsApp integrado</h3>
-        <p>Seus clientes entram em contato com apenas um clique.</p>
+        <p>Botão de WhatsApp sempre à vista: seu cliente fala com você em um clique.</p>
       </article>
 
       <article class="benefit">
         <div class="icon">◷</div>
         <h3>Carregamento rápido</h3>
-        <p>Mais desempenho e menos desistências no caminho.</p>
+        <p>Imagens leves e página ágil, para ninguém desistir antes de conhecer seu negócio.</p>
       </article>
 
       <article class="benefit">
         <div class="icon">◎</div>
-        <h3>Domínio profissional</h3>
-        <p>Sua marca com mais credibilidade e independência.</p>
+        <h3>Pronta para anúncios</h3>
+        <p>Espaço para o Pixel da Meta e o Google Analytics, para medir os resultados dos seus anúncios.</p>
       </article>
 
     </div>
@@ -638,27 +789,32 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
       <article class="step process-step">
         <div class="number">01</div>
         <h3>Briefing</h3>
-        <p>Entendemos seu negócio, objetivos e público.</p>
+        <p>Você conta sobre o seu negócio, público, serviços e diferenciais.</p>
       </article>
 
       <article class="step process-step">
         <div class="number">02</div>
         <h3>Estratégia e texto</h3>
-        <p>Definimos a estrutura e criamos os conteúdos.</p>
+        <p>Definimos a estrutura da página e organizamos os conteúdos.</p>
       </article>
 
       <article class="step process-step">
         <div class="number">03</div>
         <h3>Design e desenvolvimento</h3>
-        <p>Transformamos tudo em uma página moderna e responsiva.</p>
+        <p>Transformamos tudo em uma página moderna, rápida e responsiva.</p>
       </article>
 
       <article class="step process-step">
         <div class="number">04</div>
         <h3>Revisão e publicação</h3>
-        <p>Ajustes finais e sua página no ar, pronta para gerar resultados.</p>
+        <p>Você revisa, fazemos os ajustes e colocamos sua página no ar com o seu domínio.</p>
       </article>
     </div>
+
+    <p class="process-note">
+      <strong>Prazo de 7 a 15 dias úteis</strong>, contados a partir do recebimento de todo o material
+      (textos, imagens, logo e informações do negócio).
+    </p>
 
   </div>
 </section>
@@ -666,49 +822,54 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
   <div class="container projects-pin-container">
 
     <div class="section-head projects-head">
-      <span class="eyebrow">Projetos</span>
-      <h2>Páginas criadas para transformar visitas em oportunidades</h2>
-      <p class="projects-scroll-hint">Role para conhecer os projetos ↓</p>
+      <span class="eyebrow">Modelos</span>
+      <h2>Veja como a página do seu negócio pode ficar</h2>
+      <p class="projects-scroll-hint">Modelos de exemplo. Cada site é criado do zero para o seu negócio. Role para ver ↓</p>
     </div>
 
     <div class="projects-stage">
 
       <article class="project project-stack project-1">
         <div class="project-window">
-          <small>CLÍNICA VITA</small>
+          <small>CLÍNICA VITA <span class="model-tag">MODELO</span></small>
           <h3>Cuidando da sua saúde todos os dias</h3>
           <p>Atendimento humano e cuidado completo.</p>
         </div>
         <div class="project-info">
-          <strong>Clínica e saúde</strong>
-          <span class="result-tag">Mais agendamentos</span>
+          <strong>Clínicas e saúde</strong>
+          <span class="result-tag">Foco em agendamentos</span>
         </div>
       </article>
 
       <article class="project project-stack project-2">
         <div class="project-window">
-          <small>TRATTO</small>
+          <small>TRATTO <span class="model-tag">MODELO</span></small>
           <h3>Sabor que une pessoas</h3>
           <p>Uma experiência especial à mesa.</p>
         </div>
         <div class="project-info">
-          <strong>Restaurante</strong>
-          <span class="result-tag">Mais reservas</span>
+          <strong>Restaurantes e delivery</strong>
+          <span class="result-tag">Foco em reservas e pedidos</span>
         </div>
       </article>
 
       <article class="project project-stack project-3">
         <div class="project-window">
-          <small>ALFA</small>
+          <small>ALFA <span class="model-tag">MODELO</span></small>
           <h3>Soluções que transformam projetos</h3>
           <p>Confiança para construir melhor.</p>
         </div>
         <div class="project-info">
-          <strong>Serviços</strong>
-          <span class="result-tag">Mais oportunidades</span>
+          <strong>Prestadores de serviço</strong>
+          <span class="result-tag">Foco em orçamentos</span>
         </div>
       </article>
 
+    </div>
+
+    <div class="projects-cta">
+      <a class="btn btn-primary" href="https://wa.me/5511945409653?text=Olá!%20Vi%20os%20modelos%20no%20site%20da%20Moara%20e%20quero%20um%20site%20assim%20para%20o%20meu%20negócio." target="_blank" rel="noopener">Quero um site assim</a>
+      <small>Conte o seu segmento e mostramos como sua página pode ficar.</small>
     </div>
   </div>
 </section>
@@ -718,65 +879,143 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
         <div class="section-head reveal">
           <span class="eyebrow">Planos</span>
           <h2>Escolha o melhor ponto de partida para o seu negócio</h2>
-          <p>Os valores e itens poderão ser ajustados quando definirmos sua oferta final.</p>
+          <p>Pagamento facilitado: 50% na contratação e 50% na entrega.</p>
         </div>
 
         <div class="pricing">
 
           <article class="price-card reveal">
+            <span class="plan-number">Plano 1</span>
             <h3>Essencial</h3>
-            <p>Para quem precisa começar com uma presença profissional.</p>
-            <strong class="price">R$ 1.000</strong>
+            <p>Para quem está começando ou quer uma divulgação simples e profissional.</p>
+            <strong class="price">R$ 1.200</strong>
             <ul>
-              <li>Página de até 5 seções</li>
+              <li>Landing page de até 5 seções</li>
               <li>Design personalizado</li>
               <li>Versão para celular</li>
-              <li>WhatsApp integrado</li>
-              <li>Uma rodada de ajustes</li>
+              <li>Botão de WhatsApp</li>
+              <li>Formulário de contato</li>
+              <li>2 rodadas de revisão</li>
             </ul>
-            <a class="btn btn-outline" href="https://wa.me/5511914894352?text=Olá!%20Quero%20solicitar%20um%20orçamento%20para%20uma%20landing%20page." target="_blank" rel="noopener">Solicitar orçamento</a>
+            <a class="btn btn-outline" href="https://wa.me/5511945409653?text=Olá!%20Tenho%20interesse%20no%20Plano%201%20(R$%201.200)%20da%20Moara." target="_blank" rel="noopener">Quero o Plano 1</a>
           </article>
 
           <article class="price-card featured reveal">
-            <span class="popular">MAIS ESCOLHIDO</span>
+            <span class="popular">IDEAL PARA QUEM VAI ANUNCIAR</span>
+            <span class="plan-number">Plano 2</span>
             <h3>Profissional</h3>
-            <p>Para transformar sua oferta em uma página completa.</p>
-            <strong class="price">R$ 1.500</strong>
+            <p>Para quem vai rodar anúncios e precisa de uma página que convence e mede resultados.</p>
+            <strong class="price">R$ 1.800</strong>
             <ul>
-              <li>Página de até 8 seções</li>
-              <li>Estrutura estratégica</li>
-              <li>Texto comercial</li>
-              <li>Versão para celular</li>
-              <li>WhatsApp integrado</li>
-              <li>Duas rodadas de ajustes</li>
+              <li>Tudo do Plano 1</li>
+              <li>Textos persuasivos feitos pela equipe Moara</li>
+              <li>Configuração do Pixel da Meta</li>
+              <li>Configuração do Google Analytics</li>
             </ul>
-            <a class="btn btn-primary" href="https://wa.me/5511914894352?text=Olá!%20Quero%20solicitar%20um%20orçamento%20para%20uma%20landing%20page." target="_blank" rel="noopener">Solicitar orçamento</a>
+            <a class="btn btn-primary" href="https://wa.me/5511945409653?text=Olá!%20Tenho%20interesse%20no%20Plano%202%20(R$%201.800)%20da%20Moara." target="_blank" rel="noopener">Quero o Plano 2</a>
           </article>
 
           <article class="price-card reveal">
-            <h3>Estratégico</h3>
-            <p>Para negócios que precisam de uma estrutura mais completa.</p>
+            <span class="plan-number">Plano 3</span>
+            <h3>Site completo ou loja virtual</h3>
+            <p>Para quem precisa de várias páginas ou tem muitos produtos para vender.</p>
             <small>A partir de</small>
             <strong class="price">R$ 2.500</strong>
             <ul>
-              <li>Página personalizada</li>
-              <li>Estratégia e texto completos</li>
-              <li>Integrações necessárias</li>
-              <li>Configuração de domínio</li>
-              <li>Otimização de desempenho</li>
-              <li>Suporte na publicação</li>
+              <li>Site com várias páginas ou loja virtual</li>
+              <li>Até 1.200 produtos: R$ 2.500</li>
+              <li>Até 2.000 produtos: R$ 3.000</li>
+              <li>Acima de 2.000 produtos: valor a combinar</li>
             </ul>
-            <a class="btn btn-outline" href="https://wa.me/5511914894352?text=Olá!%20Quero%20solicitar%20um%20orçamento%20para%20uma%20landing%20page." target="_blank" rel="noopener">Solicitar orçamento</a>
+            <a class="btn btn-outline" href="https://wa.me/5511945409653?text=Olá!%20Tenho%20interesse%20no%20Plano%203%20(site%20completo%20ou%20loja%20virtual)%20da%20Moara." target="_blank" rel="noopener">Quero o Plano 3</a>
           </article>
 
         </div>
+
+        <div class="pricing-notes">
+          <div class="pricing-note reveal">
+            <strong>Domínio</strong>
+            R$ 49,90, cobrado à parte em todos os planos. É o endereço do seu site, com o nome do seu negócio.
+          </div>
+          <div class="pricing-note reveal">
+            <strong>Hospedagem e manutenção</strong>
+            Planos 1 e 2: R$ 59,90/mês, com 1 alteração inclusa por mês. Plano 3: R$ 600/mês.
+          </div>
+          <div class="pricing-note reveal">
+            <strong>Alterações após a entrega</strong>
+            Ajustes gratuitos durante os 7 primeiros dias depois que a página é entregue.
+          </div>
+        </div>
       </div>
     </section>
-    <section class="section trust"><div class="container trust-grid"><div class="reveal"><span class="eyebrow">Muito além do design</span><h2>Você não recebe apenas um arquivo. Recebe uma estrutura preparada para vender.</h2><div class="checklist"><div>Atendimento próximo e estratégico</div><div>Comunicação construída para o seu público</div><div>Página adaptada para computador e celular</div><div>Suporte para colocar tudo no ar</div></div></div><article class="testimonial reveal"><b>DEPOIMENTO DE CLIENTE</b><p>Este espaço receberá uma avaliação verdadeira de quem já contratou o serviço.</p></article></div></section>
-    <section class="section light"><div class="container faq-wrap"><div class="reveal"><span class="eyebrow">Perguntas frequentes</span><h2>Ainda ficou alguma dúvida?</h2></div><div class="faq reveal"><article class="faq-item"><button class="faq-question">Quanto tempo leva para a página ficar pronta?<span>+</span></button><div class="faq-answer"><p>O prazo depende do tamanho e das integrações, mas será definido claramente antes do início do projeto.</p></div></article><article class="faq-item"><button class="faq-question">Preciso pagar domínio e hospedagem?<span>+</span></button><div class="faq-answer"><p>Domínio e hospedagem são serviços externos. Podemos orientar a contratação e fazer toda a configuração.</p></div></article><article class="faq-item"><button class="faq-question">Vocês também criam os textos?<span>+</span></button><div class="faq-answer"><p>Sim. Dependendo do plano, estruturamos os textos comerciais a partir das informações do seu negócio.</p></div></article><article class="faq-item"><button class="faq-question">Posso solicitar alterações depois?<span>+</span></button><div class="faq-answer"><p>Sim. Cada plano inclui rodadas de ajustes e também podemos oferecer manutenção após a entrega.</p></div></article></div></div></section>
-    <section class="final-cta" id="contato"><div class="container final-grid"><div class="reveal"><span class="eyebrow">Vamos conversar?</span><h2>Pronta para ter uma página que trabalha pelo seu negócio?</h2><p>Conte sobre o seu projeto e receba uma proposta personalizada.</p></div><div><a class="btn btn-primary" href="https://wa.me/5511914894352?text=Olá!%20Quero%20solicitar%20um%20orçamento%20para%20uma%20landing%20page." target="_blank" rel="noopener">Solicitar meu orçamento →</a><div class="final-note"><span>Resposta rápida</span><span>Sem compromisso</span></div></div></div></section>
+
+    <!--
+      SEÇÃO DA PROMOÇÃO
+      Para tirar a promoção do site, apague tudo daqui até "FIM DA SEÇÃO DA PROMOÇÃO"
+      e também o link "Promoção" do menu e o botão "PROMOÇÃO R$ 99,99" do topo.
+    -->
+    <section class="promo" id="promocao">
+      <div class="container promo-grid">
+        <div class="promo-copy reveal">
+          <span class="eyebrow">Promoção</span>
+          <h2>Sua landing page de 3 seções por R$ 99,99</h2>
+          <p>
+            Uma forma acessível de colocar seu negócio na internet, com página personalizada,
+            versão para celular e botão de WhatsApp. As vagas são limitadas e, quando acabarem,
+            a promoção encerra.
+          </p>
+          <span class="promo-seats">Apenas 30 vagas</span>
+        </div>
+
+        <div class="promo-card reveal">
+          <h3>Como fica o seu primeiro pagamento</h3>
+          <div class="promo-price">R$ 209,79</div>
+          <span class="promo-price-label">Pagamento à vista, no início do projeto</span>
+
+          <ul class="promo-list">
+            <li><span>Criação da landing page (3 seções)</span><span>R$ 99,99</span></li>
+            <li><span>1ª mensalidade de hospedagem e manutenção</span><span>R$ 59,90</span></li>
+            <li><span>Domínio</span><span>R$ 49,90</span></li>
+            <li class="total"><span>Total do primeiro pagamento</span><span>R$ 209,79</span></li>
+          </ul>
+
+          <p class="promo-after">
+            A partir do 2º mês: R$ 59,90/mês de hospedagem e manutenção, com 1 alteração inclusa por mês.
+          </p>
+
+          <a class="btn btn-primary" href="https://wa.me/5511945409653?text=Olá!%20Quero%20garantir%20minha%20vaga%20na%20promoção%20da%20landing%20page%20de%20R$%2099,99." target="_blank" rel="noopener">Quero garantir minha vaga</a>
+        </div>
+      </div>
+    </section>
+    <!-- FIM DA SEÇÃO DA PROMOÇÃO -->
+
+    <section class="section trust"><div class="container trust-grid"><div class="reveal"><span class="eyebrow">Muito além do design</span><h2>Você não recebe apenas um arquivo. Recebe uma página pronta para vender.</h2><div class="checklist"><div>Equipe completa: atendimento, texto, design, desenvolvimento e publicação</div><div>Página pensada primeiro para o celular</div><div>WhatsApp sempre à vista para o cliente chamar você</div><div>Título, descrição e imagem de compartilhamento configurados</div><div>Textos revisados, sem erro de português</div><div>Publicação no ar com o seu domínio</div></div></div><article class="testimonial reveal"><b>POR QUE MOARA</b><p>Moara é uma palavra indígena que significa "nascer". Existimos para fazer nascer a presença digital do seu negócio, com um site feito sob medida e um atendimento próximo do começo ao fim.</p></article></div></section>
+    <section class="section light" id="duvidas"><div class="container faq-wrap"><div class="reveal"><span class="eyebrow">Perguntas frequentes</span><h2>Ainda ficou alguma dúvida?</h2></div><div class="faq reveal">
+      <article class="faq-item"><button class="faq-question">Quanto tempo leva para a página ficar pronta?<span>+</span></button><div class="faq-answer"><p>De 7 a 15 dias úteis. O prazo começa a contar quando recebemos todo o material: textos, imagens, logo e informações do negócio. Quanto antes você enviar tudo, mais rápido sua página fica pronta.</p></div></article>
+      <article class="faq-item"><button class="faq-question">Como funciona o pagamento?<span>+</span></button><div class="faq-answer"><p>Nos Planos 1, 2 e 3, você paga 50% na contratação e 50% na entrega. Na promoção de R$ 99,99, o pagamento é à vista.</p></div></article>
+      <article class="faq-item"><button class="faq-question">Preciso pagar domínio e hospedagem?<span>+</span></button><div class="faq-answer"><p>Sim. O domínio custa R$ 49,90 e é cobrado à parte em todos os planos e na promoção. A hospedagem e manutenção custa R$ 59,90/mês nos Planos 1 e 2 e na promoção, com 1 alteração inclusa por mês. No Plano 3, é R$ 600/mês.</p></div></article>
+      <article class="faq-item"><button class="faq-question">Como funciona a promoção de R$ 99,99?<span>+</span></button><div class="faq-answer"><p>É uma landing page de 3 seções, limitada a 30 vagas, com pagamento à vista. O primeiro pagamento é de R$ 209,79: R$ 99,99 da criação, R$ 59,90 da primeira mensalidade e R$ 49,90 do domínio. A partir do 2º mês, você paga R$ 59,90/mês com 1 alteração inclusa.</p></div></article>
+      <article class="faq-item"><button class="faq-question">Qual plano é o ideal para mim?<span>+</span></button><div class="faq-answer"><p>Se o seu negócio está começando ou precisa de uma divulgação simples, o Plano 1 ou a promoção atendem bem. Se você vai rodar anúncios, o Plano 2 é o mais indicado, porque já vem com textos de venda e Pixel/Analytics para medir resultados. Se tem muitos produtos ou precisa de várias páginas, o Plano 3. Na dúvida, chame no WhatsApp que indicamos o melhor para você.</p></div></article>
+      <article class="faq-item"><button class="faq-question">Vocês também criam os textos?<span>+</span></button><div class="faq-answer"><p>Sim. No Plano 2, os textos persuasivos são feitos pela equipe Moara a partir das informações do seu negócio. Para os outros planos, fale com a gente no WhatsApp e explicamos como funciona.</p></div></article>
+      <article class="faq-item"><button class="faq-question">Posso pedir alterações depois da entrega?<span>+</span></button><div class="faq-answer"><p>Sim. Nos 7 primeiros dias depois da entrega, os ajustes são gratuitos. Depois disso, a mensalidade dos Planos 1 e 2 e da promoção inclui 1 alteração por mês.</p></div></article>
+      <article class="faq-item"><button class="faq-question">Qual o horário de atendimento?<span>+</span></button><div class="faq-answer"><p>Atendemos pelo WhatsApp (11) 94540-9653, de segunda a domingo, das 8h às 20h.</p></div></article>
+    </div></div></section>
+    <section class="final-cta" id="contato"><div class="container final-grid"><div class="reveal"><span class="eyebrow">Vamos conversar?</span><h2>Seu negócio merece uma página que trabalha por ele.</h2><p>Chame no WhatsApp, conte sobre o seu negócio e receba a indicação do plano ideal.</p></div><div><a class="btn btn-primary" href="https://wa.me/5511945409653?text=Olá!%20Vim%20pelo%20site%20da%20Moara%20e%20quero%20um%20orçamento." target="_blank" rel="noopener">Falar no WhatsApp →</a><div class="final-note"><span>Todos os dias, das 8h às 20h</span><span>Sem compromisso</span></div></div></div></section>
   </main>
-  <footer><div class="container footer-row"><a class="brand" href="#inicio">SUA MARCA<i></i></a><div class="footer-links"><a href="#beneficios">Benefícios</a><a href="#processo">Como funciona</a><a href="#projetos">Projetos</a><a href="#planos">Planos</a></div><span>© <span id="year"></span> Sua Marca</span></div></footer>
+  <footer>
+    <div class="container">
+      <div class="footer-row">
+        <a class="footer-brand" href="#inicio"><img src="logo-moara.png" alt="Moara"></a>
+        <div class="footer-links"><a href="#beneficios">Benefícios</a><a href="#processo">Como funciona</a><a href="#projetos">Modelos</a><a href="#planos">Planos</a><a href="#duvidas">Dúvidas</a></div>
+        <div class="footer-contact">
+          <a href="https://wa.me/5511945409653" target="_blank" rel="noopener">WhatsApp: (11) 94540-9653</a>
+          <a href="https://www.instagram.com/moara_criadoradesites/" target="_blank" rel="noopener">Instagram: @moara_criadoradesites</a>
+          <a href="mailto:criadoradesitesmoara@gmail.com">criadoradesitesmoara@gmail.com</a>
+        </div>
+      </div>
+      <div class="footer-bottom">© <span id="year"></span> Moara. Todos os direitos reservados. CNPJ 52.583.600/0001-23</div>
+    </div>
+  </footer>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/ScrollTrigger.min.js"></script>
   <script>
@@ -1203,7 +1442,7 @@ ScrollTrigger.matchMedia({
 
   <a
     class="whatsapp-float"
-    href="https://wa.me/5511914894352?text=Olá!%20Quero%20solicitar%20um%20orçamento."
+    href="https://wa.me/5511945409653?text=Olá!%20Vim%20pelo%20site%20da%20Moara%20e%20quero%20um%20orçamento."
     target="_blank"
     rel="noopener"
     aria-label="Falar pelo WhatsApp"
