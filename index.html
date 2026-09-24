@@ -528,22 +528,6 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
       text-transform:uppercase;
       margin-bottom:8px;
     }
-    .pricing-notes{
-      margin-top:34px;
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:18px;
-    }
-    .pricing-note{
-      padding:20px 22px;
-      border-radius:12px;
-      background:#eef0f8;
-      border:1px solid #e4e7f0;
-      color:#4f566a;
-      font-size:.92rem;
-      line-height:1.6;
-    }
-    .pricing-note strong{display:block;color:var(--darktext);font-family:'Manrope';margin-bottom:4px}
 
     /* PROMOÇÃO */
     .promo{
@@ -582,6 +566,7 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
     .promo-price-label{color:#aab1c5;font-size:.85rem;margin-bottom:22px;display:block}
     .promo-list{list-style:none;padding:0;margin:0 0 20px;border-top:1px solid var(--line)}
     .promo-list li{display:flex;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--line);color:#d2d7e5;font-size:.93rem}
+    .promo-list li span:last-child{white-space:nowrap}
     .promo-list li.total{color:#fff;font-weight:800;font-size:1rem}
     .promo-list li.total span:last-child{color:var(--lime)}
     .promo-after{color:#aab1c5;font-size:.88rem;line-height:1.6;margin-bottom:24px}
@@ -593,9 +578,54 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
     .footer-contact a:hover,.footer-links a:hover{color:var(--lime)}
     .footer-bottom{margin-top:20px;padding-top:18px;border-top:1px solid var(--line);text-align:center;color:#6f778c;font-size:.74rem}
 
+
+    /* HERO — 3 selos na mesma linha no computador */
+    @media(min-width:1200px){.micro-proof{flex-wrap:nowrap;gap:18px;font-size:.8rem;white-space:nowrap}.micro-proof span:before{margin-right:6px}}
+
+    /* PLANOS — lista comparativa */
+    .price-card li.no{color:#a7adbb;text-decoration:line-through;text-decoration-color:rgba(167,173,187,.55)}
+    .price-card li.no:before{content:"✕";color:#bfc4cf}
+    .price-card li.ask:before{content:"•";color:#9aa1b2}
+    .price-card li em{font-style:normal;font-size:.7rem;font-weight:700;color:#7a8196;background:#eef0f8;padding:2px 7px;border-radius:5px;margin-left:6px;white-space:nowrap}
+    .plan-tiers{display:grid;gap:4px;margin:-12px 0 20px;padding:12px 14px;border-radius:10px;background:#f4f1ff;color:#4f566a;font-size:.84rem}
+    .plan-tiers b{color:var(--darktext)}
+
+    /* AJUSTES GRÁTIS */
+    .free-adjust{margin:46px auto 0;max-width:860px;text-align:center;padding:30px 28px;border-radius:16px;background:#fff;border:2px solid var(--purple);box-shadow:0 18px 50px rgba(124,58,237,.12)}
+    .free-badge{display:inline-block;margin-bottom:12px;padding:5px 12px;border-radius:999px;background:var(--purple);color:#fff;font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+    .free-adjust strong{display:block;font-family:'Manrope';font-size:clamp(1.3rem,2.6vw,1.8rem);line-height:1.25;color:var(--darktext)}
+    .free-sub{display:block;margin-top:10px;color:#687086}
+    .pricing-extra{margin:18px 0 0;text-align:center;color:#8e96aa;font-size:.85rem}
+    .pricing-extra a{color:var(--purple);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+
+    /* MENSALIDADE */
+    .upkeep{padding-top:40px;border-top:1px solid #e4e7f0}
+    .upkeep-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+    .upkeep-card{padding:28px;border-radius:14px;background:#eef0f8;border:1px solid #e4e7f0;display:flex;flex-direction:column}
+    .upkeep-icon{display:grid;place-items:center;width:42px;height:42px;border-radius:10px;background:#e4d9ff;color:var(--purple);margin-bottom:18px}
+    .upkeep-icon svg{width:21px;height:21px}
+    .upkeep-card h3{font-size:1.1rem;margin-bottom:10px}
+    .upkeep-card p{color:#687086;line-height:1.65;margin:0 0 18px;flex:1}
+    .upkeep-price{font-weight:800;color:var(--purple);font-size:.9rem}
+    .upkeep-values{margin-top:28px;display:grid;grid-template-columns:repeat(3,1fr);border-radius:14px;overflow:hidden;background:var(--ink);color:#fff}
+    .upkeep-values div{padding:22px 24px;border-right:1px solid var(--line)}
+    .upkeep-values div:last-child{border-right:0}
+    .upkeep-values span{display:block;color:#aab1c5;font-size:.8rem}
+    .upkeep-values strong{display:block;font-family:'Manrope';font-size:1.6rem;color:var(--lime);margin:4px 0}
+    .upkeep-values small{color:#aab1c5;font-size:.78rem}
+
+    /* PROMOÇÃO — placar de vagas */
+    .promo-counter{margin-top:10px;max-width:360px}
+    .counter-row{display:flex;align-items:center;justify-content:space-between;margin-top:18px;padding:14px 18px;border-radius:12px;border:1px solid rgba(168,85,247,.5);background:rgba(255,255,255,.04)}
+    .counter-label{color:#d2d7e5;font-weight:700;font-size:.9rem}
+    .counter-number{font-family:'Manrope';font-size:2.2rem;line-height:1;color:var(--lime)}
+    .counter-bar{margin-top:10px;height:8px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden}
+    .counter-bar span{display:block;height:100%;width:100%;border-radius:999px;background:linear-gradient(90deg,var(--lime),#86efac);transition:width .6s ease}
+
+    @media(max-width:950px){.upkeep-grid,.upkeep-values{grid-template-columns:1fr}.upkeep-values div{border-right:0;border-bottom:1px solid var(--line)}.upkeep-values div:last-child{border-bottom:0}}
+
     @media(max-width:950px){
       .promo-grid{grid-template-columns:1fr;gap:36px}
-      .pricing-notes{grid-template-columns:1fr}
     }
     @media(max-width:650px){
       .promo{padding:72px 0}
@@ -625,17 +655,16 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
     <section class="hero" id="inicio"><div class="glow"></div><div class="container hero-grid">
       <div class="hero-copy">
         <span class="eyebrow">Sites e landing pages</span>
-        <h1>Enquanto você não tem uma página que vende,<span class="gradient-text">seu concorrente tem.</span></h1>
-        <p>Criamos landing pages personalizadas, rápidas e perfeitas em qualquer tela, com botão de WhatsApp para transformar seus cliques em clientes.</p>
+        <h1>Enquanto você não tem uma página que vende, <span class="gradient-text">seu concorrente tem.</span></h1>
+        <p>Criamos landing pages personalizadas, rápidas e pensadas para computador e celular, com botão de WhatsApp para transformar seus cliques em clientes.</p>
 
         <div class="hero-actions">
           <a class="btn btn-primary" href="#planos">VER PLANOS E PREÇOS →</a>
-          <a class="btn btn-outline" href="#promocao">PROMOÇÃO R$ 99,99</a>
         </div>
 
         <div class="micro-proof">
           <span>Entrega de 7 a 15 dias úteis</span>
-          <span>Perfeita no computador e no celular</span>
+          <span>Computador e celular</span>
           <span>Atendimento todos os dias</span>
         </div>
       </div>
@@ -899,6 +928,9 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
               <li>Botão de WhatsApp</li>
               <li>Formulário de contato</li>
               <li>2 rodadas de revisão</li>
+              <li class="no">Textos persuasivos feitos pela equipe Moara</li>
+              <li class="no">Pixel da Meta e Google Analytics</li>
+              <li class="no">Várias páginas ou loja virtual</li>
             </ul>
             <a class="btn btn-outline" href="https://wa.me/5511945409653?text=Olá!%20Tenho%20interesse%20no%20Plano%201%20(R$%201.200)%20da%20Moara." target="_blank" rel="noopener">Quero o Plano 1</a>
           </article>
@@ -910,10 +942,15 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
             <p>Para quem vai rodar anúncios e precisa de uma página que convence e mede resultados.</p>
             <strong class="price">R$ 1.800</strong>
             <ul>
-              <li>Tudo do Plano 1</li>
+              <li>Landing page de até 5 seções</li>
+              <li>Design personalizado</li>
+              <li>Versão para computador e celular</li>
+              <li>Botão de WhatsApp</li>
+              <li>Formulário de contato</li>
+              <li>2 rodadas de revisão</li>
               <li>Textos persuasivos feitos pela equipe Moara</li>
-              <li>Configuração do Pixel da Meta</li>
-              <li>Configuração do Google Analytics</li>
+              <li>Pixel da Meta e Google Analytics</li>
+              <li class="no">Várias páginas ou loja virtual</li>
             </ul>
             <a class="btn btn-primary" href="https://wa.me/5511945409653?text=Olá!%20Tenho%20interesse%20no%20Plano%202%20(R$%201.800)%20da%20Moara." target="_blank" rel="noopener">Quero o Plano 2</a>
           </article>
@@ -924,30 +961,72 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
             <p>Para quem precisa de várias páginas ou tem muitos produtos para vender.</p>
             <small>A partir de</small>
             <strong class="price">R$ 2.500</strong>
+            <div class="plan-tiers">
+              <span>Até 1.200 produtos: <b>R$ 2.500</b></span>
+              <span>Até 2.000 produtos: <b>R$ 3.000</b></span>
+              <span>Acima de 2.000 produtos: <b>valor a combinar</b></span>
+            </div>
             <ul>
               <li>Site com várias páginas ou loja virtual</li>
-              <li>Até 1.200 produtos: R$ 2.500</li>
-              <li>Até 2.000 produtos: R$ 3.000</li>
-              <li>Acima de 2.000 produtos: valor a combinar</li>
+              <li>Design personalizado</li>
+              <li>Versão para computador e celular</li>
+              <li>Botão de WhatsApp</li>
+              <li class="ask">Formulário de contato <em>a combinar</em></li>
+              <li class="ask">Rodadas de revisão <em>a combinar</em></li>
+              <li class="ask">Textos persuasivos feitos pela equipe Moara <em>a combinar</em></li>
+              <li class="ask">Pixel da Meta e Google Analytics <em>a combinar</em></li>
             </ul>
             <a class="btn btn-outline" href="https://wa.me/5511945409653?text=Olá!%20Tenho%20interesse%20no%20Plano%203%20(site%20completo%20ou%20loja%20virtual)%20da%20Moara." target="_blank" rel="noopener">Quero o Plano 3</a>
           </article>
 
         </div>
 
-        <div class="pricing-notes">
-          <div class="pricing-note reveal">
-            <strong>Domínio</strong>
-            R$ 49,90, cobrado à parte em todos os planos. É o endereço do seu site, com o nome do seu negócio.
-          </div>
-          <div class="pricing-note reveal">
-            <strong>Hospedagem e manutenção</strong>
-            Planos 1 e 2: R$ 59,90/mês, com 1 alteração inclusa por mês. Plano 3: R$ 600/mês.
-          </div>
-          <div class="pricing-note reveal">
-            <strong>Alterações após a entrega</strong>
-            Ajustes gratuitos durante os 7 primeiros dias depois que a página é entregue.
-          </div>
+        <div class="free-adjust reveal">
+          <span class="free-badge">Grátis</span>
+          <strong>Ajustes gratuitos durante os 7 primeiros dias depois que a página é entregue</strong>
+          <span class="free-sub">Se algo não ficar do seu jeito, a gente ajusta sem custo.</span>
+        </div>
+
+        <p class="pricing-extra">Domínio e hospedagem são cobrados à parte. <a href="#mensalidade">Veja o que está incluso na mensalidade ↓</a></p>
+      </div>
+    </section>
+
+    <!-- DOMÍNIO, HOSPEDAGEM E MANUTENÇÃO -->
+    <section class="section light upkeep" id="mensalidade">
+      <div class="container">
+        <div class="section-head reveal">
+          <span class="eyebrow">Mensalidade</span>
+          <h2>O que mantém seu site no ar</h2>
+          <p>Depois que sua página fica pronta, três coisas fazem ela continuar funcionando. Pense no seu site como uma loja:</p>
+        </div>
+
+        <div class="upkeep-grid">
+          <article class="upkeep-card reveal">
+            <span class="upkeep-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>
+            <h3>Domínio: o endereço da sua loja</h3>
+            <p>É o nome que o cliente digita para encontrar você, como seunegocio.com.br.</p>
+            <span class="upkeep-price">R$ 49,90, cobrado à parte</span>
+          </article>
+
+          <article class="upkeep-card reveal">
+            <span class="upkeep-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10l2-6h14l2 6"/><path d="M4 10v10h16V10"/><path d="M10 20v-6h4v6"/></svg></span>
+            <h3>Hospedagem: o ponto onde sua loja fica</h3>
+            <p>É o espaço na internet que deixa seu site aberto 24 horas, todos os dias.</p>
+            <span class="upkeep-price">Incluída na mensalidade</span>
+          </article>
+
+          <article class="upkeep-card reveal">
+            <span class="upkeep-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg></span>
+            <h3>Manutenção: o cuidado com a loja aberta</h3>
+            <p>A gente acompanha, mantém tudo funcionando e faz 1 alteração por mês para você, como trocar um preço, uma foto ou um texto.</p>
+            <span class="upkeep-price">Incluída na mensalidade</span>
+          </article>
+        </div>
+
+        <div class="upkeep-values reveal">
+          <div><span>Hospedagem + manutenção</span><strong>R$ 59,90/mês</strong><small>Planos 1 e 2 e promoção</small></div>
+          <div><span>Hospedagem + manutenção</span><strong>R$ 600/mês</strong><small>Plano 3</small></div>
+          <div><span>Domínio</span><strong>R$ 49,90</strong><small>Cobrado à parte, em todos os planos</small></div>
         </div>
       </div>
     </section>
@@ -955,7 +1034,7 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
     <!--
       SEÇÃO DA PROMOÇÃO
       Para tirar a promoção do site, apague tudo daqui até "FIM DA SEÇÃO DA PROMOÇÃO"
-      e também o link "Promoção" do menu e o botão "PROMOÇÃO R$ 99,99" do topo.
+      e também o link "Promoção" do menu.
     -->
     <section class="promo" id="promocao">
       <div class="container promo-grid">
@@ -965,9 +1044,17 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
           <p>
             Uma forma acessível de colocar seu negócio na internet, com página personalizada,
             versão para computador e celular e botão de WhatsApp. As vagas são limitadas e, quando acabarem,
-            a promoção encerra.
+            a promoção encerra. Não perca tempo!
           </p>
-          <span class="promo-seats">Apenas 30 vagas</span>
+          <div class="promo-counter">
+            <span class="promo-seats">Apenas 30 vagas</span>
+            <div class="counter-row">
+              <span class="counter-label">Vagas restantes</span>
+              <!-- ATUALIZE AQUI A CADA VENDA: troque só o número abaixo (30, 29, 28...) -->
+              <strong class="counter-number" id="vagas-restantes" data-total="30">30</strong>
+            </div>
+            <div class="counter-bar" aria-hidden="true"><span id="vagas-barra"></span></div>
+          </div>
         </div>
 
         <div class="promo-card reveal">
@@ -1327,6 +1414,21 @@ ScrollTrigger.matchMedia({
 
 });
 
+
+
+// PLACAR DE VAGAS DA PROMOÇÃO — o número é trocado manualmente no HTML
+(() => {
+  const counter = document.getElementById("vagas-restantes");
+  const bar = document.getElementById("vagas-barra");
+  if (!counter || !bar) return;
+  const total = parseInt(counter.dataset.total, 10) || 30;
+  const restantes = Math.max(0, Math.min(total, parseInt(counter.textContent, 10) || 0));
+  bar.style.width = (restantes / total * 100) + "%";
+  if (restantes === 0) {
+    counter.textContent = "0";
+    document.querySelector(".counter-label").textContent = "Vagas esgotadas";
+  }
+})();
 
 // TROCA AUTOMÁTICA DOS PROJETOS NO NOTEBOOK + CELULAR
 (() => {
