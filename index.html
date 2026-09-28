@@ -458,6 +458,16 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
     .live-link{white-space:nowrap;background:var(--lime)!important;color:var(--ink)!important;transition:transform .2s ease}
     .live-link:hover{transform:translateY(-2px)}
 
+    /* computador: a seção inteira (título, card e botão) cabe na tela enquanto os cards passam */
+    @media(min-width:951px){
+      .projects-pin-section.section{padding:0}
+      .projects-pin-container{height:100vh;min-height:0;padding-top:28px;padding-bottom:28px}
+      .projects-head{margin-bottom:18px}
+      .projects-head h2{font-size:clamp(1.7rem,5vh,3.35rem);margin:8px 0 6px}
+      .projects-stage{flex:1;min-height:0;height:auto;max-height:560px;max-width:min(900px,calc((100vh - 250px) * 1.9))}
+      .projects-cta{margin-top:18px}
+    }
+
     @media(max-width:950px){
       .projects-pin-section{min-height:auto;overflow:visible}
       .projects-pin-container{min-height:auto;display:block;padding-top:0;padding-bottom:0}
