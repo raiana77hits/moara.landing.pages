@@ -10,7 +10,7 @@ copie a pasta para `proposta-<cliente>/`, troque textos, imagens e valores. Não
 - `fachada-<cliente>.jpg`: foto da fachada inteira e nítida, sem textos de story por cima.
   Sem loja física (corretor, autônomo): `foto-<cliente>.jpg`, uma foto boa da pessoa
 - `cardapio-insta-delivery.jpg` (ou `site-simulacao.jpg`) / `instagram-simulacao.jpg`: prints de simulação (sem barra de status/navegador)
-- `site/` (opcional): simulação animada do site, embutida num iframe dentro do celular e rolando sozinha
+- Simulação animada do site (opcional): embutida direto no `index.html` (iframe com `srcdoc`), imagens soltas na pasta como `site-*.jpg`. Não usar subpasta: a Vercel não achou `site/` e deu 404 dentro do celular
 
 ## Identidade visual (não alterar)
 - Fundo azul-marinho `#050b1e → #0c1a36`, seções claras `#f7f9fc` / branco
@@ -26,7 +26,7 @@ copie a pasta para `proposta-<cliente>/`, troque textos, imagens e valores. Não
    gerenciamento de redes sociais, gestão de tráfego pago). Sem cards de quantidade de vídeos/visitas.
    Quem não vende por delivery (corretor, clínica, serviço): o cardápio vira **landing page** com botão para o WhatsApp.
 3. **Material de apoio (clara)**: dois celulares lado a lado: simulação do Instagram e do cardápio/site.
-   O site pode ser print ou a simulação animada (pasta `site/`).
+   O site pode ser print ou a simulação animada (embutida no próprio index.html).
 4. **Investimento (escura)**: "Escolha o seu plano", 3 pacotes do mais barato ao mais caro;
    o último é o **Recomendado** (borda laranja + selo). Sem valores "contratando separado" nem tabela avulsa.
    Se houver só um plano: título "Seu plano", um card único com selo Recomendado.
