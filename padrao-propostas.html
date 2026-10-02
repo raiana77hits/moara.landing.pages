@@ -1,0 +1,115 @@
+<title>Padrão de Propostas Humanize</title>
+<style>
+/* Layout: guia em coluna única, mesma linguagem visual das propostas (marinho, azul, laranja) */
+:root{
+  --bg:#f4f7fc; --surface:#ffffff; --fg:#0b1633; --muted:#5b6478; --line:#dfe5f0;
+  --blue:#1673d6; --orange:#e2611a; --navy:#081226; --navy-fg:#e8eefb;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#050b1e; --surface:#0c1a36; --fg:#e8eefb; --muted:#a8b4d0; --line:#1d2c50;
+  --blue:#4fc3ff; --orange:#ffa15c; --navy:#0c1a36; --navy-fg:#e8eefb; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#050b1e; --surface:#0c1a36; --fg:#e8eefb; --muted:#a8b4d0; --line:#1d2c50;
+  --blue:#4fc3ff; --orange:#ffa15c; --navy:#0c1a36; --navy-fg:#e8eefb; color-scheme:dark }
+body{ background:var(--bg); color:var(--fg); font-family:'Segoe UI',Arial,Helvetica,sans-serif; line-height:1.55; }
+.wrap{ max-width:760px; margin:0 auto; padding-inline:16px; padding-block:28px 56px; display:flex; flex-direction:column; gap:28px; }
+header{ background:var(--navy); color:var(--navy-fg); border-radius:16px; padding:24px 22px; }
+.eyebrow{ text-transform:uppercase; letter-spacing:2.5px; font-size:11px; font-weight:800; color:var(--blue); }
+header .eyebrow{ color:#4fc3ff; }
+h1{ font-size:26px; margin:8px 0 6px; text-wrap:balance; }
+h2{ font-size:19px; margin:4px 0 12px; text-wrap:balance; }
+p{ margin:0; max-width:65ch; }
+header p{ color:#c4cee0; }
+a{ color:var(--blue); }
+.bar{ width:42px; height:3px; border-radius:3px; background:linear-gradient(90deg,#4fc3ff,#ffa15c); margin-top:12px; }
+ol.steps{ list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px; counter-reset:s; }
+ol.steps li{ counter-increment:s; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px 14px 52px; position:relative; }
+ol.steps li::before{ content:counter(s); position:absolute; left:14px; top:13px; width:26px; height:26px; border-radius:50%; background:var(--blue); color:var(--bg); font-weight:800; font-size:13px; display:grid; place-items:center; }
+ol.steps b{ display:block; }
+ol.steps span{ color:var(--muted); font-size:14px; }
+.tbl{ overflow-x:auto; }
+table{ width:100%; border-collapse:collapse; font-size:14px; background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+th,td{ text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+th{ font-size:11px; text-transform:uppercase; letter-spacing:1.2px; color:var(--muted); }
+td.v{ white-space:nowrap; font-weight:800; font-variant-numeric:tabular-nums; }
+tr.rec td{ background:color-mix(in srgb, var(--orange) 10%, transparent); }
+.tag{ display:inline-block; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.6px; color:var(--orange); border:1px solid var(--orange); border-radius:99px; padding:1px 7px; margin-left:4px; }
+ul.list{ margin:0; padding-left:20px; display:flex; flex-direction:column; gap:6px; }
+.swatches{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.sw{ display:flex; align-items:center; gap:8px; font-size:13px; background:var(--surface); border:1px solid var(--line); border-radius:99px; padding:4px 12px 4px 4px; }
+.sw i{ width:22px; height:22px; border-radius:50%; display:block; border:1px solid var(--line); }
+code{ font-family:Consolas,Menlo,monospace; font-size:13px; background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:1px 6px; }
+.note{ font-size:13px; color:var(--muted); margin-top:10px; }
+pre{ background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px; font-size:13px; white-space:pre-wrap; margin:0; }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Humanize · Marketing digital</span>
+    <h1>Padrão de Propostas Comerciais</h1>
+    <p>Estrutura que toda proposta nova deve seguir. A referência é a proposta da Vibe Petz (outubro de 2026), que nasceu do modelo da JK Doce e Embalagens.</p>
+    <div class="bar"></div>
+    <p style="margin-top:12px;font-size:14px;">Exemplo pronto: <a href="https://claude.ai/artifact/Wx7Agc2Aj2nABD3iUsm6zE" style="color:#4fc3ff;">Proposta Vibe Petz</a></p>
+  </header>
+
+  <section>
+    <span class="eyebrow">Antes de começar</span>
+    <h2>O que pedir ao vendedor</h2>
+    <ul class="list">
+      <li>Nome do cliente, segmento, endereço e @ do Instagram</li>
+      <li>Logo do cliente e uma foto da fachada inteira, nítida, sem textos de story por cima</li>
+      <li>Prints de simulação: Instagram organizado e cardápio ou site (sem barra de status e de navegador)</li>
+      <li>Serviços e valores dos 3 pacotes</li>
+      <li>Nota no Google e horário de funcionamento, se houver, para o diagnóstico</li>
+    </ul>
+  </section>
+
+  <section>
+    <span class="eyebrow">Estrutura da página</span>
+    <h2>As 5 seções, nesta ordem</h2>
+    <ol class="steps">
+      <li><b>Capa (fundo escuro)</b><span>Logo Humanize à esquerda e logo do cliente à direita. Selo "Proposta comercial", título "Marketing Digital para a [Cliente]", texto padrão da Humanize, foto da fachada com legenda "[Cliente] · [endereço] · [bairro], [cidade]" e Diagnóstico rápido com 3 tópicos.</span></li>
+      <li><b>Serviços incluídos (fundo branco)</b><span>3 a 4 cards com ícone, por exemplo: cardápio digital na Insta Delivery, gerenciamento de redes sociais e gestão de tráfego pago. Quantidade de vídeos e visitas fica só dentro dos pacotes.</span></li>
+      <li><b>Material de apoio (fundo claro)</b><span>Dois celulares lado a lado, do mesmo tamanho: simulação do Instagram e simulação do cardápio ou site.</span></li>
+      <li><b>Investimento (fundo escuro)</b><span>"Escolha o seu plano" com 3 pacotes, do mais barato ao mais caro. O último leva o selo Recomendado e a borda laranja. Não mostrar "contratando separado" nem tabela de valores avulsos.</span></li>
+      <li><b>Condições e chamada final</b><span>Pagamento antecipado na assinatura, assinatura pelo Gov.br e renovação automática por 12 meses. Depois, a caixa "Vamos aprovar e dar início à parceria?" com botão de WhatsApp, os contatos e o botão fixo "Falar com a Humanize agora".</span></li>
+    </ol>
+  </section>
+
+  <section>
+    <span class="eyebrow">Pacotes de referência</span>
+    <h2>Como montar os 3 planos</h2>
+    <div class="tbl">
+      <table>
+        <tr><th>Pacote</th><th>O que inclui</th><th>Valor (Vibe Petz)</th></tr>
+        <tr><td><b>1 · Publi avulsa</b></td><td>3 vídeos gravados e editados, gravação em um dia combinado</td><td class="v">R$ 350<br><small>pagamento único</small></td></tr>
+        <tr><td><b>2 · Cardápio + Tráfego + Vídeos</b></td><td>Cardápio na Insta Delivery com gerenciamento e suporte, tráfego pago, 10 vídeos por mês prontos e editáveis. O cliente publica.</td><td class="v">R$ 1.200/mês</td></tr>
+        <tr class="rec"><td><b>3 · Pacote Completo</b><span class="tag">Recomendado</span></td><td>Cardápio na Insta Delivery, gerenciamento de redes, 15 vídeos por mês gravados e postados, tráfego pago e 2 visitas por mês na loja</td><td class="v">R$ 1.550/mês</td></tr>
+      </table>
+    </div>
+    <p class="note">Valores avulsos de uso interno, que não aparecem na proposta: cardápio R$ 600, tráfego pago R$ 750/mês, redes sociais R$ 1.500/mês.</p>
+  </section>
+
+  <section>
+    <span class="eyebrow">Identidade visual</span>
+    <h2>Cores, logo e contatos fixos</h2>
+    <p>Página no formato de celular (até 520px de largura), pronta para imprimir em A4. Logo oficial da Humanize no topo da capa.</p>
+    <div class="swatches">
+      <span class="sw"><i style="background:#050b1e"></i>Marinho #050b1e</span>
+      <span class="sw"><i style="background:#1ea7ff"></i>Azul #1ea7ff</span>
+      <span class="sw"><i style="background:#ff7a30"></i>Laranja #ff7a30</span>
+      <span class="sw"><i style="background:#f7f9fc"></i>Claro #f7f9fc</span>
+      <span class="sw"><i style="background:#25D366"></i>WhatsApp #25D366</span>
+    </div>
+    <p class="note">Contatos: WhatsApp (11) 91489-4352 · humanizemktdigital@gmail.com · @humanizemktdigital</p>
+  </section>
+
+  <section>
+    <span class="eyebrow">Para o Claude</span>
+    <h2>Como pedir uma proposta nova</h2>
+    <pre>Claude, cria uma proposta nova para [cliente] seguindo o PADRAO-PROPOSTAS.md
+do repositório moara.landing.pages (base: pasta proposta-vibe-petz).
+Segue logo, fachada, prints e os valores dos 3 pacotes.</pre>
+    <p class="note">O guia completo fica em <code>PADRAO-PROPOSTAS.md</code>, na raiz do repositório <code>moara.landing.pages</code>. Cada proposta ganha a sua pasta <code>proposta-[cliente]/</code>.</p>
+  </section>
+</div>
