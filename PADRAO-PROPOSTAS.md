@@ -13,7 +13,7 @@ copie a pasta para `proposta-<cliente>/`, troque textos, imagens e valores. Não
 - Simulação animada do site (opcional): embutida direto no `index.html` (iframe com `srcdoc`), imagens soltas na pasta como `site-*.jpg`. Não usar subpasta: a Vercel não achou `site/` e deu 404 dentro do celular
 
 ## Identidade visual (não alterar)
-- Fundo azul-marinho `#050b1e → #0c1a36`, seções claras `#f7f9fc` / branco
+- Fundo azul-marinho da marca (Canva Humanize) `#040b2a → #0a1a52 → #0d2470`, brilhos em azul `#2541b2`/`#3d85c6`/`#8fc9f0`, seções claras `#f7f9fc` / branco
 - Destaques azul `#1ea7ff`/`#4fc3ff` e laranja `#ff7a30`/`#ffa15c`
 - Fonte Segoe UI / Arial; botão WhatsApp verde `#25D366`
 - Contatos: WhatsApp (11) 91489-4352 · humanizemktdigital@gmail.com · @humanizemktdigital
