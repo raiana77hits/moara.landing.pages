@@ -141,6 +141,24 @@
     section{break-inside:avoid;padding:28px 34px}
     .sticky-cta{display:none}
   }
+  .plans{ display:flex; flex-direction:column; gap:14px; margin-top:18px; }
+  .plan{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); border-radius:16px; padding:20px; position:relative; }
+  .plan.best{ border:2px solid var(--orange-400); background:rgba(255,122,48,.08); }
+  .plan .badge{ position:absolute; top:-11px; right:16px; background:var(--orange-500); color:#fff; font-size:10px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; padding:4px 10px; border-radius:99px; }
+  .plan .pn{ font-size:11px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:var(--blue-400); }
+  .plan h3{ font-size:17px; font-weight:800; color:#fff; margin-top:4px; }
+  .plan .val{ font-size:32px; font-weight:800; color:#fff; margin-top:10px; line-height:1; }
+  .plan .val small{ font-size:13px; color:#a8b4d0; font-weight:700; }
+  .plan .old{ font-size:12px; color:#a8b4d0; margin-top:6px; }
+  .plan .old s{ color:#7c88a8; }
+  .plan .old b{ color:var(--orange-400); }
+  .plan ul{ list-style:none; margin-top:12px; }
+  .plan li{ font-size:12.5px; color:#dbe3f2; padding:5px 0 5px 20px; position:relative; line-height:1.4; }
+  .plan li::before{ content:"✓"; position:absolute; left:0; color:var(--blue-400); font-weight:800; }
+  .plan .note{ font-size:11.5px; color:#a8b4d0; margin-top:8px; font-style:italic; }
+  table.avulso{ width:100%; border-collapse:collapse; margin-top:12px; }
+  table.avulso td{ padding:8px 0; font-size:12.5px; color:#dbe3f2; border-bottom:1px solid rgba(255,255,255,.1); }
+  table.avulso td:last-child{ text-align:right; font-weight:800; color:#fff; }
   .menu-mock{ background:#fff; font-size:9px; color:var(--dark-text); }
   .menu-mock .mh{ background:#0b1a4a; color:#fff; padding:22px 10px 10px; display:flex; align-items:center; gap:7px; }
   .menu-mock .mh img{ width:30px; height:30px; border-radius:50%; }
@@ -211,7 +229,7 @@
       <ul class="bullets">
         <li>Loja física com <b>identidade visual forte</b>: fachada azul e amarela, alinhada ao logo da marca.</li>
         <li>Instagram ativo, mas sem um volume constante de vídeos e sem tráfego pago para trazer clientes novos.</li>
-        <li>Objetivo da parceria: <b>vender mais pelo delivery</b>, com cardápio digital, Insta Delivery e redes sociais estratégicas.</li>
+        <li>Objetivo da parceria: <b>vender mais pelo delivery</b>, com cardápio digital na Insta Delivery, tráfego pago e redes sociais estratégicas.</li>
       </ul>
     </div>
   </section>
@@ -226,11 +244,11 @@
       <div class="cards">
         <div class="card">
           <div class="icon-badge"><svg class="icon"><use href="#i-menu"/></svg></div>
-          <div><h3>Cardápio digital</h3><p>Catálogo on-line com produtos, preços e pedido direto pelo WhatsApp.</p></div>
+          <div><h3>Cardápio digital na Insta Delivery</h3><p>Cardápio montado na plataforma Insta Delivery, com fotos, descrições e preços de todos os produtos, na identidade visual da Vibe Petz.</p></div>
         </div>
         <div class="card">
-          <div class="icon-badge orange"><svg class="icon"><use href="#i-bag"/></svg></div>
-          <div><h3>Insta Delivery</h3><p>Instagram estruturado para vender: link de pedidos, destaques e botão de compra.</p></div>
+          <div class="icon-badge orange"><svg class="icon"><use href="#i-chat"/></svg></div>
+          <div><h3>Gerenciamento de redes sociais</h3><p>Planejamento de conteúdo, legendas e publicação no Instagram e no Facebook.</p></div>
         </div>
         <div class="card">
           <div class="icon-badge"><svg class="icon"><use href="#i-megaphone"/></svg></div>
@@ -238,7 +256,7 @@
         </div>
         <div class="card">
           <div class="icon-badge orange"><svg class="icon"><use href="#i-video"/></svg></div>
-          <div><h3>Social media · 15 vídeos/mês</h3><p>Planejamento, roteiro, edição e publicação de 15 vídeos por mês.</p></div>
+          <div><h3>15 vídeos por mês</h3><p>Roteiro, gravação e edição de 15 vídeos por mês.</p></div>
         </div>
         <div class="card">
           <div class="icon-badge"><svg class="icon"><use href="#i-camera"/></svg></div>
@@ -267,7 +285,7 @@
           <div class="bt">Fazer pedido no WhatsApp</div>
         </div>
       </div>
-      <div class="phone-cap">Modelo ilustrativo do cardápio digital da Vibe Petz</div>
+      <div class="phone-cap">Modelo ilustrativo do cardápio da Vibe Petz na Insta Delivery</div>
     </div>
   </section>
 
@@ -277,18 +295,59 @@
     <div class="lines"></div>
     <div class="z">
       <span class="eyebrow">Proposta de investimento</span>
-      <h2>Condições da parceria</h2>
+      <h2>Escolha o seu plano</h2>
       <div class="divider"></div>
 
-      <div class="price-card">
-        <div class="val">R$ 0.000<small>/mês</small></div>
-        <div class="tag">Valor promocional · 3 primeiros meses</div>
-        <div class="after">Após esse período, caso o contrato seja renovado, o investimento passa a ser de <b>R$ 0.000/mês</b>.</div>
+      <p class="lead">Preparamos uma condição especial para a Vibe Petz. Escolha o formato que faz mais sentido para a loja:</p>
+
+      <div class="plans">
+        <div class="plan best">
+          <span class="badge">Recomendado</span>
+          <div class="pn">Opção 1</div>
+          <h3>Pacote Completo</h3>
+          <div class="val">R$ 1.650<small>/mês</small></div>
+          <div class="old">Contratando separado: <s>R$ 2.850</s> · <b>economia de R$ 1.200</b></div>
+          <ul>
+            <li>Cardápio digital na Insta Delivery, com fotos, descrições e identidade visual</li>
+            <li>Gerenciamento das redes sociais</li>
+            <li>15 vídeos por mês, gravados e entregues</li>
+            <li>Gestão de tráfego pago</li>
+            <li>2 visitas mensais na loja para captação</li>
+          </ul>
+        </div>
+
+        <div class="plan">
+          <div class="pn">Opção 2</div>
+          <h3>Cardápio + Tráfego</h3>
+          <div class="val">R$ 1.200<small>/mês</small></div>
+          <ul>
+            <li>Cardápio digital na Insta Delivery</li>
+            <li>Gestão de tráfego pago</li>
+            <li>Sugestões de vídeos para os anúncios</li>
+          </ul>
+          <div class="note">A gravação e a publicação dos conteúdos ficam por conta da Vibe Petz.</div>
+        </div>
+
+        <div class="plan">
+          <div class="pn">Opção 3</div>
+          <h3>Gravação de vídeos</h3>
+          <div class="val">R$ 350</div>
+          <ul>
+            <li>3 vídeos gravados e editados</li>
+            <li>Gravação em um dia da semana combinado</li>
+          </ul>
+        </div>
       </div>
 
-      <table class="svc">
-        <tr><td class="n"><svg class="icon" style="width:16px;height:16px;color:var(--blue-400);"><use href="#i-clock"/></svg></td><td>Contrato inicial com duração de 3 meses</td></tr>
-        <tr><td class="n"><svg class="icon" style="width:16px;height:16px;color:var(--orange-400);"><use href="#i-check"/></svg></td><td>Primeiro pagamento antecipado, no momento da assinatura</td></tr>
+      <span class="eyebrow" style="margin-top:26px; display:block;">Valores dos serviços avulsos</span>
+      <table class="avulso">
+        <tr><td>Criação do cardápio digital (Insta Delivery)</td><td>R$ 600</td></tr>
+        <tr><td>Gestão de tráfego pago</td><td>R$ 750/mês</td></tr>
+        <tr><td>Gerenciamento de redes sociais</td><td>R$ 1.500/mês</td></tr>
+      </table>
+
+      <table class="svc" style="margin-top:22px;">
+                <tr><td class="n"><svg class="icon" style="width:16px;height:16px;color:var(--orange-400);"><use href="#i-check"/></svg></td><td>Primeiro pagamento antecipado, no momento da assinatura</td></tr>
         <tr><td class="n"><svg class="icon" style="width:16px;height:16px;color:var(--blue-400);"><use href="#i-doc"/></svg></td><td>Assinatura digital do contrato pelo Gov.br</td></tr>
         <tr><td class="n"><svg class="icon" style="width:16px;height:16px;color:var(--orange-400);"><use href="#i-repeat"/></svg></td><td>Renovação automática por 12 meses, caso nenhuma das partes manifeste interesse em encerrar</td></tr>
       </table>
