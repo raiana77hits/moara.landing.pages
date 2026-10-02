@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Espaço Granada | Promoção de Agosto</title>
+<meta name="description" content="Espaço Granada: diária de segunda a sexta por apenas R$ 399,99 no mês de agosto. Piscina aquecida, churrasqueira, espaço kids e mais.">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--roxo:#3b1470;--roxo2:#6a1fd1;--amarelo:#ffc400;--escuro:#0f0a1a;--branco:#fff}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Poppins',sans-serif;background:var(--escuro);color:var(--branco);line-height:1.5}
+h1,h2,h3,.anton{font-family:'Anton',sans-serif;text-transform:uppercase;letter-spacing:1px}
+a{color:inherit;text-decoration:none}
+.container{max-width:1100px;margin:0 auto;padding:0 16px}
+.btn{display:inline-flex;align-items:center;gap:10px;background:var(--amarelo);color:#1a0b33;font-weight:800;padding:16px 32px;border-radius:50px;font-size:1.1rem;transition:transform .2s,box-shadow .2s;box-shadow:0 8px 24px rgba(255,196,0,.35)}
+.btn:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(255,196,0,.5)}
+header{padding:20px 0;position:absolute;width:100%;z-index:2}
+.logo{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:110px;height:110px;border-radius:50%;background:#000;border:3px solid #fff;line-height:1}
+.logo .t1{font-family:'Anton';font-size:1.6rem;font-style:italic}
+.logo .t2{font-weight:800;font-size:.9rem}
+.hero{min-height:100vh;display:flex;align-items:center;padding:150px 0 80px;background:radial-gradient(circle at 80% 20%,rgba(106,31,209,.55),transparent 55%),linear-gradient(160deg,#1a0b33 0%,var(--roxo) 60%,#12081f 100%);position:relative;overflow:hidden}
+.hero-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:40px;align-items:center}
+.tag{color:var(--amarelo);font-family:'Anton';font-size:1.6rem;font-style:italic}
+.hero h1{font-size:clamp(3rem,8vw,5.5rem);line-height:.95;color:var(--amarelo);text-shadow:4px 4px 0 #000}
+.hero h1 span{display:block;color:#fff;font-size:.75em;margin-top:10px}
+.hero p{margin:24px 0 32px;font-size:1.1rem;opacity:.9}
+.preco{background:linear-gradient(145deg,var(--roxo2),var(--roxo));border:3px solid var(--amarelo);border-radius:24px;padding:30px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.preco .faixa{background:var(--amarelo);color:#1a0b33;font-family:'Anton';font-size:1.4rem;padding:6px 18px;border-radius:8px;display:inline-block;transform:rotate(-2deg)}
+.preco .sub{font-family:'Anton';font-size:1.3rem;margin-top:16px}
+.preco .valor{font-family:'Anton';font-size:clamp(4rem,12vw,6.5rem);line-height:1}
+.preco .valor small{font-size:.35em;vertical-align:top;color:var(--amarelo)}
+.preco .valor sup{font-size:.4em}
+.preco .obs{border:2px solid var(--amarelo);border-radius:10px;padding:8px;font-family:'Anton';margin-top:14px}
+section{padding:80px 0}
+.titulo{text-align:center;font-size:clamp(2rem,5vw,3rem);margin-bottom:12px}
+.titulo em{color:var(--amarelo);font-style:normal}
+.subtitulo{text-align:center;opacity:.8;margin-bottom:48px}
+.ambientes{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.amb{border-radius:16px;overflow:hidden;border:2px solid rgba(255,255,255,.15);background:#1c1230;transition:transform .2s}
+.amb:hover{transform:translateY(-6px);border-color:var(--amarelo)}
+.amb .ico{height:150px;display:flex;align-items:center;justify-content:center;font-size:4rem;background:linear-gradient(135deg,var(--roxo2),var(--roxo))}
+.amb h3{padding:16px;text-align:center;font-size:1.2rem}
+.diferenciais{background:linear-gradient(180deg,#12081f,var(--roxo))}
+.difs{display:grid;grid-template-columns:repeat(6,1fr);gap:16px}
+.dif{text-align:center;padding:24px 12px;background:rgba(0,0,0,.3);border-radius:16px;border:1px solid rgba(255,196,0,.3)}
+.dif .ico{font-size:2.5rem;margin-bottom:10px}
+.dif p{font-weight:600;font-size:.9rem;text-transform:uppercase}
+.cta{text-align:center;background:var(--amarelo);color:#1a0b33}
+.cta h2{font-size:clamp(2rem,6vw,3.5rem)}
+.cta .tel{font-family:'Anton';font-size:clamp(2rem,6vw,3rem);margin:12px 0 24px}
+.cta .btn{background:#1a0b33;color:#fff;box-shadow:none}
+.cta .insta{display:block;margin-top:20px;font-weight:600}
+footer{background:var(--roxo);text-align:center;padding:24px 16px;font-size:.85rem;text-transform:uppercase}
+.wpp{position:fixed;bottom:20px;right:20px;width:60px;height:60px;border-radius:50%;background:#25d366;display:flex;align-items:center;justify-content:center;font-size:1.8rem;box-shadow:0 6px 20px rgba(0,0,0,.4);z-index:10}
+@media(max-width:900px){.hero-grid{grid-template-columns:1fr;text-align:center}.ambientes{grid-template-columns:repeat(2,1fr)}.difs{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:520px){.ambientes{grid-template-columns:1fr}.difs{grid-template-columns:repeat(2,1fr)}.btn{padding:14px 22px;font-size:1rem}}
+</style>
+</head>
+<body>
+<header><div class="container"><div class="logo"><span class="t1">ESPAÇO</span><span class="t2">Granada</span></div></div></header>
+
+<section class="hero">
+  <div class="container hero-grid">
+    <div>
+      <div class="tag">Promoção</div>
+      <h1>Imperdível!<span>Mês de Agosto!</span></h1>
+      <p>Alugue o Espaço Granada para sua festa, reunião ou comemoração com piscina aquecida, churrasqueira coberta e muito conforto.</p>
+      <a class="btn" href="https://wa.me/5511940216632?text=Ol%C3%A1!%20Quero%20reservar%20o%20Espa%C3%A7o%20Granada%20na%20promo%C3%A7%C3%A3o%20de%20agosto." target="_blank" rel="noopener">💬 Faça sua reserva</a>
+    </div>
+    <div class="preco">
+      <div class="faixa">De segunda a sexta</div>
+      <div class="sub">Diária por apenas</div>
+      <div class="valor"><small>R$</small>399<sup>,99</sup></div>
+      <div class="obs">Com agendamento feito antes!</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2 class="titulo">Conheça o <em>espaço</em></h2>
+    <p class="subtitulo">Ambientes pensados para todas as idades</p>
+    <div class="ambientes">
+      <div class="amb"><div class="ico">🛋️</div><h3>Sala / Estar</h3></div>
+      <div class="amb"><div class="ico">⛱️</div><h3>Área Coberta</h3></div>
+      <div class="amb"><div class="ico">🧸</div><h3>Espaço Kids</h3></div>
+      <div class="amb"><div class="ico">🏓</div><h3>Sala de Jogos</h3></div>
+      <div class="amb"><div class="ico">🍖</div><h3>Churrasqueira Coberta</h3></div>
+      <div class="amb"><div class="ico">🏊</div><h3>Piscina Aquecida</h3></div>
+    </div>
+  </div>
+</section>
+
+<section class="diferenciais">
+  <div class="container">
+    <h2 class="titulo">Por que escolher o <em>Granada</em>?</h2>
+    <p class="subtitulo">Tudo o que você precisa em um só lugar</p>
+    <div class="difs">
+      <div class="dif"><div class="ico">🌊</div><p>Piscina aquecida</p></div>
+      <div class="dif"><div class="ico">🔥</div><p>Área gourmet com churrasqueira</p></div>
+      <div class="dif"><div class="ico">🛋️</div><p>Ambiente confortável</p></div>
+      <div class="dif"><div class="ico">🎉</div><p>Ideal para reuniões, festas e comemorações</p></div>
+      <div class="dif"><div class="ico">🛡️</div><p>Segurança e privacidade</p></div>
+      <div class="dif"><div class="ico">📍</div><p>Local seguro e privativo</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="container">
+    <h2>Faça sua reserva!</h2>
+    <div class="tel">📞 (11) 94021-6632</div>
+    <a class="btn" href="https://wa.me/5511940216632?text=Ol%C3%A1!%20Quero%20reservar%20o%20Espa%C3%A7o%20Granada%20na%20promo%C3%A7%C3%A3o%20de%20agosto." target="_blank" rel="noopener">💬 Chamar no WhatsApp</a>
+    <a class="insta" href="https://instagram.com/espacogranada" target="_blank" rel="noopener">📸 @espacogranada</a>
+  </div>
+</section>
+
+<footer>★ Promoção válida de segunda a sexta-feira para agendamentos realizados durante o mês de agosto. ★</footer>
+
+<a class="wpp" href="https://wa.me/5511940216632" target="_blank" rel="noopener" aria-label="WhatsApp">💬</a>
+</body>
+</html>
