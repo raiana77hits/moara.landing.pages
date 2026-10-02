@@ -101,6 +101,10 @@
   .gitem .gcap span{ font-size:10.5px; color:var(--gray-600); display:block; }
 
   /* phone mockup for real site */
+  .phones{ display:flex; gap:12px; justify-content:center; margin-top:18px; }
+  .phones > div{ flex:1; max-width:220px; }
+  .phones .phone img{ aspect-ratio:9/17; object-fit:cover; object-position:top; }
+  .phones .phone{ width:100%; margin:0; border-width:5px; border-radius:22px; }
   .phone{ width:250px; margin:18px auto 4px; border-radius:26px; background:#0d1730; border:6px solid #182549; box-shadow:0 16px 40px rgba(0,0,0,.4); overflow:hidden; position:relative; }
   .phone .notch{ position:absolute; top:0; left:50%; transform:translateX(-50%); width:70px; height:14px; background:#182549; border-radius:0 0 10px 10px; z-index:3;}
   .phone img{ width:100%; display:block; }
@@ -221,7 +225,7 @@
         <img src="fachada-vibe-petz.jpg" alt="Fachada da loja Vibe Petz Pet Shop" style="height:230px;object-position:center 15%;">
         <div class="hero-cap">
           <svg class="icon" style="width:15px;height:15px;color:var(--blue-400);"><use href="#i-store"/></svg>
-          Vibe Petz · Pet Shop · @vibe_petz
+          Vibe Petz · Pet Shop · Penha, São Paulo · @vibe_petz
         </div>
       </div>
 
@@ -270,14 +274,19 @@
   <section class="light">
     <div class="z">
       <span class="eyebrow">Material de apoio</span>
-      <h2>Como fica o cardápio digital</h2>
+      <h2>Como fica o Instagram e o cardápio</h2>
       <div class="divider"></div>
 
-      <div class="phone">
-        <div class="notch"></div>
-        <img src="cardapio-insta-delivery.jpg" alt="Simulação do cardápio da Vibe Pets na Insta Delivery">
+      <div class="phones">
+        <div>
+          <div class="phone"><div class="notch"></div><img src="instagram-simulacao.jpg" alt="Simulação do Instagram da Vibe Petz"></div>
+          <div class="phone-cap">Instagram organizado e com identidade visual</div>
+        </div>
+        <div>
+          <div class="phone"><div class="notch"></div><img src="cardapio-insta-delivery.jpg" alt="Simulação do cardápio da Vibe Pets na Insta Delivery"></div>
+          <div class="phone-cap">Cardápio digital na Insta Delivery</div>
+        </div>
       </div>
-      <div class="phone-cap">Simulação do cardápio da Vibe Petz na Insta Delivery</div>
     </div>
   </section>
 
