@@ -176,6 +176,8 @@
   .menu-mock .it i{ font-style:normal; color:var(--gray-600); }
   .menu-mock .pr{ margin-left:auto; font-weight:800; color:#1e3fae; }
   .menu-mock .bt{ margin:8px; background:#25D366; color:#fff; text-align:center; font-weight:800; padding:8px; border-radius:8px; }
+  .sim-frame{ aspect-ratio:9/17; position:relative; overflow:hidden; background:#fff; }
+  .sim-frame iframe{ position:absolute; top:0; left:0; width:320px; height:604px; border:0; transform-origin:0 0; }
 </style>
 </head>
 <body>
@@ -279,7 +281,7 @@
           <div class="phone-cap">Instagram organizado e com identidade visual</div>
         </div>
         <div>
-          <div class="phone"><div class="notch"></div><img src="site-simulacao.jpg" alt="Simulação da landing page da Chay Holanda"></div>
+          <div class="phone"><div class="notch"></div><div class="sim-frame"><iframe src="site/index.html" title="Simulação da landing page da Chay Holanda" loading="lazy" scrolling="no"></iframe></div></div>
           <div class="phone-cap">Landing page com contato no WhatsApp</div>
         </div>
       </div>
@@ -342,5 +344,9 @@
   </div>
 
 </div>
+<script>
+  function fitSim(){ document.querySelectorAll('.sim-frame').forEach(f=>{ f.querySelector('iframe').style.transform='scale('+(f.clientWidth/320)+')'; }); }
+  addEventListener('load',fitSim); addEventListener('resize',fitSim);
+</script>
 </body>
 </html>
