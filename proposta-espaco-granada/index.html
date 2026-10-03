@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Proposta Comercial · Espaço Granada · Humanize</title>
+<style>
+  :root{
+    --navy-900:#050b1e;
+    --navy-800:#081226;
+    --navy-700:#0c1a36;
+    --blue-500:#1ea7ff;
+    --blue-400:#4fc3ff;
+    --blue-glow:#00c3ff;
+    --orange-500:#ff7a30;
+    --orange-400:#ffa15c;
+    --white:#ffffff;
+    --gray-050:#f7f9fc;
+    --gray-100:#eef1f7;
+    --gray-300:#cfd6e4;
+    --gray-600:#5b6478;
+    --dark-text:#0b1633;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{background:var(--navy-900);}
+  body{
+    font-family:'Segoe UI', Arial, Helvetica, sans-serif; color:var(--dark-text);
+    background:var(--navy-900);
+    -webkit-font-smoothing:antialiased;
+  }
+  img{max-width:100%; display:block;}
+  .wrap{ max-width:520px; margin:0 auto; background:var(--white); min-height:100vh; position:relative; overflow:hidden;
+    box-shadow:0 0 60px rgba(0,0,0,.5); }
+
+  section{ position:relative; padding:38px 22px; overflow:hidden; }
+  .dark{ background:linear-gradient(160deg,var(--navy-900) 0%, var(--navy-800) 55%, var(--navy-700) 100%); color:#fff; }
+  .light{ background:var(--gray-050); color:var(--dark-text); }
+  .white{ background:var(--white); color:var(--dark-text); }
+
+  .glow{ position:absolute; border-radius:50%; filter:blur(50px); opacity:.35; pointer-events:none; }
+  .glow-blue{ background:radial-gradient(circle, var(--blue-glow), transparent 70%); }
+  .glow-orange{ background:radial-gradient(circle, var(--orange-500), transparent 70%); }
+  .lines{ position:absolute; inset:0; opacity:.07; pointer-events:none;
+    background-image:repeating-linear-gradient(115deg, var(--blue-400) 0px, var(--blue-400) 1px, transparent 1px, transparent 60px); }
+
+  .z{ position:relative; z-index:2; }
+
+  /* header / logos */
+  .topbar{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .humanize-wordmark{display:flex;flex-direction:column;line-height:.9;color:#fff}
+  .humanize-wordmark strong{font-size:17px;letter-spacing:2.2px}
+  .humanize-wordmark span{font-size:7px;letter-spacing:2px;text-transform:uppercase;color:var(--blue-400);margin-top:5px}
+  .jk-badge{ display:flex; align-items:center; gap:8px; }
+  .jk-badge img{ height:44px; width:44px; border-radius:50%; background:#fff; object-fit:contain; }
+
+  .pill{ display:inline-flex; align-items:center; gap:6px; padding:6px 13px; border-radius:999px; font-size:10.5px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; }
+  .pill-orange{ background:rgba(255,122,48,.15); color:var(--orange-400); }
+  .pill-blue{ background:rgba(79,195,255,.15); color:var(--blue-400); }
+
+  .eyebrow{ text-transform:uppercase; letter-spacing:3px; font-size:11px; font-weight:800; color:var(--blue-400); }
+  .light .eyebrow, .white .eyebrow{ color:var(--blue-500); }
+
+  h1{ font-size:27px; font-weight:800; line-height:1.22; margin-top:12px; }
+  h2{ font-size:21px; font-weight:800; line-height:1.25; margin-top:6px; }
+  .accent{ color:var(--blue-400); }
+  .light .accent, .white .accent{ color:var(--blue-500); }
+
+  .lead{ font-size:14.5px; line-height:1.6; color:#c4cee0; margin-top:12px; }
+  .light .lead, .white .lead{ color:var(--gray-600); }
+
+  .divider{ width:42px; height:3px; background:linear-gradient(90deg,var(--blue-400),var(--orange-400)); border-radius:3px; margin:14px 0; }
+
+  .hero-photo{ margin-top:20px; border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,.14); box-shadow:0 14px 34px rgba(0,0,0,.35); }
+  .hero-photo img{ width:100%; display:block; }
+  .hero-cap{ background:rgba(255,255,255,.06); padding:9px 13px; font-size:11px; color:#a8b4d0; display:flex; align-items:center; gap:6px; }
+
+  ul.bullets{ list-style:none; margin-top:16px; }
+  ul.bullets li{ position:relative; padding-left:20px; margin-bottom:11px; font-size:13.5px; line-height:1.5; color:#dbe3f2; }
+  ul.bullets li::before{ content:""; position:absolute; left:0; top:6px; width:8px; height:8px; border-radius:2px; background:var(--blue-400); transform:rotate(45deg); }
+  ul.bullets li b{ color:#fff; }
+
+  /* service cards */
+  .cards{ display:flex; flex-direction:column; gap:12px; margin-top:18px; }
+  .card{ background:var(--white); border-radius:14px; padding:16px; box-shadow:0 6px 18px rgba(11,22,51,.07); border:1px solid var(--gray-100); display:flex; gap:13px; align-items:flex-start; }
+  .card h3{ font-size:14.5px; font-weight:800; margin-bottom:3px; }
+  .card p{ font-size:12.5px; color:var(--gray-600); line-height:1.45; }
+  .icon-badge{ width:42px;height:42px;border-radius:12px; display:flex;align-items:center;justify-content:center; background:rgba(30,167,255,.12); color:var(--blue-500); flex:none; }
+  .icon-badge.orange{ background:rgba(255,122,48,.13); color:var(--orange-500); }
+  svg.icon{ width:22px; height:22px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+
+  /* estrutura do espaço */
+  .feat{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:18px; }
+  .feat div{ background:var(--white); border:1px solid var(--gray-100); border-radius:12px; padding:12px 13px; display:flex; align-items:center; gap:9px; font-size:12.5px; font-weight:700; color:var(--dark-text); box-shadow:0 4px 12px rgba(11,22,51,.05); }
+  .feat svg{ width:18px; height:18px; color:var(--blue-500); flex:none;
+    stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+
+  /* photo gallery */
+  .gitem{ border-radius:14px; overflow:hidden; background:var(--white); border:1px solid var(--gray-100); box-shadow:0 6px 18px rgba(11,22,51,.06); }
+  .gitem img{ width:100%; height:auto; }
+  .gitem .gcap{ padding:10px 13px; display:flex; align-items:center; gap:8px; }
+  .gitem .gcap b{ font-size:12.5px; font-weight:800; display:block; }
+  .gitem .gcap span{ font-size:10.5px; color:var(--gray-600); display:block; }
+
+  /* phone mockup */
+  .phone{ width:250px; margin:18px auto 4px; border-radius:26px; background:#0d1730; border:6px solid #182549; box-shadow:0 16px 40px rgba(0,0,0,.4); overflow:hidden; position:relative; }
+  .phone .notch{ position:absolute; top:0; left:50%; transform:translateX(-50%); width:70px; height:14px; background:#182549; border-radius:0 0 10px 10px; z-index:3;}
+  .phone img{ width:100%; display:block; }
+  .phone-cap{ text-align:center; font-size:11.5px; color:var(--gray-600); margin-top:10px; }
+  .dark .phone-cap{ color:#a8b4d0; }
+
+  table.svc{ width:100%; border-collapse:collapse; margin-top:16px; }
+  table.svc td{ padding:9px 0; font-size:12.5px; border-bottom:1px solid rgba(255,255,255,.1); vertical-align:top; color:#dbe3f2; line-height:1.4; }
+  table.svc td.n{ width:26px; }
+
+  /* CTA */
+  .cta-box{ margin-top:22px; background:rgba(255,255,255,.05); border-radius:16px; padding:20px; border:1px solid rgba(255,255,255,.12); }
+  .cta-title{ font-size:17px; font-weight:800; margin-bottom:12px; }
+  .cta-btn{ display:flex; align-items:center; justify-content:center; gap:9px; background:#25D366; color:#fff; font-weight:800; font-size:14.5px; padding:14px; border-radius:12px; text-decoration:none; box-shadow:0 8px 20px rgba(37,211,102,.35); }
+  .cta-info{ margin-top:14px; display:flex; flex-direction:column; gap:8px; font-size:12px; color:#a8b4d0; }
+  .cta-info span{ display:flex; align-items:center; gap:7px; }
+
+  footer{ text-align:center; padding:20px; font-size:10.5px; color:#7c88a8; letter-spacing:1.5px; text-transform:uppercase; background:var(--navy-900); }
+
+  .sticky-cta{ position:sticky; bottom:0; z-index:50; background:rgba(5,11,30,.92); backdrop-filter:blur(8px); padding:12px 16px; border-top:1px solid rgba(255,255,255,.1); display:flex; }
+  .sticky-cta a{ flex:1; display:flex; align-items:center; justify-content:center; gap:8px; background:#25D366; color:#fff; font-weight:800; font-size:14px; padding:12px; border-radius:11px; text-decoration:none; }
+
+  /* planos */
+  .plans{ display:flex; flex-direction:column; gap:14px; margin-top:18px; }
+  .plan{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); border-radius:16px; padding:20px; position:relative; }
+  .plan.best{ border:2px solid var(--orange-400); background:rgba(255,122,48,.08); }
+  .plan .badge{ position:absolute; top:-11px; right:16px; background:var(--orange-500); color:#fff; font-size:10px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; padding:4px 10px; border-radius:99px; }
+  .plan .pn{ font-size:11px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:var(--blue-400); }
+  .plan h3{ font-size:17px; font-weight:800; color:#fff; margin-top:4px; }
+  .plan .val{ font-size:32px; font-weight:800; color:#fff; margin-top:10px; line-height:1; }
+  .plan .val small{ font-size:13px; color:#a8b4d0; font-weight:700; }
+  .plan ul{ list-style:none; margin-top:12px; }
+  .plan li{ font-size:12.5px; color:#dbe3f2; padding:5px 0 5px 20px; position:relative; line-height:1.4; }
+  .plan li::before{ content:"✓"; position:absolute; left:0; color:var(--blue-400); font-weight:800; }
+  .plan .note{ font-size:11.5px; color:#a8b4d0; margin-top:8px; font-style:italic; }
+
+  @media (min-width:521px){
+    body{ padding:24px 0; }
+  }
+  @media print{
+    @page{size:A4;margin:0}
+    html,body{background:#fff}
+    body{padding:0}
+    .wrap{max-width:none;box-shadow:none}
+    section{break-inside:avoid;padding:28px 34px}
+    .sticky-cta{display:none}
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+<defs>
+  <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.6 8.6 0 0 1-4-1L3 20l1.3-3.9a8.4 8.4 0 1 1 16.7-4.6z"/></symbol>
+  <symbol id="i-megaphone" viewBox="0 0 24 24"><path d="M3 11v3a1 1 0 0 0 1 1h2l3 5V6l-3 5H4a1 1 0 0 0-1 1z"/><path d="M12 9l7-5v18l-7-5"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><polyline points="2 7 12 14 22 7"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2"/><line x1="10" y1="19" x2="14" y2="19"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="16" y1="16" x2="21" y2="21"/></symbol>
+  <symbol id="i-water" viewBox="0 0 24 24"><path d="M12 3s6 6.6 6 10.5a6 6 0 0 1-12 0C6 9.6 12 3 12 3z"/></symbol>
+  <symbol id="i-grill" viewBox="0 0 24 24"><path d="M3 9h18a9 9 0 0 1-18 0z"/><line x1="8" y1="17" x2="6" y2="21"/><line x1="16" y1="17" x2="18" y2="21"/><path d="M9 5.5c0-1 1.2-1 1.2-2.2"/><path d="M13 5.5c0-1 1.2-1 1.2-2.2"/></symbol>
+  <symbol id="i-kids" viewBox="0 0 24 24"><circle cx="12" cy="7" r="3"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></symbol>
+  <symbol id="i-game" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="11" rx="4"/><line x1="7" y1="12.5" x2="10" y2="12.5"/><line x1="8.5" y1="11" x2="8.5" y2="14"/><circle cx="16" cy="12.5" r="1"/></symbol>
+  <symbol id="i-roof" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></symbol>
+</defs>
+</svg>
+
+<div class="wrap">
+
+  <!-- HERO -->
+  <section class="dark">
+    <div class="glow glow-blue" style="width:280px;height:280px; top:-100px; right:-100px;"></div>
+    <div class="glow glow-orange" style="width:220px;height:220px; bottom:-80px; left:-80px; opacity:.22;"></div>
+    <div class="lines"></div>
+    <div class="z">
+      <div class="topbar">
+        <div class="humanize-wordmark" aria-label="Humanize marketing digital"><strong>HUMANIZE</strong><span>marketing digital</span></div>
+        <div class="jk-badge">
+          <img src="logo-espaco-granada.png" alt="Espaço Granada">
+        </div>
+      </div>
+
+      <span class="pill pill-orange" style="margin-top:20px;">Proposta comercial</span>
+      <h1>Marketing Digital para o <span class="accent">Espaço Granada</span></h1>
+      <div class="divider"></div>
+      <p class="lead">A Humanize é uma agência de marketing digital que ajuda empresas a transformar presença online em vendas, com estratégia, conteúdo humanizado e gestão de tráfego pago.</p>
+
+      <div class="hero-photo">
+        <img src="foto-piscina-granada.jpg" alt="Área da piscina aquecida do Espaço Granada, com o grafite da marca ao fundo">
+        <div class="hero-cap">
+          <svg class="icon" style="width:15px;height:15px;color:var(--blue-400);"><use href="#i-pin"/></svg>
+          Espaço Granada · Rua Itinguçu, 487 · Vila Granada, SP
+        </div>
+      </div>
+
+      <span class="eyebrow" style="margin-top:24px; display:block;">Diagnóstico rápido</span>
+      <ul class="bullets">
+        <li>Espaço <b>completo e com identidade visual forte</b>: grafite da marca, piscina aquecida, churrasqueira coberta, espaço kids e sala de jogos.</li>
+        <li>Instagram com <b>6.494 seguidores</b>, mas apenas 3 publicações no feed — audiência já construída e quase nenhum conteúdo para transformar em reserva.</li>
+        <li>Sem site próprio e sem presença no Google: quem pesquisa <b>"day use"</b> ou <b>"salão de festa"</b> na região não encontra o Espaço Granada.</li>
+        <li>Objetivo da parceria: <b>encher a agenda</b> de segunda a sexta e nos fins de semana, com conteúdo constante, tráfego pago e um canal próprio de reservas.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ESTRUTURA -->
+  <section class="light">
+    <div class="z">
+      <span class="eyebrow">O que o espaço já tem</span>
+      <h2>Uma estrutura pronta para vender</h2>
+      <div class="divider"></div>
+      <p class="lead">O Espaço Granada não precisa de obra para vender mais — precisa que as pessoas certas vejam o que já existe aqui.</p>
+
+      <div class="feat">
+        <div><svg><use href="#i-water"/></svg> Piscina aquecida</div>
+        <div><svg><use href="#i-grill"/></svg> Churrasqueira coberta</div>
+        <div><svg><use href="#i-kids"/></svg> Espaço kids</div>
+        <div><svg><use href="#i-game"/></svg> Sala de jogos</div>
+        <div><svg><use href="#i-roof"/></svg> Área coberta e sala de estar</div>
+        <div><svg><use href="#i-lock"/></svg> Local seguro e privativo</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVIÇOS -->
+  <section class="white">
+    <div class="z">
+      <span class="eyebrow">Escopo da parceria</span>
+      <h2>Serviços incluídos</h2>
+      <div class="divider"></div>
+
+      <div class="cards">
+        <div class="card">
+          <div class="icon-badge"><svg class="icon"><use href="#i-chat"/></svg></div>
+          <div><h3>Gerenciamento de redes sociais</h3><p>Planejamento de conteúdo, legendas e publicação no Instagram, Facebook e TikTok, na identidade visual do Espaço Granada.</p></div>
+        </div>
+        <div class="card">
+          <div class="icon-badge orange"><svg class="icon"><use href="#i-megaphone"/></svg></div>
+          <div><h3>Gestão de tráfego pago</h3><p>Campanhas segmentadas para quem procura day use, festa de aniversário e confraternização na região.</p></div>
+        </div>
+        <div class="card">
+          <div class="icon-badge"><svg class="icon"><use href="#i-video"/></svg></div>
+          <div><h3>Vídeos do espaço</h3><p>Gravação e edição de vídeos mostrando a piscina, a área gourmet e o espaço montado para festa — o formato que mais gera reserva.</p></div>
+        </div>
+        <div class="card">
+          <div class="icon-badge"><svg class="icon"><use href="#i-globe"/></svg></div>
+          <div><h3>Site de reservas</h3><p>Site próprio com fotos, estrutura, valores e botão direto para o WhatsApp, para receber quem vem do anúncio e da pesquisa.</p></div>
+        </div>
+        <div class="card">
+          <div class="icon-badge orange"><svg class="icon"><use href="#i-search"/></svg></div>
+          <div><h3>Google</h3><p>Perfil da Empresa no Google configurado, com fotos, horários e avaliações, para aparecer em quem busca salão de festa e day use por perto.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MATERIAL DE APOIO -->
+  <section class="light">
+    <div class="z">
+      <span class="eyebrow">Ponto de partida</span>
+      <h2>De onde a gente começa</h2>
+      <div class="divider"></div>
+
+      <div class="phone"><div class="notch"></div><img src="print-instagram-granada.jpg" alt="Perfil atual do Espaço Granada no Instagram"></div>
+      <div class="phone-cap">Hoje: 6.494 seguidores e apenas 3 publicações no feed</div>
+
+      <div class="gitem" style="margin-top:22px;">
+        <img src="print-promo-granada.jpg" alt="Arte de promoção do Espaço Granada com a diária de R$ 399,99">
+        <div class="gcap">
+          <div>
+            <b>A promoção já funciona — falta constância</b>
+            <span>A arte da diária de segunda a sexta mostra bem a estrutura. Com tráfego pago e publicação frequente, esse tipo de oferta passa a rodar o mês inteiro.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INVESTIMENTO -->
+  <section class="dark">
+    <div class="glow glow-blue" style="width:260px;height:260px; top:-90px; left:-90px;"></div>
+    <div class="lines"></div>
+    <div class="z">
+      <span class="eyebrow">Proposta de investimento</span>
+      <h2>Escolha o seu plano</h2>
+      <div class="divider"></div>
+
+      <p class="lead">Preparamos três formatos para o Espaço Granada. Escolha o que faz mais sentido para o momento do espaço:</p>
+
+      <div class="plans">
+        <div class="plan">
+          <div class="pn">Pacote 1</div>
+          <h3>Vídeos + Tráfego</h3>
+          <div class="val">R$ 1.000<small>/mês</small></div>
+          <ul>
+            <li>10 vídeos por mês, gravados e editados</li>
+            <li>Gestão de tráfego pago</li>
+          </ul>
+          <div class="note">A publicação dos vídeos fica por conta do Espaço Granada.</div>
+        </div>
+
+        <div class="plan">
+          <div class="pn">Pacote 2</div>
+          <h3>Redes Sociais + Tráfego</h3>
+          <div class="val">R$ 1.500<small>/mês</small></div>
+          <ul>
+            <li>Gerenciamento das redes sociais</li>
+            <li>Planejamento de conteúdo, legendas e publicação</li>
+            <li>Gestão de tráfego pago</li>
+          </ul>
+        </div>
+
+        <div class="plan best">
+          <span class="badge">Recomendado</span>
+          <div class="pn">Pacote 3</div>
+          <h3>Pacote Completo</h3>
+          <div class="val">R$ 2.000<small>/mês</small></div>
+          <ul>
+            <li>Gerenciamento das redes sociais: Instagram, Facebook e TikTok</li>
+            <li>Gestão de tráfego pago</li>
+            <li>Site próprio do Espaço Granada</li>
+            <li>Google: Perfil da Empresa configurado e otimizado</li>
+          </ul>
+        </div>
+      </div>
+
+      <table class="svc" style="margin-top:22px;">
+        <tr><td class="n"><svg class="icon" style="width:16px;height:16px;color:var(--orange-400);"><use href="#i-check"/></svg></td><td>Primeiro pagamento antecipado, no momento da assinatura</td></tr>
+        <tr><td class="n"><svg class="icon" style="width:16px;height:16px;color:var(--blue-400);"><use href="#i-doc"/></svg></td><td>Assinatura digital do contrato pelo Gov.br</td></tr>
+        <tr><td class="n"><svg class="icon" style="width:16px;height:16px;color:var(--orange-400);"><use href="#i-repeat"/></svg></td><td>Renovação automática por 12 meses, caso nenhuma das partes manifeste interesse em encerrar</td></tr>
+        <tr><td class="n"><svg class="icon" style="width:16px;height:16px;color:var(--blue-400);"><use href="#i-calendar"/></svg></td><td>Verba de anúncios paga à parte, direto às plataformas, definida junto com o Espaço Granada</td></tr>
+      </table>
+
+      <div class="cta-box">
+        <div class="cta-title">Vamos aprovar e dar início à parceria?</div>
+        <a class="cta-btn" href="https://wa.me/5511914894352" target="_blank" rel="noopener">
+          <svg class="icon" style="width:18px;height:18px;"><use href="#i-chat"/></svg>
+          Falar no WhatsApp
+        </a>
+        <div class="cta-info">
+          <span><svg class="icon" style="width:14px;height:14px;"><use href="#i-mail"/></svg> humanizemktdigital@gmail.com</span>
+          <span><svg class="icon" style="width:14px;height:14px;"><use href="#i-phone"/></svg> (11) 91489-4352</span>
+          <span><svg class="icon" style="width:14px;height:14px;"><use href="#i-chat"/></svg> @humanizemktdigital</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>Humanize · Marketing Digital</footer>
+
+  <div class="sticky-cta">
+    <a href="https://wa.me/5511914894352" target="_blank" rel="noopener">
+      <svg class="icon" style="width:17px;height:17px;"><use href="#i-chat"/></svg>
+      Falar com a Humanize agora
+    </a>
+  </div>
+
+</div>
+</body>
+</html>
