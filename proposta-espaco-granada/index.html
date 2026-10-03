@@ -104,9 +104,14 @@
   /* phone mockup */
   .phone{ width:250px; margin:18px auto 4px; border-radius:26px; background:#0d1730; border:6px solid #182549; box-shadow:0 16px 40px rgba(0,0,0,.4); overflow:hidden; position:relative; }
   .phone .notch{ position:absolute; top:0; left:50%; transform:translateX(-50%); width:70px; height:14px; background:#182549; border-radius:0 0 10px 10px; z-index:3;}
-  .phone img{ width:100%; display:block; }
-  .phone-cap{ text-align:center; font-size:11.5px; color:var(--gray-600); margin-top:10px; }
+  .phone img, .phone video{ width:100%; display:block; }
+  .phone-cap{ text-align:center; font-size:11.5px; color:var(--gray-600); margin-top:10px; line-height:1.4; }
   .dark .phone-cap{ color:#a8b4d0; }
+
+  .phones{ display:flex; gap:12px; justify-content:center; margin-top:18px; align-items:flex-start; }
+  .phones > div{ flex:1; max-width:220px; }
+  .phones .phone{ width:100%; margin:0; border-width:5px; border-radius:22px; }
+  .phones .phone img, .phones .phone video{ aspect-ratio:9/17; object-fit:cover; object-position:top; }
 
   table.svc{ width:100%; border-collapse:collapse; margin-top:16px; }
   table.svc td{ padding:9px 0; font-size:12.5px; border-bottom:1px solid rgba(255,255,255,.1); vertical-align:top; color:#dbe3f2; line-height:1.4; }
@@ -229,6 +234,16 @@
         <div><svg><use href="#i-roof"/></svg> Área coberta e sala de estar</div>
         <div><svg><use href="#i-lock"/></svg> Local seguro e privativo</div>
       </div>
+
+      <div class="gitem" style="margin-top:18px;">
+        <img src="print-promo-granada.jpg" alt="Arte de promoção do Espaço Granada com a diária de R$ 399,99">
+        <div class="gcap">
+          <div>
+            <b>A promoção já funciona — falta constância</b>
+            <span>A arte da diária de segunda a sexta mostra bem a estrutura. Com tráfego pago e publicação frequente, esse tipo de oferta passa a rodar o mês inteiro.</span>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -267,20 +282,22 @@
   <!-- MATERIAL DE APOIO -->
   <section class="light">
     <div class="z">
-      <span class="eyebrow">Ponto de partida</span>
-      <h2>De onde a gente começa</h2>
+      <span class="eyebrow">Material de apoio</span>
+      <h2>Como fica o Instagram e a landing page</h2>
       <div class="divider"></div>
 
-      <div class="phone"><div class="notch"></div><img src="print-instagram-granada.jpg" alt="Perfil atual do Espaço Granada no Instagram"></div>
-      <div class="phone-cap">Hoje: 6.494 seguidores e apenas 3 publicações no feed</div>
-
-      <div class="gitem" style="margin-top:22px;">
-        <img src="print-promo-granada.jpg" alt="Arte de promoção do Espaço Granada com a diária de R$ 399,99">
-        <div class="gcap">
-          <div>
-            <b>A promoção já funciona — falta constância</b>
-            <span>A arte da diária de segunda a sexta mostra bem a estrutura. Com tráfego pago e publicação frequente, esse tipo de oferta passa a rodar o mês inteiro.</span>
+      <div class="phones">
+        <div>
+          <div class="phone"><img src="mockup-instagram-granada.jpg" alt="Simulação do Instagram do Espaço Granada"></div>
+          <div class="phone-cap">Instagram organizado e com identidade visual</div>
+        </div>
+        <div>
+          <div class="phone">
+            <video src="espaco-granada-landing-mockup.mp4" poster="poster-landing-granada.jpg"
+                   autoplay muted loop playsinline preload="metadata"
+                   aria-label="Simulação da landing page do Espaço Granada"></video>
           </div>
+          <div class="phone-cap">Landing page com contato no WhatsApp</div>
         </div>
       </div>
     </div>
