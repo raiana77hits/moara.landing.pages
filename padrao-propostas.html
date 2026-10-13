@@ -55,6 +55,7 @@ pre{ background:var(--surface); border:1px solid var(--line); border-radius:12px
   <section>
     <span class="eyebrow">Antes de começar</span>
     <h2>O que pedir ao vendedor</h2>
+    <p style="margin-bottom:10px;">Toda proposta nova parte da pasta <code>modelo-proposta/</code>: copie para <code>proposta-[cliente]/</code>, coloque as imagens <code>logo-cliente.png</code>, <code>fachada.jpg</code>, <code>simulacao-instagram.jpg</code> e <code>simulacao-cardapio.jpg</code>, e troque tudo que estiver entre <code>[[ ]]</code>.</p>
     <ul class="list">
       <li>Nome do cliente, segmento, endereço e @ do Instagram</li>
       <li>Logo do cliente e uma foto da fachada inteira, nítida, sem textos de story por cima</li>
@@ -91,6 +92,21 @@ pre{ background:var(--surface); border:1px solid var(--line); border-radius:12px
   </section>
 
   <section>
+    <span class="eyebrow">Lições da prática</span>
+    <h2>O que já deu errado e como evitar</h2>
+    <ul class="list">
+      <li><b>Fachada:</b> print de vídeo ou story fica borrado. Peça foto nítida e corte os adesivos de texto.</li>
+      <li><b>Sem comparação de preços:</b> "contratando separado" e tabela avulsa confundem o cliente. Mostre só os 3 pacotes.</li>
+      <li><b>Ordem:</b> do mais barato ao Recomendado, para o completo fechar a seção em destaque.</li>
+      <li><b>Cobrança clara:</b> escreva "/mês" ou "pagamento único" em todo valor.</li>
+      <li><b>Insta Delivery</b> é uma plataforma de cardápio digital, não o Instagram.</li>
+      <li><b>Vídeos e visitas</b> ficam só dentro dos pacotes, não nos cards de serviço.</li>
+      <li><b>Simulações reais</b> do cliente vendem mais que telas de exemplo.</li>
+      <li><b>Confira o @</b> do Instagram no print e use sempre o logo oficial da Humanize.</li>
+    </ul>
+  </section>
+
+  <section>
     <span class="eyebrow">Identidade visual</span>
     <h2>Cores, logo e contatos fixos</h2>
     <p>Página no formato de celular (até 520px de largura), pronta para imprimir em A4. Logo oficial da Humanize no topo da capa.</p>
@@ -108,7 +124,7 @@ pre{ background:var(--surface); border:1px solid var(--line); border-radius:12px
     <span class="eyebrow">Para o Claude</span>
     <h2>Como pedir uma proposta nova</h2>
     <pre>Claude, cria uma proposta nova para [cliente] seguindo o PADRAO-PROPOSTAS.md
-do repositório moara.landing.pages (base: pasta proposta-vibe-petz).
+do repositório moara.landing.pages (base: modelo-proposta).
 Segue logo, fachada, prints e os valores dos 3 pacotes.</pre>
     <p class="note">O guia completo fica em <code>PADRAO-PROPOSTAS.md</code>, na raiz do repositório <code>moara.landing.pages</code>. Cada proposta ganha a sua pasta <code>proposta-[cliente]/</code>.</p>
   </section>
