@@ -220,6 +220,27 @@
   .case li::before{ content:"✓"; position:absolute; left:0; color:var(--orange-500); font-weight:800; }
   .case li b{ color:var(--dark-text); }
 
+  /* logos dos aplicativos */
+  .plat img{ width:56px; height:56px; border-radius:13px; margin:0 auto 9px; object-fit:contain; background:var(--gray-050); display:block; }
+
+  /* grafico do caso */
+  .chart{ margin-top:18px; }
+  .chart .hero{ font-size:38px; font-weight:800; line-height:1; color:var(--blue-500); }
+  .chart .hero-sub{ font-size:12.5px; color:var(--gray-600); line-height:1.45; margin-top:6px; }
+  .plot{ margin-top:20px; display:flex; align-items:flex-end; justify-content:center; gap:34px; height:168px; border-bottom:1px solid var(--gray-100); padding:0 6px; }
+  .bar-wrap{ display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; }
+  .bar-val{ font-size:13px; font-weight:800; color:var(--dark-text); margin-bottom:7px; }
+  .bar{ width:52px; border-radius:4px 4px 0 0; }
+  .bar.base{ background:#62bdf2; }
+  .bar.now{ background:var(--blue-500); }
+  .plot-x{ display:flex; justify-content:center; gap:34px; padding:9px 6px 0; }
+  .plot-x span{ width:52px; text-align:center; font-size:10.5px; color:var(--gray-600); line-height:1.3; }
+  .chart-cap{ font-size:11px; color:var(--gray-600); margin-top:12px; line-height:1.45; }
+
+  /* historia do caso */
+  .story p{ font-size:13px; line-height:1.6; color:var(--gray-600); margin-top:11px; }
+  .story p b{ color:var(--dark-text); }
+
   /* link para a pagina de avulsos */
   .alt-link{ display:block; margin-top:16px; text-align:center; font-size:12.5px; color:var(--blue-400); text-decoration:none; font-weight:700; }
 </style>
@@ -328,8 +349,8 @@
         </div>
         <div class="f">
           <div class="icon-badge orange"><svg class="icon"><use href="#i-store"/></svg></div>
-          <b>Mix com rótulos exclusivos</b>
-          <span>Cervejas, destilados e licores que não se acha em qualquer esquina.</span>
+          <b>Grande variedade de produtos</b>
+          <span>Loja com diversas opções de bebidas, marcas e preços.</span>
         </div>
       </div>
     </div>
@@ -357,7 +378,7 @@
         </div>
         <div class="card">
           <div class="icon-badge orange"><svg class="icon"><use href="#i-camera"/></svg></div>
-          <div><h3>Criação de conteúdo na loja</h3><p>Visitas presenciais para gravar o mix, os combos e os rótulos exclusivos, com edição na identidade visual da Adega Nova Danfer.</p></div>
+          <div><h3>Criação de conteúdo na loja</h3><p>Visitas presenciais para gravar a variedade de bebidas, os combos e as marcas da loja, com edição na identidade visual da Adega Nova Danfer.</p></div>
         </div>
         <div class="card">
           <div class="icon-badge"><svg class="icon"><use href="#i-megaphone"/></svg></div>
@@ -377,22 +398,22 @@
 
       <div class="plats">
         <div class="plat">
-          <div class="icon-badge"><svg class="icon"><use href="#i-bag"/></svg></div>
+          <img src="app-ifood.png" alt="iFood">
           <b>iFood</b>
           <span>Cadastro, cardápio e gestão</span>
         </div>
         <div class="plat">
-          <div class="icon-badge orange"><svg class="icon"><use href="#i-bag"/></svg></div>
+          <img src="app-99food.png" alt="99Food">
           <b>99Food</b>
           <span>Cadastro, cardápio e gestão</span>
         </div>
         <div class="plat">
-          <div class="icon-badge"><svg class="icon"><use href="#i-bag"/></svg></div>
+          <img src="app-keeta.png" alt="Keeta">
           <b>Keeta</b>
           <span>Cadastro, cardápio e gestão</span>
         </div>
         <div class="plat">
-          <div class="icon-badge orange"><svg class="icon"><use href="#i-bag"/></svg></div>
+          <img src="app-anotaai.png" alt="Anota Aí">
           <b>Anota Aí</b>
           <span>Cadastro, cardápio e gestão</span>
         </div>
@@ -444,7 +465,7 @@
           <div class="sn">2</div>
           <div>
             <b>Primeira visita de conteúdo</b>
-            <p>Gravação na adega: o mix, os combos, os rótulos exclusivos e o movimento da loja. Material editado e pronto para publicar.</p>
+            <p>Gravação na adega: a variedade de bebidas, os combos, as marcas e o movimento da loja. Material editado e pronto para publicar.</p>
           </div>
         </div>
         <div class="step">
@@ -471,35 +492,45 @@
       <span class="eyebrow">Onde dá para chegar</span>
       <h2>O caminho que a <span class="accent">Adega do Bruninho</span> já fez</h2>
       <div class="divider"></div>
-      <p class="lead">Mesma receita que está nesta proposta: canais de delivery organizados, pedido automatizado no WhatsApp e tráfego pago.</p>
+      <p class="lead">Mesma receita que está nesta proposta: Instagram ativo, canais de delivery organizados e tráfego pago.</p>
 
       <div class="case">
         <div class="case-top">
           <img src="logo-adega-do-bruninho.png" alt="Adega do Bruninho">
           <div>
             <b>Adega do Bruninho</b>
-            <span>Faturamento no delivery, antes e depois do trabalho</span>
+            <span>Faturamento no Anota Aí, a plataforma própria da adega</span>
           </div>
         </div>
 
-        <div class="case-grid">
-          <div class="case-m">
-            <div class="lbl">Antes</div>
-            <div class="k">R$ 40 mil</div>
-            <div class="lbl" style="letter-spacing:.6px; text-transform:none; font-weight:600; margin-top:4px;">por mês no delivery</div>
+        <div class="chart">
+          <div class="hero">+300%</div>
+          <div class="hero-sub">O faturamento na plataforma própria <b>triplicou em um ano</b>.</div>
+
+          <div class="plot">
+            <div class="bar-wrap">
+              <div class="bar-val">1x</div>
+              <div class="bar base" style="height:48px;"></div>
+            </div>
+            <div class="bar-wrap">
+              <div class="bar-val">3x</div>
+              <div class="bar now" style="height:144px;"></div>
+            </div>
           </div>
-          <div class="case-m now">
-            <div class="lbl">Depois</div>
-            <div class="k">R$ 180 mil</div>
-            <div class="lbl" style="letter-spacing:.6px; text-transform:none; font-weight:600; margin-top:4px;">por mês no delivery</div>
+          <div class="plot-x">
+            <span>Início do trabalho</span>
+            <span>12 meses depois</span>
           </div>
+
+          <div class="chart-cap">Faturamento relativo no Anota Aí, com o início do trabalho como base. No mesmo período, as lojas no <b>iFood</b> e na <b>99Food</b> também cresceram.</div>
         </div>
 
-        <ul>
-          <li><b>Canais de delivery abertos e organizados</b> — iFood, 99Food e Zé Delivery.</li>
-          <li><b>Pedido automatizado no WhatsApp</b> — automações pela Anota Aí, para o pedido não se perder na conversa.</li>
-          <li><b>Tráfego pago</b> — anúncios levando gente direto para o canal de pedido.</li>
-        </ul>
+        <div class="story">
+          <p>A adega vivia do balcão. O Instagram existia, mas era um perfil parado: poucas publicações e nenhum pedido vindo dali.</p>
+          <p><b>O trabalho começou pelo Instagram.</b> Conteúdo gravado dentro da loja, com os produtos e as pessoas reais da adega, publicado com constância — não quando sobrava tempo. O perfil deixou de ser cartão de visita e virou porta de entrada: quem descobria a adega ali já descobria querendo pedir.</p>
+          <p>Com a audiência crescendo, abrimos os canais de venda: o cardápio próprio no <b>Anota Aí</b>, com pedido automatizado no WhatsApp para nenhum pedido se perder na conversa, e as lojas no <b>iFood</b> e na <b>99Food</b>.</p>
+          <p>O <b>tráfego pago</b> entrou por último, levando quem via a adega no Instagram direto para o canal de pedido. Em um ano, o faturamento na plataforma própria triplicou.</p>
+        </div>
 
         <p style="font-size:11.5px; color:var(--gray-600); line-height:1.45; margin-top:14px; font-style:italic;">
           Resultado de um cliente real, não é promessa de resultado. Cada negócio tem o seu ponto de partida.
@@ -507,7 +538,7 @@
       </div>
 
       <p class="lead" style="margin-top:16px; font-size:13.5px;">
-        A Adega Nova Danfer começa essa caminhada em vantagem: já tem delivery rodando, mix com rótulos exclusivos e <b>393 pessoas</b> acompanhando.
+        A Adega Nova Danfer começa essa caminhada em vantagem: já tem delivery rodando, uma loja com grande variedade de bebidas e <b>393 pessoas</b> acompanhando.
       </p>
     </div>
   </section>
