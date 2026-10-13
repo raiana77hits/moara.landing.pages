@@ -310,6 +310,19 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
   text-transform:uppercase;
   opacity:.78;
 }
+/* site de cliente no ar: ponto verde, como o da marca */
+.showcase-project-name.is-real{color:var(--lime)}
+.showcase-project-name.is-real:before{
+  content:"";
+  display:inline-block;
+  width:6px;
+  height:6px;
+  margin-right:7px;
+  border-radius:50%;
+  background:var(--lime);
+  box-shadow:0 0 10px var(--lime);
+  vertical-align:middle;
+}
 
 @media(max-width:950px){
   .hero-showcase{
@@ -457,6 +470,10 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
     .delivered-tag{position:absolute;bottom:14px;left:14px;padding:7px 12px;border-radius:6px;background:var(--lime);color:var(--ink);font-size:.7rem;font-weight:800;letter-spacing:.08em;box-shadow:0 8px 20px rgba(0,0,0,.25)}
     .live-link{white-space:nowrap;background:var(--lime)!important;color:var(--ink)!important;transition:transform .2s ease}
     .live-link:hover{transform:translateY(-2px)}
+    /* o card do site real traz nome + foco em duas linhas, à esquerda do link */
+    .project-real .project-info{align-items:center;gap:12px}
+    .project-real .info-main{display:flex;flex-direction:column;gap:3px;min-width:0}
+    .project-real .info-focus{font-size:.68rem;font-weight:700;color:#9aa2b8}
 
     /* computador: a seção inteira (título, card e botão) cabe na tela enquanto os cards passam */
     @media(min-width:951px){
@@ -710,11 +727,11 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
         <span class="laptop-camera"></span>
 
         <div class="laptop-screen">
-          <img src="site-restaurante-desktop.png" class="desktop-screen-img active" alt="Modelo de site para restaurante">
+          <img src="portfolio-mimo-desktop.webp" class="desktop-screen-img active" alt="Site da Mimo Criativo Personalizados, criado pela Moara">
+          <img src="site-restaurante-desktop.png" class="desktop-screen-img" alt="Modelo de site para restaurante">
           <img src="site-clinica-desktop.png" class="desktop-screen-img" alt="Modelo de site para clínica">
           <img src="site-moda-desktop.png" class="desktop-screen-img" alt="Modelo de site para loja de moda">
           <img src="site-pizzaria-desktop.png" class="desktop-screen-img" alt="Modelo de site para pizzaria">
-          <img src="portfolio-mimo-desktop.webp" class="desktop-screen-img" alt="Site da Mimo Criativo Personalizados, criado pela Moara">
           <span class="screen-shine laptop-shine"></span>
         </div>
 
@@ -726,16 +743,16 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
       <div class="phone-screen">
         <span class="phone-notch"></span>
 
-        <img src="site-restaurante-mobile.png" class="mobile-screen-img active" alt="Modelo mobile para restaurante">
+        <img src="portfolio-mimo-mobile.webp" class="mobile-screen-img active" alt="Versão para celular do site da Mimo Criativo Personalizados">
+        <img src="site-restaurante-mobile.png" class="mobile-screen-img" alt="Modelo mobile para restaurante">
         <img src="site-clinica-mobile.png" class="mobile-screen-img" alt="Modelo mobile para clínica">
         <img src="site-moda-mobile.png" class="mobile-screen-img" alt="Modelo mobile para loja de moda">
         <img src="site-pizzaria-mobile.png" class="mobile-screen-img" alt="Modelo mobile para pizzaria">
-        <img src="portfolio-mimo-mobile.webp" class="mobile-screen-img" alt="Versão para celular do site da Mimo Criativo">
         <span class="screen-shine phone-shine"></span>
       </div>
     </div>
 
-    <div class="showcase-project-name">Restaurante</div>
+    <div class="showcase-project-name is-real">Mimo Criativo Personalizados</div>
   </div>
 </div>
     </div></section>
@@ -891,7 +908,10 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
           <span class="delivered-tag">SITE ENTREGUE</span>
         </a>
         <div class="project-info">
-          <strong>Mimo Criativo Personalizados</strong>
+          <span class="info-main">
+            <strong>Mimo Criativo Personalizados</strong>
+            <span class="info-focus">Presentes personalizados · Foco em orçamentos no WhatsApp</span>
+          </span>
           <a class="result-tag live-link" href="https://mimo-personalizados.vercel.app/" target="_blank" rel="noopener">Ver site no ar ↗</a>
         </div>
       </article>
@@ -1443,13 +1463,18 @@ ScrollTrigger.matchMedia({
 
   if (!desktopScreens.length || desktopScreens.length !== mobileScreens.length) return;
 
+  // A ORDEM DESTA LISTA ACOMPANHA A DAS IMAGENS ACIMA — as três listas
+  // (desktop, celular e nomes) precisam ter o mesmo tamanho e a mesma ordem.
   const projectNames = [
+    "Mimo Criativo Personalizados",
     "Restaurante",
     "Clínica",
     "Moda",
-    "Pizzaria",
-    "Mimo Criativo"
+    "Pizzaria"
   ];
+
+  // Índices que são site de cliente no ar, e não modelo de exemplo.
+  const realProjects = [0];
 
   let currentIndex = 0;
   let rotationTimer = null;
@@ -1512,6 +1537,7 @@ ScrollTrigger.matchMedia({
         duration: .2,
         onComplete: () => {
           projectName.textContent = projectNames[nextIndex];
+          projectName.classList.toggle("is-real", realProjects.includes(nextIndex));
           gsap.fromTo(
             projectName,
             { opacity: 0, y: 5 },

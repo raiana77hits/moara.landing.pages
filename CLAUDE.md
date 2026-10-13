@@ -71,7 +71,9 @@ dúvidas → CTA final.
    mesmo tamanho e a mesma ordem: os `<img class="desktop-screen-img">`, os
    `<img class="mobile-screen-img">` e o array `projectNames` no script. Se
    divergirem, a rotação automática é abortada (`desktopScreens.length !==
-   mobileScreens.length`) e a vitrine congela.
+   mobileScreens.length`) e a vitrine congela. A classe `active` inicial, o texto
+   de `.showcase-project-name` e o array `realProjects` (índices que são site de
+   cliente no ar, e ganham o ponto verde) acompanham essa mesma ordem.
 2. **Placar de vagas da promoção.** O número é trocado à mão no HTML:
    `#vagas-restantes` (texto) e `data-total`. O script só desenha a barra e, em
    zero, troca o rótulo para "Vagas esgotadas".
@@ -89,7 +91,25 @@ forçados com `!important` pelo mesmo motivo.
 
 Todas na raiz, achatadas, sem subpasta. Os prints de projeto (`site-*-desktop.png`
 / `site-*-mobile.png`) pesam 1,5–2 MB cada e somam ~24 MB no repositório; ao
-acrescentar projetos, prefira `.webp` como em `portfolio-mimo-*.webp`.
+acrescentar projetos, prefira `.webp` como em `portfolio-mimo-*.webp` (120 KB para
+a mesma medida).
+
+**As medidas dos prints não são livres.** As imagens entram com `object-fit:cover`
+em molduras de proporção fixa, então um print fora de medida é cortado:
+
+| Print | Medida | Moldura que ele preenche |
+|---|---|---|
+| `*-desktop` | **1672×941** (16:9) | `.laptop-screen`, `aspect-ratio:16/9` |
+| `*-mobile` | **853×1844** | `.phone-screen`, `aspect-ratio:1080/2340` |
+
+O mesmo par é reaproveitado na seção de projetos (`.project-window` e `.shot-phone`),
+que recorta a partir do topo (`object-position:top center`) — o que importa do print,
+portanto, é a parte de cima.
+
+Para capturar um print novo, sirva o site do cliente localmente e use o Chromium do
+Playwright (`/opt/pw-browsers/chromium-1194/chrome-linux/chrome`): a CDN jsDelivr e os
+domínios `vercel.app` estão bloqueados pela política de rede do container. Capture em
+`deviceScaleFactor: 2` e reduza com `ffmpeg -vf scale=...:flags=lanczos`.
 
 ## Propostas da Humanize
 
