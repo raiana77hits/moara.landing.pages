@@ -49,18 +49,18 @@ pre{ background:var(--surface); border:1px solid var(--line); border-radius:12px
     <h1>Padrão de Propostas Comerciais</h1>
     <p>Estrutura que toda proposta nova deve seguir. A referência é a proposta da Vibe Petz (outubro de 2026), que nasceu do modelo da JK Doce e Embalagens.</p>
     <div class="bar"></div>
-    <p style="margin-top:12px;font-size:14px;">Exemplo pronto: <a href="https://claude.ai/artifact/Wx7Agc2Aj2nABD3iUsm6zE" style="color:#4fc3ff;">Proposta Vibe Petz</a></p>
+    <p style="margin-top:12px;font-size:14px;">Exemplos prontos: <a href="https://claude.ai/artifact/Wx7Agc2Aj2nABD3iUsm6zE" style="color:#4fc3ff;">Proposta Vibe Petz</a> (loja com delivery, 3 pacotes) · <a href="https://claude.ai/artifact/Rr6rr3SmN9kG6uEsnSBRKS" style="color:#4fc3ff;">Proposta Chay Holanda</a> (corretora de imóveis, plano único)</p>
   </header>
 
   <section>
     <span class="eyebrow">Antes de começar</span>
     <h2>O que pedir ao vendedor</h2>
-    <p style="margin-bottom:10px;">Toda proposta nova parte da pasta <code>modelo-proposta/</code>: copie para <code>proposta-[cliente]/</code>, coloque as imagens <code>logo-cliente.png</code>, <code>fachada.jpg</code>, <code>simulacao-instagram.jpg</code> e <code>simulacao-cardapio.jpg</code>, e troque tudo que estiver entre <code>[[ ]]</code>.</p>
+    <p style="margin-bottom:10px;">Toda proposta nova parte da pasta <code>modelo-proposta/</code>: copie, coloque as imagens <code>logo-cliente.png</code>, <code>fachada.jpg</code>, <code>simulacao-instagram.jpg</code> e <code>simulacao-cardapio.jpg</code>, e troque tudo que estiver entre <code>[[ ]]</code>.</p>
     <ul class="list">
       <li>Nome do cliente, segmento, endereço e @ do Instagram</li>
-      <li>Logo do cliente e uma foto da fachada inteira, nítida, sem textos de story por cima</li>
-      <li>Prints de simulação: Instagram organizado e cardápio ou site (sem barra de status e de navegador)</li>
-      <li>Serviços e valores dos 3 pacotes</li>
+      <li>Logo do cliente e uma foto da fachada inteira, nítida, sem textos de story por cima. Sem loja física (corretor, profissional autônomo): uma foto boa da pessoa</li>
+      <li>Prints de simulação: Instagram organizado e cardápio ou site (sem barra de status e de navegador). Se a simulação do site for um artefato animado, mandar o link: ele entra rolando dentro do celular</li>
+      <li>Serviços e valores dos 3 pacotes (ou de um plano único, se for o caso)</li>
       <li>Nota no Google e horário de funcionamento, se houver, para o diagnóstico</li>
     </ul>
   </section>
@@ -69,10 +69,10 @@ pre{ background:var(--surface); border:1px solid var(--line); border-radius:12px
     <span class="eyebrow">Estrutura da página</span>
     <h2>As 5 seções, nesta ordem</h2>
     <ol class="steps">
-      <li><b>Capa (fundo escuro)</b><span>Logo Humanize à esquerda e logo do cliente à direita. Selo "Proposta comercial", título "Marketing Digital para a [Cliente]", texto padrão da Humanize, foto da fachada com legenda "[Cliente] · [endereço] · [bairro], [cidade]" e Diagnóstico rápido com 3 tópicos.</span></li>
-      <li><b>Serviços incluídos (fundo branco)</b><span>3 a 4 cards com ícone, por exemplo: cardápio digital na Insta Delivery, gerenciamento de redes sociais e gestão de tráfego pago. Quantidade de vídeos e visitas fica só dentro dos pacotes.</span></li>
-      <li><b>Material de apoio (fundo claro)</b><span>Dois celulares lado a lado, do mesmo tamanho: simulação do Instagram e simulação do cardápio ou site.</span></li>
-      <li><b>Investimento (fundo escuro)</b><span>"Escolha o seu plano" com 3 pacotes, do mais barato ao mais caro. O último leva o selo Recomendado e a borda laranja. Não mostrar "contratando separado" nem tabela de valores avulsos.</span></li>
+      <li><b>Capa (fundo escuro)</b><span>Logo Humanize à esquerda e logo do cliente à direita. Selo "Proposta comercial", título "Marketing Digital para a [Cliente]", texto padrão da Humanize, foto da fachada (ou da pessoa, se não houver loja) com legenda "[Cliente] · [endereço] · [bairro], [cidade]" e Diagnóstico rápido com 3 tópicos.</span></li>
+      <li><b>Serviços incluídos (fundo branco)</b><span>3 a 4 cards com ícone, por exemplo: cardápio digital na Insta Delivery, gerenciamento de redes sociais e gestão de tráfego pago. Para quem não vende por delivery (corretor, clínica, prestador de serviço), o cardápio vira landing page com botão para o WhatsApp. Quantidade de vídeos e visitas fica só dentro dos pacotes.</span></li>
+      <li><b>Material de apoio (fundo claro)</b><span>Dois celulares lado a lado, do mesmo tamanho: simulação do Instagram e simulação do cardápio ou site. O site pode ser um print ou a simulação animada, rolando sozinha dentro do celular (embutida no próprio <code>index.html</code>, sem subpasta, para funcionar na Vercel).</span></li>
+      <li><b>Investimento (fundo escuro)</b><span>"Escolha o seu plano" com 3 pacotes, do mais barato ao mais caro. O último leva o selo Recomendado e a borda laranja. Se o cliente fechar só um plano, mostrar "Seu plano" com um card único e o selo Recomendado. Não mostrar "contratando separado" nem tabela de valores avulsos.</span></li>
       <li><b>Condições e chamada final</b><span>Pagamento antecipado na assinatura, assinatura pelo Gov.br e renovação automática por 12 meses. Depois, a caixa "Vamos aprovar e dar início à parceria?" com botão de WhatsApp, os contatos e o botão fixo "Falar com a Humanize agora".</span></li>
     </ol>
   </section>
@@ -88,6 +88,7 @@ pre{ background:var(--surface); border:1px solid var(--line); border-radius:12px
         <tr class="rec"><td><b>3 · Pacote Completo</b><span class="tag">Recomendado</span></td><td>Cardápio na Insta Delivery, gerenciamento de redes, 15 vídeos por mês gravados e postados, tráfego pago e 2 visitas por mês na loja</td><td class="v">R$ 1.550/mês</td></tr>
       </table>
     </div>
+    <p class="note">Plano único (Chay Holanda, out/2026): gestão de tráfego, gerenciamento das redes sociais, captação de conteúdo e 1 landing page, por R$ 1.200/mês.</p>
     <p class="note">Valores avulsos de uso interno, que não aparecem na proposta: cardápio R$ 600, tráfego pago R$ 750/mês, redes sociais R$ 1.500/mês.</p>
   </section>
 
@@ -96,13 +97,13 @@ pre{ background:var(--surface); border:1px solid var(--line); border-radius:12px
     <h2>O que já deu errado e como evitar</h2>
     <ul class="list">
       <li><b>Fachada:</b> print de vídeo ou story fica borrado. Peça foto nítida e corte os adesivos de texto.</li>
-      <li><b>Sem comparação de preços:</b> "contratando separado" e tabela avulsa confundem o cliente. Mostre só os 3 pacotes.</li>
+      <li><b>Sem comparação de preços:</b> "contratando separado" mistura valor único com mensal e confunde. Mostre só os pacotes.</li>
       <li><b>Ordem:</b> do mais barato ao Recomendado, para o completo fechar a seção em destaque.</li>
       <li><b>Cobrança clara:</b> escreva "/mês" ou "pagamento único" em todo valor.</li>
       <li><b>Insta Delivery</b> é uma plataforma de cardápio digital, não o Instagram.</li>
-      <li><b>Vídeos e visitas</b> ficam só dentro dos pacotes, não nos cards de serviço.</li>
       <li><b>Simulações reais</b> do cliente vendem mais que telas de exemplo.</li>
       <li><b>Confira o @</b> do Instagram no print e use sempre o logo oficial da Humanize.</li>
+      <li><b>Preço nunca é inventado:</b> se os valores não vieram, pergunte antes.</li>
     </ul>
   </section>
 
@@ -111,7 +112,7 @@ pre{ background:var(--surface); border:1px solid var(--line); border-radius:12px
     <h2>Cores, logo e contatos fixos</h2>
     <p>Página no formato de celular (até 520px de largura), pronta para imprimir em A4. Logo oficial da Humanize no topo da capa.</p>
     <div class="swatches">
-      <span class="sw"><i style="background:#050b1e"></i>Marinho #050b1e</span>
+      <span class="sw"><i style="background:#040b2a"></i>Marinho #040b2a</span><span class="sw"><i style="background:#0d2470"></i>Azul-marinho #0d2470</span><span class="sw"><i style="background:#2541b2"></i>Royal #2541b2</span>
       <span class="sw"><i style="background:#1ea7ff"></i>Azul #1ea7ff</span>
       <span class="sw"><i style="background:#ff7a30"></i>Laranja #ff7a30</span>
       <span class="sw"><i style="background:#f7f9fc"></i>Claro #f7f9fc</span>
@@ -124,8 +125,9 @@ pre{ background:var(--surface); border:1px solid var(--line); border-radius:12px
     <span class="eyebrow">Para o Claude</span>
     <h2>Como pedir uma proposta nova</h2>
     <pre>Claude, cria uma proposta nova para [cliente] seguindo o PADRAO-PROPOSTAS.md
-do repositório moara.landing.pages (base: modelo-proposta).
-Segue logo, fachada, prints e os valores dos 3 pacotes.</pre>
+do repositório moara.landing.pages (base: pasta modelo-proposta).
+Segue logo, fachada (ou foto), prints, link da simulação do site
+e os valores dos pacotes.</pre>
     <p class="note">O guia completo fica em <code>PADRAO-PROPOSTAS.md</code>, na raiz do repositório <code>moara.landing.pages</code>. Cada proposta ganha a sua pasta <code>proposta-[cliente]/</code>.</p>
   </section>
 </div>
