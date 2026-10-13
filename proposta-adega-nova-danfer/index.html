@@ -176,6 +176,52 @@
   .menu-mock .it i{ font-style:normal; color:var(--gray-600); }
   .menu-mock .pr{ margin-left:auto; font-weight:800; color:#1e3fae; }
   .menu-mock .bt{ margin:8px; background:#25D366; color:#fff; text-align:center; font-weight:800; padding:8px; border-radius:8px; }
+
+  /* --- componentes extras desta proposta --- */
+
+  /* grade de estrutura (.feat) */
+  .feat{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:18px; }
+  .feat .f{ background:var(--white); border:1px solid var(--gray-100); border-radius:14px; padding:14px; box-shadow:0 6px 18px rgba(11,22,51,.06); }
+  .feat .f .icon-badge{ width:36px; height:36px; border-radius:10px; margin-bottom:9px; }
+  .feat .f .icon-badge svg.icon{ width:19px; height:19px; }
+  .feat .f b{ display:block; font-size:13px; font-weight:800; line-height:1.25; }
+  .feat .f span{ display:block; font-size:11.5px; color:var(--gray-600); line-height:1.4; margin-top:4px; }
+
+  /* plataformas de delivery */
+  .plats{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:18px; }
+  .plat{ background:var(--white); border:1px solid var(--gray-100); border-radius:14px; padding:16px 12px; text-align:center; box-shadow:0 6px 18px rgba(11,22,51,.06); }
+  .plat .icon-badge{ width:38px; height:38px; border-radius:11px; margin:0 auto 9px; }
+  .plat b{ display:block; font-size:14.5px; font-weight:800; }
+  .plat span{ display:block; font-size:11px; color:var(--gray-600); margin-top:4px; line-height:1.35; }
+
+  /* etapas do trabalho */
+  .steps{ margin-top:18px; display:flex; flex-direction:column; gap:14px; }
+  .step{ display:flex; gap:13px; align-items:flex-start; }
+  .step .sn{ width:30px; height:30px; flex:none; border-radius:50%; background:linear-gradient(135deg,var(--blue-500),var(--blue-400)); color:#fff; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; }
+  .step:nth-child(even) .sn{ background:linear-gradient(135deg,var(--orange-500),var(--orange-400)); }
+  .step b{ display:block; font-size:14px; font-weight:800; }
+  .step p{ font-size:12.5px; color:var(--gray-600); line-height:1.45; margin-top:3px; }
+
+  /* caso de crescimento */
+  .case{ margin-top:18px; background:var(--white); border:1px solid var(--gray-100); border-radius:16px; padding:18px; box-shadow:0 8px 22px rgba(11,22,51,.07); }
+  .case-top{ display:flex; align-items:center; gap:11px; }
+  .case-top img{ width:46px; height:46px; border-radius:50%; object-fit:cover; background:var(--gray-100); flex:none; }
+  .case-top b{ display:block; font-size:15px; font-weight:800; }
+  .case-top span{ display:block; font-size:11.5px; color:var(--gray-600); margin-top:2px; }
+  .case-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
+  .case-m{ border:1px solid var(--gray-100); border-radius:12px; padding:12px; text-align:center; background:var(--gray-050); }
+  .case-m .lbl{ font-size:9.5px; font-weight:800; letter-spacing:1.4px; text-transform:uppercase; color:var(--gray-600); }
+  .case-m .k{ font-size:23px; font-weight:800; line-height:1.1; margin-top:5px; }
+  .case-m.now{ background:rgba(30,167,255,.07); border-color:rgba(30,167,255,.3); }
+  .case-m.now .lbl{ color:var(--blue-500); }
+  .case-m.now .k{ color:var(--blue-500); }
+  .case ul{ list-style:none; margin-top:16px; }
+  .case li{ position:relative; padding-left:19px; font-size:12.5px; line-height:1.5; color:var(--gray-600); margin-bottom:8px; }
+  .case li::before{ content:"✓"; position:absolute; left:0; color:var(--orange-500); font-weight:800; }
+  .case li b{ color:var(--dark-text); }
+
+  /* link para a pagina de avulsos */
+  .alt-link{ display:block; margin-top:16px; text-align:center; font-size:12.5px; color:var(--blue-400); text-decoration:none; font-weight:700; }
 </style>
 </head>
 <body>
@@ -202,20 +248,25 @@
 
 <!--
   PROPOSTA ADEGA NOVA DANFER · Humanize
-  Montada a partir de modelo-proposta/ conforme PADRAO-PROPOSTAS.md
+  Base: modelo-proposta/ · Regras: PADRAO-PROPOSTAS.md
 
-  PENDENTE (tudo que está entre [[ ]] e as 3 imagens placeholder):
-   1. logo-adega-nova-danfer.png        -> placeholder marcado, substituir
-   2. foto-adega-nova-danfer.jpg        -> placeholder marcado, substituir
-   3. mockup-instagram-adega-nova-danfer.jpg -> placeholder marcado, substituir
-   4. mockup-site-adega-nova-danfer.jpg      -> placeholder marcado, substituir
-   5. Endereço, @ do Instagram, números do diagnóstico
-   6. VALORES DOS PACOTES — nunca preencher sem confirmação (PADRAO §8/§9)
+  DADOS REAIS JA APLICADOS (print do perfil, 13/10/2026):
+    @adeganovadanfer · 393 seguidores · 6 publicacoes · 277 seguindo
+    Rua Careiro, 30 - Jd Danfer · WhatsApp da adega (11) 94934-7990
+    Aberto todos os dias · seg a qui 11h-23h · sex 11h-1h
+
+  AINDA PENDENTE:
+    1. foto-adega-nova-danfer.jpg        -> placeholder marcado
+    2. mockup-instagram-adega-nova-danfer.jpg -> placeholder marcado
+    3. mockup-site-adega-nova-danfer.jpg      -> placeholder marcado
+    4. Link da simulacao do site
+    5. Secao "Onde da para chegar": numeros reais da adega do Bruninho
+    6. Horario de sabado e domingo (a bio do Instagram corta em "...mais")
 -->
 
 <div class="wrap">
 
-  <!-- HERO -->
+  <!-- 1 · HERO + DIAGNOSTICO -->
   <section class="dark">
     <div class="glow glow-blue" style="width:280px;height:280px; top:-100px; right:-100px;"></div>
     <div class="glow glow-orange" style="width:220px;height:220px; bottom:-80px; left:-80px; opacity:.22;"></div>
@@ -237,21 +288,54 @@
         <img src="foto-adega-nova-danfer.jpg" alt="Fachada da Adega Nova Danfer" style="height:auto;">
         <div class="hero-cap">
           <svg class="icon" style="width:15px;height:15px;color:var(--blue-400);"><use href="#i-store"/></svg>
-          Adega Nova Danfer · [[RUA, NÚMERO]] · [[BAIRRO]], [[UF]]
+          Adega Nova Danfer · Rua Careiro, 30 · Jd. Danfer, São Paulo · SP
         </div>
       </div>
 
       <span class="eyebrow" style="margin-top:24px; display:block;">Diagnóstico rápido</span>
       <ul class="bullets">
-        <li>[[PONTO FORTE: ex. ponto movimentado, nota X no Google, mix de bebidas]]</li>
-        <li>[[AUDIÊNCIA DE HOJE: ex. @adeganovadanfer com X seguidores e apenas Y publicações]]</li>
-        <li>[[O QUE FALTA: pedido online, vídeos do mix e dos combos, tráfego pago no bairro]]</li>
-        <li>Objetivo da parceria: <b>[[OBJETIVO PRINCIPAL: ex. aumentar o delivery de bebidas]]</b>, com cardápio digital, conteúdo e tráfego pago.</li>
+        <li>A adega abre <b>todos os dias</b>, vai até <b>1h na sexta</b> e já entrega: o pedido entra pelo WhatsApp (11) 94934-7990. A operação de delivery existe e funciona.</li>
+        <li>No Instagram são <b>393 seguidores para apenas 6 publicações</b>. A audiência já está lá — o que falta é conteúdo que faça ela pedir.</li>
+        <li>Quem abre o <b>iFood, 99Food, Keeta ou Anota Aí</b> procurando bebida não encontra a Adega Nova Danfer. A procura já acontece todo dia; a loja é que não aparece.</li>
+        <li>Objetivo da parceria: <b>colocar a adega nos aplicativos de delivery e transformar os 393 seguidores em pedidos recorrentes</b>, com conteúdo gravado na loja e tráfego pago no bairro.</li>
       </ul>
     </div>
   </section>
 
-  <!-- SERVIÇOS -->
+  <!-- 2 · A ADEGA HOJE -->
+  <section class="light">
+    <div class="z">
+      <span class="eyebrow">O que já está pronto</span>
+      <h2>A adega hoje</h2>
+      <div class="divider"></div>
+      <p class="lead">Não falta estrutura. Falta quem veja.</p>
+
+      <div class="feat">
+        <div class="f">
+          <div class="icon-badge"><svg class="icon"><use href="#i-clock"/></svg></div>
+          <b>Aberta todos os dias</b>
+          <span>Segunda a quinta, 11h às 23h. Sexta, 11h à 1h.</span>
+        </div>
+        <div class="f">
+          <div class="icon-badge orange"><svg class="icon"><use href="#i-bag"/></svg></div>
+          <b>Delivery próprio</b>
+          <span>Pedido direto no WhatsApp (11) 94934-7990, já divulgado no feed.</span>
+        </div>
+        <div class="f">
+          <div class="icon-badge"><svg class="icon"><use href="#i-pin"/></svg></div>
+          <b>Ponto no Jd. Danfer</b>
+          <span>Rua Careiro, 30 — bairro residencial, público do lado.</span>
+        </div>
+        <div class="f">
+          <div class="icon-badge orange"><svg class="icon"><use href="#i-store"/></svg></div>
+          <b>Mix com rótulos exclusivos</b>
+          <span>Cervejas, destilados e licores que não se acha em qualquer esquina.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 · SERVICOS -->
   <section class="white">
     <div class="z">
       <span class="eyebrow">Escopo da parceria</span>
@@ -260,27 +344,64 @@
 
       <div class="cards">
         <div class="card">
-          <div class="icon-badge"><svg class="icon"><use href="#i-menu"/></svg></div>
-          <div><h3>Cardápio digital na Insta Delivery</h3><p>Catálogo de bebidas montado na plataforma Insta Delivery, com foto, descrição e preço de cada item, combos em destaque e pedido direto no WhatsApp.</p></div>
+          <div class="icon-badge"><svg class="icon"><use href="#i-bag"/></svg></div>
+          <div><h3>Cadastro nas plataformas de delivery</h3><p>Abrimos e configuramos a loja no iFood, 99Food, Keeta e Anota Aí: cardápio completo, fotos, preços, área de entrega e horários de funcionamento.</p></div>
         </div>
         <div class="card">
-          <div class="icon-badge orange"><svg class="icon"><use href="#i-chat"/></svg></div>
+          <div class="icon-badge orange"><svg class="icon"><use href="#i-menu"/></svg></div>
+          <div><h3>Gerenciamento das plataformas</h3><p>Acompanhamento do dia a dia: promoções, avaliações dos clientes, itens em falta, destaque na busca e ajuste do cardápio.</p></div>
+        </div>
+        <div class="card">
+          <div class="icon-badge"><svg class="icon"><use href="#i-chat"/></svg></div>
           <div><h3>Gerenciamento de redes sociais</h3><p>Planejamento de conteúdo, legendas e publicação no Instagram e no Facebook da adega.</p></div>
         </div>
         <div class="card">
-          <div class="icon-badge"><svg class="icon"><use href="#i-camera"/></svg></div>
-          <div><h3>Captação de conteúdo na adega</h3><p>Visitas para gravar o mix de bebidas, os combos e o movimento da loja, com edição na identidade visual da marca.</p></div>
+          <div class="icon-badge orange"><svg class="icon"><use href="#i-camera"/></svg></div>
+          <div><h3>Criação de conteúdo na loja</h3><p>Visitas presenciais para gravar o mix, os combos e os rótulos exclusivos, com edição na identidade visual da Adega Nova Danfer.</p></div>
         </div>
         <div class="card">
-          <div class="icon-badge orange"><svg class="icon"><use href="#i-megaphone"/></svg></div>
-          <div><h3>Gestão de tráfego pago</h3><p>Campanhas no Instagram e Facebook para alcançar [[PÚBLICO: ex. quem pede bebida em casa]] na região da adega.</p></div>
+          <div class="icon-badge"><svg class="icon"><use href="#i-megaphone"/></svg></div>
+          <div><h3>Gestão de tráfego pago</h3><p>Campanhas no Instagram e no Facebook para alcançar quem pede bebida em casa na região do Jd. Danfer.</p></div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- MATERIAL DE APOIO -->
+  <!-- 4 · PLATAFORMAS DE DELIVERY -->
   <section class="light">
+    <div class="z">
+      <span class="eyebrow">Onde a adega vai aparecer</span>
+      <h2>Quatro plataformas de delivery</h2>
+      <div class="divider"></div>
+      <p class="lead">Cadastro, cardápio e gestão em cada uma delas. Quem já está procurando bebida no aplicativo passa a encontrar a Adega Nova Danfer.</p>
+
+      <div class="plats">
+        <div class="plat">
+          <div class="icon-badge"><svg class="icon"><use href="#i-bag"/></svg></div>
+          <b>iFood</b>
+          <span>Cadastro, cardápio e gestão</span>
+        </div>
+        <div class="plat">
+          <div class="icon-badge orange"><svg class="icon"><use href="#i-bag"/></svg></div>
+          <b>99Food</b>
+          <span>Cadastro, cardápio e gestão</span>
+        </div>
+        <div class="plat">
+          <div class="icon-badge"><svg class="icon"><use href="#i-bag"/></svg></div>
+          <b>Keeta</b>
+          <span>Cadastro, cardápio e gestão</span>
+        </div>
+        <div class="plat">
+          <div class="icon-badge orange"><svg class="icon"><use href="#i-bag"/></svg></div>
+          <b>Anota Aí</b>
+          <span>Cadastro, cardápio e gestão</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 · MATERIAL DE APOIO -->
+  <section class="white">
     <div class="z">
       <span class="eyebrow">Material de apoio</span>
       <h2>Como fica o Instagram e o site</h2>
@@ -289,11 +410,11 @@
       <div class="phones">
         <div>
           <div class="phone"><div class="notch"></div><img src="mockup-instagram-adega-nova-danfer.jpg" alt="Simulação do Instagram da Adega Nova Danfer"></div>
-          <div class="phone-cap">Instagram organizado e com identidade visual</div>
+          <div class="phone-cap" style="color:var(--gray-600);">Instagram organizado e com identidade visual</div>
         </div>
         <div>
           <div class="phone"><div class="notch"></div><img src="mockup-site-adega-nova-danfer.jpg" alt="Simulação do site da Adega Nova Danfer"></div>
-          <div class="phone-cap">Site com cardápio e pedido no WhatsApp</div>
+          <div class="phone-cap" style="color:var(--gray-600);">Site com cardápio e pedido no WhatsApp</div>
         </div>
       </div>
 
@@ -304,52 +425,141 @@
     </div>
   </section>
 
-  <!-- INVESTIMENTO -->
+  <!-- 6 · COMO FUNCIONA -->
+  <section class="light">
+    <div class="z">
+      <span class="eyebrow">Como funciona</span>
+      <h2>O que acontece depois do aceite</h2>
+      <div class="divider"></div>
+
+      <div class="steps">
+        <div class="step">
+          <div class="sn">1</div>
+          <div>
+            <b>Cadastro nas plataformas</b>
+            <p>Abrimos a loja no iFood, 99Food, Keeta e Anota Aí, com cardápio completo, fotos de cada item, preços, área de entrega e horários.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="sn">2</div>
+          <div>
+            <b>Primeira visita de conteúdo</b>
+            <p>Gravação na adega: o mix, os combos, os rótulos exclusivos e o movimento da loja. Material editado e pronto para publicar.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="sn">3</div>
+          <div>
+            <b>Redes e anúncios no ar</b>
+            <p>Instagram e Facebook organizados, publicando com constância, e campanhas de tráfego pago rodando para o bairro.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="sn">4</div>
+          <div>
+            <b>Gestão todo mês</b>
+            <p>Acompanhamento das plataformas e das redes, leitura do que mais vendeu e ajuste das campanhas e das promoções.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 · ONDE DA PARA CHEGAR -->
+  <section class="white">
+    <div class="z">
+      <span class="eyebrow">Onde dá para chegar</span>
+      <h2>O caminho que a <span class="accent">Adega do Bruninho</span> já fez</h2>
+      <div class="divider"></div>
+      <p class="lead">[[UMA LINHA SOBRE O CASO: porte da adega, bairro e há quanto tempo é cliente]]</p>
+
+      <div class="case">
+        <div class="case-top">
+          <img src="logo-adega-do-bruninho.png" alt="Adega do Bruninho">
+          <div>
+            <b>Adega do Bruninho</b>
+            <span>[[@ DO INSTAGRAM]] · [[BAIRRO/CIDADE]]</span>
+          </div>
+        </div>
+
+        <div class="case-grid">
+          <div class="case-m">
+            <div class="lbl">Antes</div>
+            <div class="k">[[X]]</div>
+            <div class="lbl" style="letter-spacing:.6px; text-transform:none; font-weight:600; margin-top:4px;">[[seguidores / pedidos por mês]]</div>
+          </div>
+          <div class="case-m now">
+            <div class="lbl">Hoje</div>
+            <div class="k">[[Y]]</div>
+            <div class="lbl" style="letter-spacing:.6px; text-transform:none; font-weight:600; margin-top:4px;">[[seguidores / pedidos por mês]]</div>
+          </div>
+          <div class="case-m">
+            <div class="lbl">Antes</div>
+            <div class="k">[[X]]</div>
+            <div class="lbl" style="letter-spacing:.6px; text-transform:none; font-weight:600; margin-top:4px;">[[plataformas de delivery]]</div>
+          </div>
+          <div class="case-m now">
+            <div class="lbl">Hoje</div>
+            <div class="k">[[Y]]</div>
+            <div class="lbl" style="letter-spacing:.6px; text-transform:none; font-weight:600; margin-top:4px;">[[plataformas de delivery]]</div>
+          </div>
+        </div>
+
+        <ul>
+          <li><b>[[O QUE FOI FEITO 1]]</b> — [[resultado]]</li>
+          <li><b>[[O QUE FOI FEITO 2]]</b> — [[resultado]]</li>
+          <li><b>[[O QUE FOI FEITO 3]]</b> — [[resultado]]</li>
+        </ul>
+      </div>
+
+      <p class="lead" style="margin-top:16px; font-size:13.5px;">
+        A Adega Nova Danfer começa essa caminhada em vantagem: já tem delivery rodando, mix com rótulos exclusivos e <b>393 pessoas</b> acompanhando.
+      </p>
+    </div>
+  </section>
+
+  <!-- 8 · INVESTIMENTO -->
   <section class="dark">
     <div class="glow glow-blue" style="width:260px;height:260px; top:-90px; left:-90px;"></div>
+    <div class="glow glow-orange" style="width:200px;height:200px; bottom:-70px; right:-70px; opacity:.2;"></div>
     <div class="lines"></div>
     <div class="z">
       <span class="eyebrow">Proposta de investimento</span>
       <h2>Escolha o seu plano</h2>
       <div class="divider"></div>
 
-      <p class="lead">Preparamos uma condição especial para a Adega Nova Danfer. Escolha o formato que faz mais sentido para a loja:</p>
+      <p class="lead">Dois formatos para a Adega Nova Danfer. O primeiro coloca a adega nos aplicativos. O segundo cuida de tudo: aplicativos, redes, conteúdo e anúncios.</p>
 
       <div class="plans">
         <div class="plan">
-          <div class="pn">Pacote 1</div>
-          <h3>[[NOME DO PACOTE 1]]</h3>
-          <div class="val">R$ [[VALOR]]<small> · [[pagamento único | /mês]]</small></div>
+          <div class="pn">Plano mensal 1</div>
+          <h3>Delivery nas plataformas</h3>
+          <div class="val">R$ 1.500<small>/mês</small></div>
           <ul>
-            <li>[[ITEM INCLUÍDO]]</li>
-            <li>[[ITEM INCLUÍDO]]</li>
-          </ul>
-        </div>
-
-        <div class="plan">
-          <div class="pn">Pacote 2</div>
-          <h3>[[NOME DO PACOTE 2]]</h3>
-          <div class="val">R$ [[VALOR]]<small>/mês</small></div>
-          <ul>
-            <li>[[ITEM INCLUÍDO]]</li>
-            <li>[[ITEM INCLUÍDO]]</li>
-            <li>[[ITEM INCLUÍDO]]</li>
+            <li>Cadastro da adega no iFood, 99Food, Keeta e Anota Aí</li>
+            <li>Cardápio montado com fotos, descrições e preços</li>
+            <li>Gerenciamento das quatro plataformas</li>
+            <li>Promoções, avaliações e ajustes de cardápio acompanhados todo mês</li>
           </ul>
         </div>
 
         <div class="plan best">
           <span class="badge">Recomendado</span>
-          <div class="pn">Pacote 3</div>
-          <h3>[[NOME DO PACOTE 3]]</h3>
-          <div class="val">R$ [[VALOR]]<small>/mês</small></div>
+          <div class="pn">Plano mensal 2</div>
+          <h3>Delivery + Redes + Conteúdo + Tráfego</h3>
+          <div class="val">R$ 2.500<small>/mês</small></div>
           <ul>
-            <li>[[ITEM INCLUÍDO]]</li>
-            <li>[[ITEM INCLUÍDO]]</li>
-            <li>[[ITEM INCLUÍDO]]</li>
-            <li>[[ITEM INCLUÍDO]]</li>
+            <li>Tudo do Plano 1: cadastro e gerenciamento das quatro plataformas de delivery</li>
+            <li>Cadastro e gerenciamento das redes sociais</li>
+            <li>Criação de conteúdo para o Instagram e para os anúncios</li>
+            <li><b>2 visitas presenciais por mês</b> para colher conteúdo na adega</li>
+            <li>Gestão de tráfego pago</li>
           </ul>
+          <div class="note">A verba de anúncios é paga à parte, direto às plataformas.</div>
         </div>
       </div>
+
+      <a class="alt-link" href="valores-avulsos.html">Prefere contratar serviços separados? Ver valores avulsos →</a>
 
       <table class="svc" style="margin-top:22px;">
         <tr><td class="n"><svg class="icon" style="width:16px;height:16px;color:var(--orange-400);"><use href="#i-check"/></svg></td><td>Primeiro pagamento antecipado, no momento da assinatura</td></tr>
