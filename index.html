@@ -547,6 +547,18 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
     .m-stat b{display:block;font-family:'Manrope',Arial,sans-serif;font-size:max(9px,1.9cqw);color:var(--m-accent-soft,var(--m-accent))}
     .m-stat span{display:block;font-size:max(5px,.95cqw);color:var(--m-soft);margin-top:.4cqh}
 
+    /* foto dentro das áreas de imagem; sem foto, o gradiente da paleta fica */
+    .m-shot img,.m-tile img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
+    /* o CTA de alguns modelos usa uma faixa de foto sob o véu da paleta */
+    .m-cta.com-foto{background:var(--m-cta-veu),var(--m-cta-img) center/cover}
+    /* serviços não tem foto do ramo no repositório: trama de planta no lugar,
+       para o bloco parecer escolha e não espaço vazio */
+    .site-servicos .m-shot,.site-servicos .m-tile{
+      background:
+        repeating-linear-gradient(0deg,rgba(255,255,255,.22) 0 1px,transparent 1px 11%),
+        repeating-linear-gradient(90deg,rgba(255,255,255,.22) 0 1px,transparent 1px 11%),
+        var(--m-shot);
+    }
     .m-sec{padding:4.6cqh 3cqw}
     .m-sec.alt{background:var(--m-alt)}
     .m-h2{display:block;font-family:'Manrope',Arial,sans-serif;font-weight:800;font-size:max(11px,2.2cqw);margin-bottom:2.6cqh}
@@ -618,6 +630,8 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
       --m-shot-2:linear-gradient(150deg,#e0f2fe,#0ea5e9);
       --m-shot-3:linear-gradient(150deg,#99f6e4,#0f766e);
       --m-cta:linear-gradient(135deg,#0f766e,#0d9488);--m-cta-ink:#fff;--m-cta-soft:#c5efea;
+      --m-cta-veu:linear-gradient(135deg,rgba(15,118,110,.88),rgba(13,148,136,.8));
+      --m-cta-img:url('modelo-clinica-faixa.webp');
       --m-foot:#06312e;--m-foot-txt:#9fd8d2;
     }
     .site-resto{
@@ -1078,9 +1092,9 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
               <div class="m-sec">
                 <span class="m-h2">Os mais pedidos</span>
                 <div class="m-grid">
-                  <div class="m-card"><div class="m-tile"></div><b>Caneca personalizada</b><span>Sua foto, seu nome, sua frase.</span></div>
-                  <div class="m-card"><div class="m-tile"></div><b>Kit presente</b><span>Caneca, chocolate e cartão.</span></div>
-                  <div class="m-card"><div class="m-tile"></div><b>Chinelo personalizado</b><span>Do 25 ao 42, com estampa.</span></div>
+                  <div class="m-card"><div class="m-tile"><img src="mimo-caneca.webp" alt="" loading="lazy"></div><b>Caneca personalizada</b><span>Sua foto, seu nome, sua frase.</span></div>
+                  <div class="m-card"><div class="m-tile"><img src="mimo-kit-presente.webp" alt="" loading="lazy"></div><b>Kit presente</b><span>Caneca, chocolate e cartão.</span></div>
+                  <div class="m-card"><div class="m-tile"><img src="mimo-chinelo.webp" alt="" loading="lazy"></div><b>Chinelo personalizado</b><span>Do 25 ao 42, com estampa.</span></div>
                 </div>
               </div>
               <div class="m-sec alt">
@@ -1091,7 +1105,7 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
                     <span class="m-txt">Somos uma loja de família. Cada peça sai daqui conferida à mão, com o cuidado de quem também gosta de receber um mimo bem feito.</span>
                     <div class="m-actions"><span class="m-btn">Ver catálogo</span><span class="m-btn ghost">Falar no WhatsApp</span></div>
                   </div>
-                  <div class="m-shot"></div>
+                  <div class="m-shot"><img src="mimo-loja.webp" alt="" loading="lazy"></div>
                 </div>
               </div>
               <div class="m-quote">
@@ -1133,7 +1147,7 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
                   <span class="m-txt">Oito especialidades no mesmo lugar, com agenda aberta de segunda a sábado e retorno incluso na consulta.</span>
                   <div class="m-actions"><span class="m-btn">Agendar agora</span><span class="m-btn ghost">Ver convênios</span></div>
                 </div>
-                <div class="m-shot"></div>
+                <div class="m-shot"><img src="modelo-clinica-hero.webp" alt="" loading="lazy"></div>
               </div>
               <div class="m-strip">
                 <div class="m-stat"><b>12 anos</b><span>De atendimento</span></div>
@@ -1164,7 +1178,7 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
                 <b>“Consegui consulta para o mesmo dia e saí com todos os exames já marcados.”</b>
                 <span>Patrícia L. · paciente desde 2023</span>
               </div>
-              <div class="m-cta">
+              <div class="m-cta com-foto">
                 <span class="m-h2">Agende sua consulta</span>
                 <span class="m-txt">Atendemos particular e os principais convênios. Resposta no WhatsApp em minutos.</span>
                 <div class="m-actions"><span class="m-btn">Agendar pelo WhatsApp</span></div>
@@ -1198,7 +1212,7 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
                   <span class="m-txt">Massa fresca feita todos os dias no salão, forno a lenha e uma carta de vinhos para acompanhar.</span>
                   <div class="m-actions"><span class="m-btn">Reservar mesa</span><span class="m-btn ghost">Pedir delivery</span></div>
                 </div>
-                <div class="m-shot"></div>
+                <div class="m-shot"><img src="modelo-restaurante-hero.webp" alt="" loading="lazy"></div>
               </div>
               <div class="m-strip">
                 <div class="m-stat"><b>12h–23h</b><span>Todos os dias</span></div>
@@ -1216,7 +1230,11 @@ nav{display:flex;align-items:center;gap:34px}nav a{font-size:.9rem;font-weight:7
               </div>
               <div class="m-sec alt">
                 <span class="m-h2">A casa</span>
-                <div class="m-tiles"><div class="m-tile"></div><div class="m-tile"></div><div class="m-tile"></div></div>
+                <div class="m-tiles">
+                  <div class="m-tile"><img src="modelo-restaurante-1.webp" alt="" loading="lazy"></div>
+                  <div class="m-tile"><img src="modelo-restaurante-2.webp" alt="" loading="lazy"></div>
+                  <div class="m-tile"><img src="modelo-restaurante-3.webp" alt="" loading="lazy"></div>
+                </div>
               </div>
               <div class="m-quote">
                 <b>“Pedimos pelo site, chegou quente em 35 minutos e com a mesma cara do salão.”</b>
