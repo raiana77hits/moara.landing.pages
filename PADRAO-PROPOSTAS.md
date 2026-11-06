@@ -58,3 +58,4 @@ Valores avulsos internos (não mostrar na proposta): cardápio R$ 600, tráfego 
 ## Propostas já feitas
 - `proposta-vibe-petz/`: pet shop com delivery, 3 pacotes
 - `proposta-chay-holanda/`: corretora de imóveis, plano único, simulação animada do site
+- `proposta-mare-petshop/`: pet shop (banho & tosa + delivery), 3 pacotes, simulações em SVG
