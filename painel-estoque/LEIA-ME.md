@@ -19,17 +19,49 @@ Roda só neste computador. **Não altera nada nas lojas online nem no Gestor Z.*
 
 ## Conferência de prateleira pelo celular
 
-A tela `/conferir` foi feita para o celular: a câmera lê o código de barras, o produto aparece
-e você digita a quantidade. Também aceita leitor Bluetooth e busca por nome. Código que não
-está no cadastro pode ser anotado para cadastrar depois.
+A tela `/conferir` é feita para o celular: a câmera lê o código de barras, o produto aparece e
+você digita a quantidade. Também aceita leitor Bluetooth e busca por nome. Código que não está
+no cadastro pode ser anotado para cadastrar depois.
 
-Para o celular alcançar o painel ele precisa estar publicado num endereço com cadeado (https)
-e com senha. Defina a senha em `config.json` (`"senha"`) ou na variável `PAINEL_SENHA`, e
-`PAINEL_HOST=0.0.0.0`. Sem senha o painel só responde neste computador.
+O celular só libera a câmera em endereço com cadeado (https). Para isso o painel fica no seu
+computador e o celular chega nele por um "túnel" privado do Tailscale (gratuito para uso pessoal;
+confira o limite atual de aparelhos em tailscale.com/pricing). Só os seus aparelhos entram na
+sua conta Tailscale, e o painel ainda pede a senha.
+
+### Configurar (uma vez só)
+
+1. **Senha:** dê dois cliques em `definir-senha.bat` e crie uma senha de pelo menos 8 caracteres.
+2. **Computador:** instale o Tailscale em https://tailscale.com/download e entre com uma conta
+   (Google, por exemplo). No painel de administração (login.tailscale.com → DNS), confira que
+   **MagicDNS** e **HTTPS Certificates** estão ligados.
+3. **Celular:** instale o app Tailscale (App Store ou Play Store) e entre **com a mesma conta**.
+4. **Túnel:** abra o painel (`iniciar.bat`) e depois dê dois cliques em `conectar-celular.bat`.
+   Ele mostra o endereço do painel, algo como `https://seu-computador.xxxx.ts.net`.
+5. **No celular**, com o Tailscale ligado, abra esse endereço e some `/conferir` no final.
+   Entre com a senha. Depois use "Adicionar à tela inicial" do navegador para virar um ícone.
+
+O túnel fica guardado: depois de feito, `conectar-celular.bat` não precisa ser repetido, a não
+ser que você desligue. Para desligar: `tailscale serve --https=443 off` no terminal.
+
+### Antes de ir para a loja
+
+- Teste em casa, com o celular no 4G (Wi-Fi desligado): se abre e a câmera lê, vai funcionar lá.
+- Deixe o computador **ligado e conectado à internet**, com o painel (`iniciar.bat`) aberto. O
+  painel pede ao Windows para não suspender enquanto está aberto, mas desligue também a suspensão
+  nas configurações de energia. A janela do painel não pode ser fechada.
+- Se o computador reiniciar, abra `iniciar.bat` de novo.
+- No Windows, o Tailscale pode desconectar quando você sai da sua conta de usuário; não saia da
+  conta (bloquear a tela está certo).
+
+### Se der erro
+
+- **"Câmera só com https":** você abriu o endereço sem o cadeado. Use o que começa com https.
+- **Não abre no celular:** confira se o Tailscale está ligado no celular e no computador.
+- **Pede senha de novo:** normal depois de 30 dias ou se trocar a senha.
 
 ## Acesso à Nuvemshop
 
-Copie `config.exemplo.json` para `config.json` e cole o token. O arquivo fica só neste computador.
+Copie `config.exemplo.json` para `config.json` e cole o token (a senha é criada por `definir-senha.bat`). O arquivo fica só neste computador.
 Sem ele o painel funciona normalmente, só não relê a Nuvemshop.
 
 ## Onde ficam os dados

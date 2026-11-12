@@ -8,6 +8,7 @@ Uso:
     python painel.py importar-gestorz ARQ.csv
     python painel.py importar-painel ARQ.csv
     python painel.py sync-nuvemshop       lê os produtos da Nuvemshop (somente leitura)
+    python painel.py definir-senha        cria ou troca a senha de acesso
 
 Acesso pelo celular (fora deste computador): defina uma senha (PAINEL_SENHA ou "senha" no
 config.json) e PAINEL_HOST=0.0.0.0. Sem senha o painel só responde neste computador.
@@ -261,6 +262,7 @@ def carregar_config():
             cfg = json.load(f)
     return {
         "senha": os.environ.get("PAINEL_SENHA") or cfg.get("senha", ""),
+        "senha_hash": cfg.get("senha_hash", ""),
         "token": os.environ.get("NUVEMSHOP_ACCESS_TOKEN") or cfg.get("nuvemshop_token", ""),
         "loja": os.environ.get("NUVEMSHOP_STORE_ID") or str(cfg.get("nuvemshop_loja", "")),
         "agente": os.environ.get("NUVEMSHOP_USER_AGENT")
@@ -547,6 +549,55 @@ def sessao_valida(con, valor):
         return False
 
 
+def tem_senha():
+    cfg = carregar_config()
+    return bool(cfg["senha"] or cfg["senha_hash"])
+
+
+def gerar_hash(senha):
+    sal = secrets.token_hex(16)
+    h = hashlib.pbkdf2_hmac("sha256", senha.encode(), bytes.fromhex(sal), 300_000).hex()
+    return f"pbkdf2${sal}${h}"
+
+
+def senha_confere(senha):
+    cfg = carregar_config()
+    senha = str(senha)
+    if cfg["senha"]:
+        return hmac.compare_digest(senha.encode(), cfg["senha"].encode())
+    try:
+        _, sal, h = cfg["senha_hash"].split("$")
+        calc = hashlib.pbkdf2_hmac("sha256", senha.encode(), bytes.fromhex(sal), 300_000).hex()
+        return hmac.compare_digest(calc, h)
+    except ValueError:
+        return False
+
+
+def definir_senha():
+    """Pergunta a senha no teclado e grava só o resumo (hash) no config.json."""
+    import getpass
+    print("Crie a senha do Painel de Estoque (mínimo de 8 caracteres).")
+    print("Ao digitar, nada aparece na tela: é assim mesmo.")
+    while True:
+        a = getpass.getpass("Senha: ")
+        if len(a) < 8:
+            print("Muito curta. Use pelo menos 8 caracteres.")
+            continue
+        if a != getpass.getpass("Repita a senha: "):
+            print("As duas não bateram. Tente de novo.")
+            continue
+        break
+    cfg = {}
+    if os.path.exists(CONFIG_PATH):
+        with open(CONFIG_PATH, encoding="utf-8") as f:
+            cfg = json.load(f)
+    cfg.pop("senha", None)
+    cfg["senha_hash"] = gerar_hash(a)
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2, ensure_ascii=False)
+    print("Senha gravada. Feche e abra o painel de novo para valer.")
+
+
 FALHAS = {}   # ip -> (quantidade, bloqueado_ate)
 
 
@@ -554,8 +605,7 @@ def tentar_login(con, ip, senha):
     qtd, ate = FALHAS.get(ip, (0, 0))
     if time.time() < ate:
         raise PermissionError("Muitas tentativas. Espere um minuto e tente de novo.")
-    certa = carregar_config()["senha"]
-    if certa and hmac.compare_digest(str(senha).encode(), certa.encode()):
+    if tem_senha() and senha_confere(senha):
         FALHAS.pop(ip, None)
         return criar_sessao(con)
     qtd += 1
@@ -634,7 +684,8 @@ class Handler(BaseHTTPRequestHandler):
         return (self.headers.get("X-Forwarded-For") or self.client_address[0]).split(",")[0].strip()
 
     def _https(self):
-        return (self.headers.get("X-Forwarded-Proto") or "").lower() == "https"
+        return ((self.headers.get("X-Forwarded-Proto") or "").lower() == "https"
+                or (self.headers.get("Origin") or "").startswith("https://"))
 
     def _origem_ok(self):
         """Recusa chamadas disparadas por outros sites (a página do painel é a única origem)."""
@@ -642,12 +693,12 @@ class Handler(BaseHTTPRequestHandler):
         origem = self.headers.get("Origin")
         if origem and urlparse(origem).netloc != host:
             return False
-        if not carregar_config()["senha"] and host.split(":")[0] not in ("127.0.0.1", "localhost"):
+        if not tem_senha() and host.split(":")[0] not in ("127.0.0.1", "localhost"):
             return False          # sem senha, só este computador
         return True
 
     def _logado(self, con):
-        if not carregar_config()["senha"]:
+        if not tem_senha():
             return True
         for parte in (self.headers.get("Cookie") or "").split(";"):
             k, _, v = parte.strip().partition("=")
@@ -760,9 +811,21 @@ class Handler(BaseHTTPRequestHandler):
             con.close()
 
 
+def manter_acordado():
+    """No Windows, impede o computador de suspender enquanto o painel está aberto."""
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+        ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | 0x00000001)
+    except Exception:  # noqa: BLE001 - se não der, o painel funciona do mesmo jeito
+        pass
+
+
 def servir(abrir=True):
     conectar().close()
-    if HOST not in ("127.0.0.1", "localhost") and not carregar_config()["senha"]:
+    manter_acordado()
+    if HOST not in ("127.0.0.1", "localhost") and not tem_senha():
         print("Para abrir o painel para outros aparelhos é obrigatório definir uma senha "
               "(PAINEL_SENHA ou \"senha\" no config.json).")
         return 1
@@ -770,6 +833,9 @@ def servir(abrir=True):
     url = f"http://127.0.0.1:{PORTA}/"
     print(f"Painel de Estoque aberto em {url}")
     print("Deixe esta janela aberta enquanto usa o painel. Para fechar: Ctrl+C.")
+    if not tem_senha():
+        print("Sem senha: o painel só responde neste computador. Para usar no celular, "
+              "rode definir-senha.bat.")
     if abrir:
         threading.Timer(0.8, lambda: webbrowser.open(url)).start()
     try:
@@ -782,6 +848,8 @@ def main(argv):
     if len(argv) < 2:
         return servir()
     cmd = argv[1]
+    if cmd == "definir-senha":
+        return definir_senha()
     if cmd == "servir":
         return servir(abrir="--sem-navegador" not in argv)
     con = conectar()
