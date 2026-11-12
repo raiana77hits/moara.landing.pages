@@ -40,6 +40,7 @@ STATIC = os.path.join(BASE, "static")
 PORTA = int(os.environ.get("PAINEL_PORTA") or os.environ.get("PORT") or "8765")
 HOST = os.environ.get("PAINEL_HOST", "127.0.0.1")
 SESSAO_DIAS = 30
+VERSAO_SERVIDOR = "4"      # a tela compara com este número para detectar janela antiga aberta
 
 CANAIS = ("nuvemshop", "ifood", "99food")
 
@@ -477,6 +478,7 @@ def resumo(con):
              "ORDER BY COUNT(*) DESC, grupo")],
          "meta": {x["chave"]: x["valor"] for x in con.execute("SELECT * FROM meta")},
          "fotos_tiradas": um("SELECT COUNT(*) FROM fotos"),
+         "servidor": VERSAO_SERVIDOR,
          "nuvemshop_configurada": bool(carregar_config()["token"])}
     return r
 
@@ -827,7 +829,7 @@ class Handler(BaseHTTPRequestHandler):
             if u.path == "/api/codigo":
                 return self._json({"itens": buscar_codigo(con, qs.get("c", ""))})
             if u.path == "/api/conferidos":
-                return self._json({"itens": conferidos_recentes(con),
+                return self._json({"servidor": VERSAO_SERVIDOR, "itens": conferidos_recentes(con),
                                    "total": con.execute("SELECT COUNT(*) FROM produtos WHERE "
                                                         "estoque IS NOT NULL").fetchone()[0]})
             if u.path == "/api/sem-cadastro":
@@ -945,7 +947,13 @@ def servir(abrir=True):
         print("Para abrir o painel para outros aparelhos é obrigatório definir uma senha "
               "(PAINEL_SENHA ou \"senha\" no config.json).")
         return 1
-    srv = ThreadingHTTPServer((HOST, PORTA), Handler)
+    try:
+        srv = ThreadingHTTPServer((HOST, PORTA), Handler)
+    except OSError:
+        print("O painel já está aberto em outra janela preta (porta %d ocupada)." % PORTA)
+        print("Feche TODAS as janelas pretas do painel, depois abra o iniciar.bat de novo.")
+        print("Isso é necessário depois de atualizar os arquivos, para valer a versão nova.")
+        return 1
     url = f"http://127.0.0.1:{PORTA}/"
     print(f"Painel de Estoque aberto em {url}")
     print("Deixe esta janela aberta enquanto usa o painel. Para fechar: Ctrl+C.")

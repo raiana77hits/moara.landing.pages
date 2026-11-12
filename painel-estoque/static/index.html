@@ -99,6 +99,7 @@ textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);bo
 
 .tela-inicio{display:none}
 .tabbar{display:none}
+#alerta-versao{background:var(--bad);color:#fff;padding:14px 16px;font-size:16px;font-weight:600;line-height:1.35;position:sticky;top:0;z-index:50}
 
 /* ======================= celular ======================= */
 @media (max-width:900px){
@@ -211,6 +212,7 @@ textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);bo
 </style>
 </head>
 <body data-v="inicio">
+<div id="alerta-versao" hidden>⚠️ O painel no computador está desatualizado. Feche a janela preta do painel (e qualquer outra) e abra o <b>iniciar.bat</b> de novo. Enquanto isso, algumas coisas, como as fotos, não funcionam.</div>
 <header>
   <div class="tit">
     <h1>Painel de Estoque</h1>
@@ -420,6 +422,7 @@ function datasTexto(){
 async function carregarResumo(){
   const r = await api("/api/resumo");
   RESUMO = r;
+  $("#alerta-versao").hidden = r.servidor === VERSAO;
   const g = $("#grupo");
   g.innerHTML = '<option value="">Todos os grupos</option>' + r.grupos.map(x => `<option>${esc(x)}</option>`).join("");
   g.value = est.grupo;
