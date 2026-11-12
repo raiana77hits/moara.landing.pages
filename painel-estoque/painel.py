@@ -428,6 +428,9 @@ def resumo(con):
                      for k, v in FILTROS.items()},
          "grupos": [x[0] for x in con.execute(
              "SELECT DISTINCT grupo FROM produtos WHERE grupo<>'' ORDER BY grupo")],
+         "grupos_n": [{"grupo": x[0], "n": x[1]} for x in con.execute(
+             "SELECT grupo, COUNT(*) FROM produtos WHERE grupo<>'' GROUP BY grupo "
+             "ORDER BY COUNT(*) DESC, grupo")],
          "meta": {x["chave"]: x["valor"] for x in con.execute("SELECT * FROM meta")},
          "nuvemshop_configurada": bool(carregar_config()["token"])}
     return r

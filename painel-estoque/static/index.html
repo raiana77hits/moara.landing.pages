@@ -2,7 +2,8 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#9E6A35">
 <title>Painel de Estoque · Casa de Embalagens Cangaíba</title>
 <style>
 :root{
@@ -13,96 +14,176 @@
   --mono:ui-monospace,Menlo,Consolas,monospace;
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;overflow-x:hidden}
+[hidden]{display:none!important}
+button,.btn{font:600 14px/1.2 inherit;font-family:inherit;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;padding:9px 14px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+.pri{background:var(--kraft);border-color:var(--kraft);color:#fff}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid var(--kraft);outline-offset:1px}
+
 header{background:var(--surface);border-bottom:3px solid var(--kraft);padding:14px 20px;display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center}
 header h1{margin:0;font-size:20px}
-header .sub{color:var(--muted);font-size:13px}
-header .acoes{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
-button,.btn{font:600 13px inherit;font-family:inherit;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:5px;padding:7px 12px;cursor:pointer;text-decoration:none}
-button.pri{background:var(--kraft);border-color:var(--kraft);color:#fff}
-button:disabled{opacity:.5;cursor:default}
-button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--kraft);outline-offset:1px}
-main{display:grid;grid-template-columns:230px minmax(0,1fr);gap:18px;padding:18px 20px;max-width:1500px;margin:0 auto}
-@media(max-width:900px){main{grid-template-columns:1fr}}
+.sub{color:var(--muted);font-size:13px}
+.acoes{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:18px;padding:18px 20px;max-width:1500px;margin:0 auto}
 nav h2{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
 nav h2:first-child{margin-top:0}
-nav button{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;border:0;background:none;padding:6px 8px;font-weight:500;border-radius:4px}
-nav button:hover{background:var(--idle-bg)}
-nav button.on{background:var(--kraft-soft);color:var(--kraft);font-weight:700}
-nav button b{font:500 12px var(--mono);color:var(--muted)}
-.aviso{background:var(--warn-bg);color:var(--warn);border-radius:5px;padding:10px 12px;margin-bottom:12px;font-size:13px}
-.barra{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
-.barra input[type=search]{flex:1;min-width:220px;padding:8px 10px;border:1px solid var(--line);border-radius:5px;font:inherit}
-select{padding:8px;border:1px solid var(--line);border-radius:5px;font:inherit;background:var(--surface);color:inherit}
-.conta{color:var(--muted);font-size:13px}
-.caixa{background:var(--surface);border:1px solid var(--line);border-radius:6px;overflow-x:auto}
-table{border-collapse:collapse;width:100%;min-width:860px}
-th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
-th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);background:var(--bg);position:sticky;top:0}
-tr:last-child td{border-bottom:0}
-tbody tr:hover{background:#FAFBFA}
-td.nome{cursor:pointer}
-td.nome small{display:block;color:var(--muted);font:12px var(--mono)}
-td.num{font-family:var(--mono);white-space:nowrap;text-align:right}
-td.est{white-space:nowrap}
-td.est input{width:74px;padding:5px 6px;border:1px solid var(--line);border-radius:4px;font:600 14px var(--mono);text-align:right}
-td.est input.salvo{border-color:var(--ok);background:var(--ok-bg)}
-td.est input.erro{border-color:var(--bad);background:var(--bad-bg)}
-td.est small{display:block;color:var(--muted);font-size:11px}
-.pill{display:inline-block;font:600 11px/1 inherit;padding:4px 7px;border-radius:999px;white-space:nowrap;margin:1px 0}
+nav .f{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;border:0;background:none;padding:7px 8px;font-weight:500;border-radius:4px}
+nav .f:hover{background:var(--idle-bg)}
+nav .f.on{background:var(--kraft-soft);color:var(--kraft);font-weight:700}
+nav .f b{font:500 12px var(--mono);color:var(--muted)}
+.nav-topo{display:none}
+
+.aviso{background:var(--warn-bg);color:var(--warn);border-radius:6px;padding:9px 12px;margin-bottom:12px;font-size:13px}
+.busca-linha{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.busca-linha input[type=search]{flex:1;min-width:200px;padding:10px 12px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:16px;background:var(--surface);color:var(--ink)}
+select{padding:10px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:16px;background:var(--surface);color:inherit}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:10px 0 4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border-radius:999px;padding:8px 14px;font-weight:500;white-space:nowrap}
+.chip.on{background:var(--kraft);border-color:var(--kraft);color:#fff;font-weight:700}
+.chip small{opacity:.7;margin-left:4px;font-weight:500}
+#ativos{margin-top:8px}
+.ativo{background:var(--kraft-soft);color:var(--kraft);border-color:var(--kraft);font-size:13px;padding:6px 10px}
+.conta{color:var(--muted);font-size:13px;margin:10px 2px 6px}
+.so-mobile{display:none}
+
+.lista{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.cab,.lin{display:grid;grid-template-columns:minmax(220px,3fr) 1.2fr .8fr 1fr 1.3fr 1.3fr 1.3fr;gap:0 12px;align-items:center;padding:9px 14px}
+.cab{background:var(--bg);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.lin{border-top:1px solid var(--line)}
+.lin:hover{background:#FAFBFA}
+.nome{cursor:pointer;font-weight:700;overflow-wrap:anywhere}
+.meta{display:block;color:var(--muted);font:12px var(--mono);font-weight:400;margin-top:2px}
+.grupo{color:var(--muted);font-size:13px}
+.grupo::first-letter,.cn::first-letter{text-transform:uppercase}
+.cn{display:inline-block}
+.preco{font-family:var(--mono);text-align:right;white-space:nowrap}
+.est input{width:84px;padding:7px 8px;border:1px solid var(--line);border-radius:6px;font:700 16px var(--mono);text-align:right;background:var(--surface);color:var(--ink)}
+.est input.salvo{border-color:var(--ok);background:var(--ok-bg)}
+.est input.erro{border-color:var(--bad);background:var(--bad-bg)}
+.est small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.canais{display:contents}
+.rot{display:none}
+.pill{display:inline-block;font:600 12px/1.25 inherit;padding:5px 9px;border-radius:999px;margin:1px 0}
 .p-ok{color:var(--ok);background:var(--ok-bg)}.p-warn{color:var(--warn);background:var(--warn-bg)}
 .p-bad{color:var(--bad);background:var(--bad-bg)}.p-idle{color:var(--idle);background:var(--idle-bg)}
-.pag{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:10px}
 .vazio{padding:40px;text-align:center;color:var(--muted)}
-dialog{border:1px solid var(--line);border-radius:8px;padding:0;width:min(720px,94vw);max-height:90vh;color:var(--ink)}
+.pag{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin:12px 0 4px}
+
+dialog{border:1px solid var(--line);border-radius:10px;padding:0;width:min(720px,94vw);max-height:90vh;color:var(--ink);background:var(--surface)}
 dialog::backdrop{background:rgba(24,37,42,.45)}
-dialog .topo{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start}
-dialog .topo h3{margin:0;font-size:18px;flex:1}
-dialog .corpo{padding:16px 20px;display:flex;flex-direction:column;gap:16px;overflow:auto}
+.topo{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start}
+.topo h3{margin:0;font-size:18px;flex:1;overflow-wrap:anywhere}
+.corpo{padding:16px 18px;display:flex;flex-direction:column;gap:16px;overflow:auto;max-height:calc(90vh - 70px)}
 dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px;margin:0}
 dt{color:var(--muted)}dd{margin:0;overflow-wrap:anywhere}
 h4{margin:0 0 6px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.mini{width:100%;min-width:0;font-size:13px}
-.mini th{position:static}
-textarea{width:100%;min-height:60px;padding:8px;border:1px solid var(--line);border-radius:5px;font:inherit}
+.rolagem{overflow-x:auto}
+.mini{border-collapse:collapse;width:100%;font-size:13px}
+.mini th,.mini td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left}
+.mini th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
+textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:16px}
 .imp{display:flex;flex-direction:column;gap:14px}
 .imp section{border:1px solid var(--line);border-radius:6px;padding:12px 14px}
 .imp p{margin:4px 0 8px;color:var(--muted);font-size:13px}
-#msg{font-size:13px}
+
+/* ---------------- celular ---------------- */
+@media (max-width:900px){
+  header{padding:12px 14px;padding-top:calc(12px + env(safe-area-inset-top));gap:8px}
+  header h1{font-size:18px}
+  .tit{flex:1 1 100%}
+  .acoes{margin:0;width:100%}
+  .acoes .pri{flex:1 1 100%;font-size:16px}
+  .acoes button,.acoes a:not(.pri){flex:1;font-size:13px;padding:10px 8px}
+  .layout{grid-template-columns:1fr;gap:0;padding:0 0 calc(24px + env(safe-area-inset-bottom))}
+  .principal{min-width:0}
+  .aviso{display:none}
+  #datas{display:none}
+  .sub{font-size:12px}
+  .acoes .pri{padding:12px!important}
+  .so-mobile{display:inline-flex}
+  .so-desktop{display:none}
+  .chips.so-mobile{display:flex;width:100%}
+
+  .busca{position:sticky;top:0;z-index:10;background:var(--bg);padding:10px 12px 6px;border-bottom:1px solid var(--line)}
+  .busca-linha{flex-wrap:nowrap}
+  .busca-linha input[type=search]{min-width:0;padding:12px}
+  #b-filtros{padding:12px 14px;white-space:nowrap}
+  .conta{margin:10px 14px 6px}
+
+  nav{position:fixed;inset:0;z-index:30;background:var(--bg);overflow:auto;display:none;padding:0 0 24px}
+  nav.aberto{display:block}
+  .nav-topo{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg);padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));border-bottom:1px solid var(--line);font-size:18px}
+  #nav-lista{padding:4px 16px}
+  nav .f{padding:14px 10px;font-size:16px;border-bottom:1px solid var(--line);border-radius:0}
+  nav h2{margin:18px 0 2px}
+
+  .lista{border-radius:0;border-left:0;border-right:0}
+  .cab{display:none}
+  .lin{grid-template-columns:140px 1fr;grid-template-areas:"nome nome" "grupo preco" "est canais";gap:8px 12px;padding:14px;align-items:start}
+  .nome{grid-area:nome;font-size:16px;line-height:1.3}
+  .grupo{grid-area:grupo;align-self:center;font-size:12px}
+  .preco{grid-area:preco;align-self:center;font-size:15px}
+  .est{grid-area:est}
+  .est input{width:100%;padding:12px 10px;font-size:20px}
+  .canais{grid-area:canais;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
+  .rot{display:inline}
+  .det{display:none}
+  .pill{font-size:12px;padding:6px 9px}
+  .pag{margin:14px 12px;justify-content:space-between}
+  .pag button{flex:1;padding:14px}
+  .pag .conta{margin:0;flex:none}
+
+  dialog{width:100vw;max-width:100vw;max-height:100vh;height:100vh;border-radius:0;border:0}
+  .corpo{max-height:calc(100vh - 70px)}
+  dl{grid-template-columns:1fr;gap:0}
+  dt{margin-top:8px;font-size:12px}
+}
 </style>
 </head>
 <body>
 <header>
-  <div>
+  <div class="tit">
     <h1>Painel de Estoque</h1>
-    <div class="sub">Casa de Embalagens Cangaíba · cadastro central · <span id="datas"></span></div>
+    <div class="sub">Casa de Embalagens Cangaíba<span id="datas"></span></div>
   </div>
   <div class="acoes">
-    <a class="btn" href="/conferir" style="background:var(--kraft);border-color:var(--kraft);color:#fff">Conferir prateleira</a>
+    <a class="btn pri" href="/conferir">Conferir prateleira</a>
     <button id="b-imp">Atualizar dados</button>
     <a class="btn" id="b-exp" href="#">Baixar lista (CSV)</a>
   </div>
 </header>
 
-<main>
-  <nav id="nav" aria-label="Filtros"></nav>
-  <div>
-    <div class="aviso">Tudo o que você muda aqui fica <b>só neste computador</b>. O painel ainda não envia nada para a Nuvemshop, o iFood, a 99Food ou o Gestor Z.</div>
-    <div class="barra">
-      <input type="search" id="q" placeholder="Buscar por nome, código de barras, SKU ou código do Gestor Z" autofocus>
-      <select id="grupo" aria-label="Grupo"><option value="">Todos os grupos</option></select>
-      <span class="conta" id="conta"></span>
+<div class="layout">
+  <nav id="nav" aria-label="Filtros">
+    <div class="nav-topo"><b>Filtros</b><button class="pri" id="nav-x">Ver produtos</button></div>
+    <div id="nav-lista"></div>
+  </nav>
+
+  <div class="principal">
+    <div class="aviso">O que você muda aqui fica só neste painel. Nada é enviado para a Nuvemshop, o iFood, a 99Food ou o Gestor Z.</div>
+    <div class="busca">
+      <div class="busca-linha">
+        <input type="search" id="q" placeholder="Buscar por nome, código de barras ou SKU" aria-label="Buscar produto" enterkeyhint="search">
+        <select id="grupo" class="so-desktop" aria-label="Grupo"><option value="">Todos os grupos</option></select>
+        <button id="b-filtros" class="so-mobile">Filtros</button>
+      </div>
+      <div class="chips so-mobile" id="chips" aria-label="Categorias"></div>
+      <div id="ativos"></div>
     </div>
-    <div class="caixa">
-      <table>
-        <thead><tr><th>Produto</th><th>Grupo</th><th style="text-align:right">Preço</th><th>Estoque oficial</th><th>Nuvemshop</th><th>iFood</th><th>99Food</th></tr></thead>
-        <tbody id="linhas"></tbody>
-      </table>
+    <div class="conta" id="conta"></div>
+
+    <div class="lista">
+      <div class="cab"><span>Produto</span><span>Grupo</span><span style="text-align:right">Preço</span><span>Estoque oficial</span><span>Nuvemshop</span><span>iFood</span><span>99Food</span></div>
+      <div id="linhas"></div>
       <div class="vazio" id="vazio" hidden>Nenhum produto encontrado.</div>
     </div>
     <div class="pag"><button id="ant">Anterior</button><span id="pg" class="conta"></span><button id="prox">Próxima</button></div>
   </div>
-</main>
+</div>
 
 <dialog id="dlg"><div class="topo"><h3 id="d-nome"></h3><button id="d-x">Fechar</button></div><div class="corpo" id="d-corpo"></div></dialog>
 
@@ -137,8 +218,11 @@ const NAV = [
   ["Nuvemshop", [["vendendo_nuvemshop","À venda"],["no_nuvemshop","Cadastrado"],["fora_nuvemshop","Não está"]]],
   ["iFood", [["vendendo_ifood","À venda"],["no_ifood","Cadastrado"],["fora_ifood","Não está"]]],
   ["99Food", [["vendendo_99food","À venda"],["no_99food","Cadastrado"],["fora_99food","Não está"]]],
-  ["Cadastro", [["sem_gestorz","Fora do Gestor Z"],["sem_ean","Sem código de barras real"],["em_nenhum_canal","Em nenhuma loja online"]]],
+  ["Cadastro", [["sem_gestorz","Fora do Gestor Z"],["sem_ean","Sem código de barras real"],["em_nenhuma_loja","Em nenhuma loja online"]]],
 ];
+NAV[5][1][2][0] = "em_nenhum_canal";
+const NOME_FILTRO = {};
+NAV.forEach(([t, its]) => its.forEach(([k, n]) => NOME_FILTRO[k] = (t === "Conferência" || t === "Problemas" || t === "Cadastro" ? "" : t + ": ") + n));
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const brl = v => v == null ? "" : "R$ " + Number(v).toFixed(2).replace(".", ",");
 const data = s => s ? s.slice(8,10)+"/"+s.slice(5,7)+" "+s.slice(11,16) : "";
@@ -149,29 +233,41 @@ async function api(url, opt){
   if(!r.ok) throw new Error(j.erro || "Erro"); return j;
 }
 
+let contagens = {};
+function desenharNav(){
+  $("#nav-lista").innerHTML = NAV.map(([t, itens]) => `<h2>${t}</h2>` + itens.map(([k, n]) =>
+    `<button class="f ${k===est.filtro?"on":""}" data-f="${k}"><span>${n}</span><b>${contagens[k] ?? 0}</b></button>`).join("")).join("");
+  $("#ativos").innerHTML = est.filtro !== "todos"
+    ? `<button class="chip ativo" id="x-filtro">${esc(NOME_FILTRO[est.filtro])} ✕</button>` : "";
+  $("#b-filtros").textContent = est.filtro !== "todos" ? "Filtros ●" : "Filtros";
+}
+
 async function carregarResumo(){
   const r = await api("/api/resumo");
-  $("#nav").innerHTML = NAV.map(([t, itens]) => `<h2>${t}</h2>` + itens.map(([k, n]) =>
-    `<button data-f="${k}" class="${k===est.filtro?"on":""}"><span>${n}</span><b>${r.filtros[k] ?? 0}</b></button>`).join("")).join("");
-  const g = $("#grupo"), atual = g.value;
+  contagens = r.filtros; desenharNav();
+  const g = $("#grupo"), atual = est.grupo;
   g.innerHTML = '<option value="">Todos os grupos</option>' + r.grupos.map(x => `<option>${esc(x)}</option>`).join("");
   g.value = atual;
+  const gn = r.grupos_n || r.grupos.map(x => ({grupo:x, n:""}));
+  $("#chips").innerHTML = `<button class="chip ${atual ? "" : "on"}" data-g=""><span class="cn">Todos</span><small>${r.total}</small></button>` +
+    gn.map(x => `<button class="chip ${x.grupo === atual ? "on" : ""}" data-g="${esc(x.grupo)}"><span class="cn">${esc(x.grupo.toLowerCase())}</span><small>${x.n}</small></button>`).join("");
   const m = r.meta, p = [];
   if(m.nuvemshop_sync_em) p.push("Nuvemshop lida em " + data(m.nuvemshop_sync_em));
   if(m.painel_importado_em) p.push("iFood e 99Food de " + data(m.painel_importado_em));
-  $("#datas").textContent = p.join(" · ") || "sem dados ainda: clique em Atualizar dados";
+  $("#datas").textContent = " · " + (p.join(" · ") || "sem dados ainda: toque em Atualizar dados");
   $("#i-nuvem").disabled = !r.nuvemshop_configurada;
   if(!r.nuvemshop_configurada) $("#i-nuvem").textContent = "Falta configurar o acesso (config.json)";
 }
 
+const ROT = {nuvemshop:"Site", ifood:"iFood", "99food":"99Food"};
 function canal(itens, nome){
-  const cs = itens.filter(c => c.canal === nome);
-  if(!cs.length) return '<span class="pill p-idle">Não está</span>';
+  const cs = itens.filter(c => c.canal === nome), rot = ROT[nome];
+  if(!cs.length) return `<span class="pill p-idle"><span class="rot">${rot}: </span>não está</span>`;
   const vend = cs.filter(c => c.vendendo).length;
-  let cls = vend === cs.length ? "p-ok" : vend ? "p-warn" : "p-bad";
-  let txt = cs.length > 1 ? `${vend} de ${cs.length} variações à venda` : cs[0].status;
-  const e = cs.length === 1 && cs[0].estoque ? ` · ${cs[0].estoque}` : "";
-  return `<span class="pill ${cls}">${esc(txt)}${esc(e)}</span>`;
+  const cls = vend === cs.length ? "p-ok" : vend ? "p-warn" : "p-bad";
+  const txt = cs.length > 1 ? `${vend} de ${cs.length} à venda` : (cs[0].vendendo ? "à venda" : "fora de venda");
+  const det = cs.length === 1 && cs[0].estoque ? ` · ${cs[0].estoque}` : "";
+  return `<span class="pill ${cls}" title="${esc(cs.map(c => c.status).join(", "))}"><span class="rot">${rot}: </span>${esc(txt)}<span class="det">${esc(det)}</span></span>`;
 }
 
 async function carregar(){
@@ -179,12 +275,12 @@ async function carregar(){
   $("#b-exp").href = "/api/exportar.csv?" + u;
   const r = await api("/api/produtos?" + u);
   est.total = r.total;
-  $("#linhas").innerHTML = r.itens.map(p => `<tr data-id="${p.id}">
-    <td class="nome"><b>${esc(p.nome)}</b><small>${esc(p.ean || "sem código de barras")}${p.sku ? " · SKU " + esc(p.sku) : ""}${p.gz_codigo ? " · GZ " + esc(p.gz_codigo) : ""}</small></td>
-    <td>${esc(p.grupo)}</td>
-    <td class="num">${brl(p.preco)}</td>
-    <td class="est"><input type="number" min="0" step="1" value="${p.estoque ?? ""}" placeholder="—" aria-label="Estoque de ${esc(p.nome)}"><small>${p.conferido_em ? "conferido " + data(p.conferido_em) : "não conferido"}</small></td>
-    <td>${canal(p.canais,"nuvemshop")}</td><td>${canal(p.canais,"ifood")}</td><td>${canal(p.canais,"99food")}</td></tr>`).join("");
+  $("#linhas").innerHTML = r.itens.map(p => `<div class="lin" data-id="${p.id}">
+    <div class="nome">${esc(p.nome)}<span class="meta">${esc(p.ean || "sem código de barras")}${p.sku ? " · SKU " + esc(p.sku) : ""}${p.gz_codigo ? " · GZ " + esc(p.gz_codigo) : ""}</span></div>
+    <div class="grupo">${esc((p.grupo || "").toLowerCase())}</div>
+    <div class="preco">${brl(p.preco)}</div>
+    <div class="est"><input type="number" min="0" step="1" inputmode="numeric" value="${p.estoque ?? ""}" placeholder="—" aria-label="Estoque de ${esc(p.nome)}"><small>${p.conferido_em ? "conferido " + data(p.conferido_em) : "não conferido"}</small></div>
+    <div class="canais">${canal(p.canais,"nuvemshop")}${canal(p.canais,"ifood")}${canal(p.canais,"99food")}</div></div>`).join("");
   $("#vazio").hidden = r.itens.length > 0;
   const pags = Math.max(1, Math.ceil(r.total / r.por_pagina));
   $("#conta").textContent = r.total.toLocaleString("pt-BR") + (r.total === 1 ? " produto" : " produtos");
@@ -193,13 +289,13 @@ async function carregar(){
 }
 
 async function salvarEstoque(inp){
-  const tr = inp.closest("tr");
+  const lin = inp.closest(".lin");
   if(inp.value === inp.defaultValue) return;
   try{
-    const p = await api("/api/produto/" + tr.dataset.id, {method:"POST", body:JSON.stringify({estoque: inp.value})});
+    const p = await api("/api/produto/" + lin.dataset.id, {method:"POST", body:JSON.stringify({estoque: inp.value})});
     inp.defaultValue = inp.value; inp.className = "salvo";
-    tr.querySelector(".est small").textContent = p.conferido_em ? "conferido " + data(p.conferido_em) : "não conferido";
-    carregarResumo();
+    lin.querySelector(".est small").textContent = p.conferido_em ? "conferido " + data(p.conferido_em) : "não conferido";
+    api("/api/resumo").then(r => { contagens = r.filtros; desenharNav(); }).catch(() => {});
   }catch(e){ inp.className = "erro"; inp.title = e.message; }
 }
 
@@ -222,28 +318,44 @@ async function abrir(id){
       <dt>Vendas no ano (caixa)</dt><dd>${p.vendas_ano ?? "—"}</dd>
       <dt>Última compra</dt><dd>${esc(p.ultima_compra) || "—"}</dd>
     </dl>
-    <div><h4>Lojas online</h4>${p.canais.length ? `<table class="mini"><thead><tr><th>Loja</th><th>Nome lá</th><th>Preço</th><th>Estoque</th><th>Situação</th></tr></thead><tbody>${
-      p.canais.map(c => `<tr><td>${nomes[c.canal]}</td><td>${esc(c.nome) || "—"}</td><td>${brl(c.preco) || "—"}</td><td>${esc(c.estoque) || "—"}</td><td><span class="pill ${c.vendendo ? "p-ok" : "p-bad"}">${esc(c.status)}</span></td></tr>`).join("")}</tbody></table>` : "Este produto não está em nenhuma loja online."}</div>
-    <div><h4>Observação</h4><textarea id="d-obs">${esc(p.obs)}</textarea><div style="margin-top:6px"><button class="pri" id="d-salvar">Salvar observação</button></div></div>
-    <div><h4>Histórico</h4>${p.historico.length ? `<table class="mini"><tbody>${
-      p.historico.map(h => `<tr><td>${data(h.quando)}</td><td>${esc(h.campo)}</td><td>${esc(h.de) || "—"} → ${esc(h.para) || "—"}</td></tr>`).join("")}</tbody></table>` : "Nenhuma alteração ainda."}</div>`;
+    <div><h4>Lojas online</h4>${p.canais.length ? `<div class="rolagem"><table class="mini"><thead><tr><th>Loja</th><th>Nome lá</th><th>Preço</th><th>Estoque</th><th>Situação</th></tr></thead><tbody>${
+      p.canais.map(c => `<tr><td>${nomes[c.canal]}</td><td>${esc(c.nome) || "—"}</td><td>${brl(c.preco) || "—"}</td><td>${esc(c.estoque) || "—"}</td><td><span class="pill ${c.vendendo ? "p-ok" : "p-bad"}">${esc(c.status)}</span></td></tr>`).join("")}</tbody></table></div>` : "Este produto não está em nenhuma loja online."}</div>
+    <div><h4>Observação</h4><textarea id="d-obs">${esc(p.obs)}</textarea><div style="margin-top:8px"><button class="pri" id="d-salvar">Salvar observação</button></div></div>
+    <div><h4>Histórico</h4>${p.historico.length ? `<div class="rolagem"><table class="mini"><tbody>${
+      p.historico.map(h => `<tr><td>${data(h.quando)}</td><td>${esc(h.campo)}</td><td>${esc(h.de) || "—"} → ${esc(h.para) || "—"}</td></tr>`).join("")}</tbody></table></div>` : "Nenhuma alteração ainda."}</div>`;
   $("#d-salvar").onclick = async () => { await api("/api/produto/" + id, {method:"POST", body:JSON.stringify({obs: $("#d-obs").value})}); abrir(id); };
   if(!$("#dlg").open) $("#dlg").showModal();
 }
 
+function recarregarTudo(topo){ if(topo) window.scrollTo({top:0}); desenharNav(); carregar(); }
+
 let t;
 $("#q").addEventListener("input", e => { clearTimeout(t); t = setTimeout(() => { est.q = e.target.value; est.pagina = 1; carregar(); }, 250); });
-$("#grupo").addEventListener("change", e => { est.grupo = e.target.value; est.pagina = 1; carregar(); });
-$("#nav").addEventListener("click", e => { const b = e.target.closest("button"); if(!b) return; est.filtro = b.dataset.f; est.pagina = 1; carregarResumo(); carregar(); });
-$("#ant").onclick = () => { est.pagina--; carregar(); };
-$("#prox").onclick = () => { est.pagina++; carregar(); };
+$("#q").addEventListener("keydown", e => { if(e.key === "Enter") e.target.blur(); });
+$("#grupo").addEventListener("change", e => { est.grupo = e.target.value; est.pagina = 1; carregarResumo(); carregar(); });
+$("#chips").addEventListener("click", e => {
+  const b = e.target.closest(".chip"); if(!b) return;
+  est.grupo = b.dataset.g; est.pagina = 1;
+  $("#chips").querySelectorAll(".chip").forEach(c => c.classList.toggle("on", c === b));
+  $("#grupo").value = est.grupo; recarregarTudo(true);
+});
+$("#nav-lista").addEventListener("click", e => {
+  const b = e.target.closest(".f"); if(!b) return;
+  est.filtro = b.dataset.f; est.pagina = 1; $("#nav").classList.remove("aberto"); recarregarTudo(true);
+});
+$("#ativos").addEventListener("click", e => { if(e.target.closest("#x-filtro")){ est.filtro = "todos"; est.pagina = 1; recarregarTudo(false); } });
+$("#b-filtros").onclick = () => { $("#nav").classList.add("aberto"); $("#nav").scrollTop = 0; };
+$("#nav-x").onclick = () => $("#nav").classList.remove("aberto");
+$("#ant").onclick = () => { est.pagina--; recarregarTudo(true); };
+$("#prox").onclick = () => { est.pagina++; recarregarTudo(true); };
 $("#linhas").addEventListener("change", e => { if(e.target.matches("input")) salvarEstoque(e.target); });
 $("#linhas").addEventListener("keydown", e => {
   if(e.key !== "Enter" || !e.target.matches("input")) return;
-  const prox = e.target.closest("tr").nextElementSibling; e.target.blur();
+  e.preventDefault();
+  const prox = e.target.closest(".lin").nextElementSibling; e.target.blur();
   if(prox) prox.querySelector("input").focus();
 });
-$("#linhas").addEventListener("click", e => { const td = e.target.closest("td.nome"); if(td) abrir(td.parentElement.dataset.id); });
+$("#linhas").addEventListener("click", e => { const n = e.target.closest(".nome"); if(n) abrir(n.parentElement.dataset.id); });
 $("#d-x").onclick = () => $("#dlg").close();
 $("#b-imp").onclick = () => { $("#msg").textContent = ""; $("#dimp").showModal(); };
 $("#i-x").onclick = () => $("#dimp").close();
