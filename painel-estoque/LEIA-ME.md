@@ -17,6 +17,16 @@ Roda só neste computador. **Não altera nada nas lojas online nem no Gestor Z.*
 - Baixar a lista filtrada em CSV (abre no Excel).
 - Atualizar os dados: ler a Nuvemshop de novo ou importar um CSV novo.
 
+## Conferência de prateleira pelo celular
+
+A tela `/conferir` foi feita para o celular: a câmera lê o código de barras, o produto aparece
+e você digita a quantidade. Também aceita leitor Bluetooth e busca por nome. Código que não
+está no cadastro pode ser anotado para cadastrar depois.
+
+Para o celular alcançar o painel ele precisa estar publicado num endereço com cadeado (https)
+e com senha. Defina a senha em `config.json` (`"senha"`) ou na variável `PAINEL_SENHA`, e
+`PAINEL_HOST=0.0.0.0`. Sem senha o painel só responde neste computador.
+
 ## Acesso à Nuvemshop
 
 Copie `config.exemplo.json` para `config.json` e cole o token. O arquivo fica só neste computador.

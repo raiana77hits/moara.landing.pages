@@ -9,12 +9,18 @@ Uso:
     python painel.py importar-painel ARQ.csv
     python painel.py sync-nuvemshop       lê os produtos da Nuvemshop (somente leitura)
 
+Acesso pelo celular (fora deste computador): defina uma senha (PAINEL_SENHA ou "senha" no
+config.json) e PAINEL_HOST=0.0.0.0. Sem senha o painel só responde neste computador.
+
 Este programa NÃO altera nada na Nuvemshop, no iFood, na 99Food nem no Gestor Z.
 """
 import csv
+import hashlib
+import hmac
 import io
 import json
 import os
+import secrets
 import sqlite3
 import sys
 import threading
@@ -30,7 +36,9 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("PAINEL_DB", os.path.join(BASE, "banco.db"))
 CONFIG_PATH = os.path.join(BASE, "config.json")
 STATIC = os.path.join(BASE, "static")
-PORTA = int(os.environ.get("PAINEL_PORTA", "8765"))
+PORTA = int(os.environ.get("PAINEL_PORTA") or os.environ.get("PORT") or "8765")
+HOST = os.environ.get("PAINEL_HOST", "127.0.0.1")
+SESSAO_DIAS = 30
 
 CANAIS = ("nuvemshop", "ifood", "99food")
 
@@ -89,6 +97,15 @@ CREATE TABLE IF NOT EXISTS historico (
 CREATE INDEX IF NOT EXISTS ix_hist_prod ON historico(produto_id);
 
 CREATE TABLE IF NOT EXISTS meta (chave TEXT PRIMARY KEY, valor TEXT);
+
+-- códigos bipados na prateleira que não existem no cadastro
+CREATE TABLE IF NOT EXISTS leituras_sem_cadastro (
+    id INTEGER PRIMARY KEY,
+    codigo TEXT NOT NULL,
+    quando TEXT NOT NULL,
+    quem TEXT,
+    obs TEXT
+);
 """
 
 
@@ -243,6 +260,7 @@ def carregar_config():
         with open(CONFIG_PATH, encoding="utf-8") as f:
             cfg = json.load(f)
     return {
+        "senha": os.environ.get("PAINEL_SENHA") or cfg.get("senha", ""),
         "token": os.environ.get("NUVEMSHOP_ACCESS_TOKEN") or cfg.get("nuvemshop_token", ""),
         "loja": os.environ.get("NUVEMSHOP_STORE_ID") or str(cfg.get("nuvemshop_loja", "")),
         "agente": os.environ.get("NUVEMSHOP_USER_AGENT")
@@ -429,6 +447,7 @@ def alterar(con, pid, dados):
     p = con.execute("SELECT * FROM produtos WHERE id=?", (pid,)).fetchone()
     if not p:
         raise ValueError("Produto não encontrado.")
+    quem = (str(dados.get("quem") or "").strip() or "painel")[:40]
     if "estoque" in dados:
         novo = dados["estoque"]
         if novo in ("", None):
@@ -443,16 +462,105 @@ def alterar(con, pid, dados):
                     "VALUES(?,?,?,?,?,?)",
                     (pid, agora(), "estoque",
                      "" if p["estoque"] is None else str(p["estoque"]),
-                     "" if novo is None else str(novo), "painel"))
+                     "" if novo is None else str(novo), quem))
     if "obs" in dados:
         obs = (dados["obs"] or "").strip()
         if obs != (p["obs"] or ""):
             con.execute("UPDATE produtos SET obs=?, atualizado_em=? WHERE id=?",
                         (obs, agora(), pid))
             con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) "
-                        "VALUES(?,?,?,?,?,?)", (pid, agora(), "obs", p["obs"] or "", obs, "painel"))
+                        "VALUES(?,?,?,?,?,?)", (pid, agora(), "obs", p["obs"] or "", obs, quem))
     con.commit()
     return detalhe(con, pid)
+
+
+def _digito_ean13(doze):
+    soma = sum(int(d) * (3 if i % 2 else 1) for i, d in enumerate(doze))
+    return str((10 - soma % 10) % 10)
+
+
+def buscar_codigo(con, codigo):
+    """Procura pelo código bipado: código de barras, código de caixa (DUN-14), SKU ou
+    código do Gestor Z."""
+    bruto = "".join(ch for ch in str(codigo) if ch.isdigit())
+    if not bruto:
+        return []
+    tentativas = [norm_ean(bruto)]
+    if len(bruto) == 14:      # caixa: dígitos 2 a 13 + verificador recalculado
+        doze = bruto[1:13]
+        tentativas.append(norm_ean(doze + _digito_ean13(doze)))
+    ids = []
+    for t in tentativas:
+        if not t:
+            continue
+        for r in con.execute("SELECT id FROM produtos WHERE ean_norm=? ORDER BY ativo DESC, id",
+                             (t,)):
+            if r["id"] not in ids:
+                ids.append(r["id"])
+    if not ids:
+        for r in con.execute("SELECT id FROM produtos WHERE sku=? OR gz_codigo=?", (bruto, bruto)):
+            ids.append(r["id"])
+    return [detalhe(con, i) for i in ids[:10]]
+
+
+def registrar_sem_cadastro(con, dados):
+    codigo = "".join(ch for ch in str(dados.get("codigo") or "") if ch.isdigit())[:20]
+    if not codigo:
+        raise ValueError("Código vazio.")
+    con.execute("INSERT INTO leituras_sem_cadastro(codigo,quando,quem,obs) VALUES(?,?,?,?)",
+                (codigo, agora(), str(dados.get("quem") or "")[:40], str(dados.get("obs") or "")[:200]))
+    con.commit()
+    return {"ok": True}
+
+
+def conferidos_recentes(con, limite=30):
+    return [dict(r) for r in con.execute(
+        "SELECT h.quando, h.para, h.origem, p.id, p.nome, p.ean FROM historico h "
+        "JOIN produtos p ON p.id=h.produto_id WHERE h.campo='estoque' "
+        "ORDER BY h.id DESC LIMIT ?", (limite,))]
+
+
+# ----------------------------------------------------------------------- login
+
+def _segredo(con):
+    r = con.execute("SELECT valor FROM meta WHERE chave='segredo_sessao'").fetchone()
+    if r:
+        return r["valor"]
+    s = secrets.token_hex(32)
+    set_meta(con, "segredo_sessao", s)
+    con.commit()
+    return s
+
+
+def criar_sessao(con):
+    expira = str(int(time.time()) + SESSAO_DIAS * 86400)
+    assin = hmac.new(_segredo(con).encode(), expira.encode(), hashlib.sha256).hexdigest()
+    return expira + "." + assin
+
+
+def sessao_valida(con, valor):
+    try:
+        expira, assin = valor.split(".", 1)
+        certo = hmac.new(_segredo(con).encode(), expira.encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(assin, certo) and int(expira) > time.time()
+    except (ValueError, AttributeError):
+        return False
+
+
+FALHAS = {}   # ip -> (quantidade, bloqueado_ate)
+
+
+def tentar_login(con, ip, senha):
+    qtd, ate = FALHAS.get(ip, (0, 0))
+    if time.time() < ate:
+        raise PermissionError("Muitas tentativas. Espere um minuto e tente de novo.")
+    certa = carregar_config()["senha"]
+    if certa and hmac.compare_digest(str(senha).encode(), certa.encode()):
+        FALHAS.pop(ip, None)
+        return criar_sessao(con)
+    qtd += 1
+    FALHAS[ip] = (0, time.time() + 60) if qtd >= 5 else (qtd, 0)
+    raise PermissionError("Senha incorreta.")
 
 
 def exportar_csv(con, q, filtro, grupo):
@@ -512,38 +620,78 @@ class Handler(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length") or 0)
         return self.rfile.read(n) if n else b""
 
-    def _local(self):
-        """Só aceita chamadas vindas da própria página do painel."""
-        host = (self.headers.get("Host") or "").split(":")[0]
-        if host not in ("127.0.0.1", "localhost"):
-            return False
+    def _arquivo(self, nome, tipo):
+        with open(os.path.join(STATIC, nome), "rb") as f:
+            corpo = f.read()
+        self.send_response(200)
+        self.send_header("Content-Type", tipo)
+        self.send_header("Content-Length", str(len(corpo)))
+        self.send_header("Cache-Control", "no-store" if nome.endswith(".html") else "max-age=86400")
+        self.end_headers()
+        self.wfile.write(corpo)
+
+    def _ip(self):
+        return (self.headers.get("X-Forwarded-For") or self.client_address[0]).split(",")[0].strip()
+
+    def _https(self):
+        return (self.headers.get("X-Forwarded-Proto") or "").lower() == "https"
+
+    def _origem_ok(self):
+        """Recusa chamadas disparadas por outros sites (a página do painel é a única origem)."""
+        host = self.headers.get("Host") or ""
         origem = self.headers.get("Origin")
-        if origem and urlparse(origem).hostname not in ("127.0.0.1", "localhost"):
+        if origem and urlparse(origem).netloc != host:
             return False
+        if not carregar_config()["senha"] and host.split(":")[0] not in ("127.0.0.1", "localhost"):
+            return False          # sem senha, só este computador
         return True
 
+    def _logado(self, con):
+        if not carregar_config()["senha"]:
+            return True
+        for parte in (self.headers.get("Cookie") or "").split(";"):
+            k, _, v = parte.strip().partition("=")
+            if k == "painel_sessao" and sessao_valida(con, v):
+                return True
+        return False
+
     def do_GET(self):
-        if not self._local():
+        if not self._origem_ok():
             return self._json({"erro": "Acesso negado."}, 403)
         u = urlparse(self.path)
         qs = {k: v[0] for k, v in parse_qs(u.query).items()}
-        if u.path in ("/", "/index.html"):
-            with open(os.path.join(STATIC, "index.html"), "rb") as f:
-                corpo = f.read()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(corpo)))
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
-            self.wfile.write(corpo)
-            return
+        if u.path == "/login":
+            return self._arquivo("login.html", "text/html; charset=utf-8")
+        if u.path == "/vendor/html5-qrcode.min.js":
+            return self._arquivo("vendor/html5-qrcode.min.js", "text/javascript; charset=utf-8")
         con = conectar()
         try:
+            if not self._logado(con):
+                if u.path.startswith("/api/"):
+                    return self._json({"erro": "Entre com a senha.", "login": True}, 401)
+                self.send_response(302)
+                self.send_header("Location", "/login")
+                self.end_headers()
+                return
+            if u.path in ("/", "/index.html"):
+                return self._arquivo("index.html", "text/html; charset=utf-8")
+            if u.path == "/conferir":
+                return self._arquivo("conferir.html", "text/html; charset=utf-8")
             if u.path == "/api/resumo":
                 return self._json(resumo(con))
             if u.path == "/api/produtos":
                 return self._json(listar(con, qs.get("q", ""), qs.get("filtro", "todos"),
-                                         qs.get("grupo", ""), max(1, int(qs.get("pagina", 1)))))
+                                         qs.get("grupo", ""), max(1, int(qs.get("pagina", 1))),
+                                         min(50, max(1, int(qs.get("por_pagina", 50))))))
+            if u.path == "/api/codigo":
+                return self._json({"itens": buscar_codigo(con, qs.get("c", ""))})
+            if u.path == "/api/conferidos":
+                return self._json({"itens": conferidos_recentes(con),
+                                   "total": con.execute("SELECT COUNT(*) FROM produtos WHERE "
+                                                        "estoque IS NOT NULL").fetchone()[0]})
+            if u.path == "/api/sem-cadastro":
+                return self._json({"itens": [dict(r) for r in con.execute(
+                    "SELECT * FROM leituras_sem_cadastro ORDER BY id DESC LIMIT 200")]})
             if u.path.startswith("/api/produto/"):
                 d = detalhe(con, int(u.path.rsplit("/", 1)[1]))
                 return self._json(d or {"erro": "Produto não encontrado."}, 200 if d else 404)
@@ -567,14 +715,34 @@ class Handler(BaseHTTPRequestHandler):
             con.close()
 
     def do_POST(self):
-        if not self._local():
+        if not self._origem_ok():
             return self._json({"erro": "Acesso negado."}, 403)
         u = urlparse(self.path)
         con = conectar()
         try:
+            if u.path == "/api/login":
+                dados = json.loads(self._corpo() or b"{}")
+                try:
+                    sessao = tentar_login(con, self._ip(), dados.get("senha", ""))
+                except PermissionError as e:
+                    return self._json({"erro": str(e)}, 401)
+                corpo = b'{"ok": true}'
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(corpo)))
+                self.send_header("Set-Cookie", f"painel_sessao={sessao}; Path=/; HttpOnly; "
+                                 f"SameSite=Strict; Max-Age={SESSAO_DIAS * 86400}"
+                                 + ("; Secure" if self._https() else ""))
+                self.end_headers()
+                self.wfile.write(corpo)
+                return
+            if not self._logado(con):
+                return self._json({"erro": "Entre com a senha.", "login": True}, 401)
             if u.path.startswith("/api/produto/"):
                 dados = json.loads(self._corpo() or b"{}")
                 return self._json(alterar(con, int(u.path.rsplit("/", 1)[1]), dados))
+            if u.path == "/api/sem-cadastro":
+                return self._json(registrar_sem_cadastro(con, json.loads(self._corpo() or b"{}")))
             if u.path == "/api/importar/gestorz":
                 return self._json(importar_gestorz(con, self._corpo()))
             if u.path == "/api/importar/painel":
@@ -594,7 +762,11 @@ class Handler(BaseHTTPRequestHandler):
 
 def servir(abrir=True):
     conectar().close()
-    srv = ThreadingHTTPServer(("127.0.0.1", PORTA), Handler)
+    if HOST not in ("127.0.0.1", "localhost") and not carregar_config()["senha"]:
+        print("Para abrir o painel para outros aparelhos é obrigatório definir uma senha "
+              "(PAINEL_SENHA ou \"senha\" no config.json).")
+        return 1
+    srv = ThreadingHTTPServer((HOST, PORTA), Handler)
     url = f"http://127.0.0.1:{PORTA}/"
     print(f"Painel de Estoque aberto em {url}")
     print("Deixe esta janela aberta enquanto usa o painel. Para fechar: Ctrl+C.")

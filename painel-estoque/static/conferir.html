@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Conferência">
+<meta name="theme-color" content="#9E6A35">
+<title>Conferência de prateleira</title>
+<style>
+:root{--bg:#F3F5F4;--surface:#fff;--ink:#18252A;--muted:#5A686E;--line:#D8DEDC;--kraft:#9E6A35;--kraft-soft:#F1E6D9;
+  --ok:#2E7D4F;--ok-bg:#E3F2E8;--warn:#9A6A00;--warn-bg:#FBF0D2;--bad:#B03A2E;--bad-bg:#F8E1DE;--idle-bg:#E8ECEB}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding-bottom:env(safe-area-inset-bottom)}
+header{background:var(--kraft);color:#fff;padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));display:flex;align-items:center;gap:12px}
+header h1{margin:0;font-size:18px;flex:1}
+header a,header button{color:#fff;font:600 14px inherit;font-family:inherit;background:rgba(255,255,255,.18);border:0;border-radius:6px;padding:8px 10px;text-decoration:none;cursor:pointer}
+main{max-width:560px;margin:0 auto;padding:14px 16px;display:flex;flex-direction:column;gap:14px}
+button{font:600 16px inherit;font-family:inherit;border-radius:8px;padding:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+button.pri{background:var(--kraft);border-color:var(--kraft);color:#fff}
+button.zero{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--kraft);outline-offset:2px}
+input{font:inherit;padding:14px;border:1px solid var(--line);border-radius:8px;width:100%;background:var(--surface);color:var(--ink)}
+#leitor{width:100%;background:#000;border-radius:8px;overflow:hidden;min-height:0}
+#leitor video{display:block;width:100%!important}
+.linha{display:flex;gap:8px}
+.linha input{flex:1;min-width:0}
+.aviso{border-radius:8px;padding:12px;font-size:15px}
+.a-warn{background:var(--warn-bg);color:var(--warn)}.a-bad{background:var(--bad-bg);color:var(--bad)}.a-ok{background:var(--ok-bg);color:var(--ok)}
+.cartao{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--kraft);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.cartao h2{margin:0;font-size:19px;line-height:1.25}
+.cartao .cod{color:var(--muted);font:13px ui-monospace,Menlo,Consolas,monospace}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{font-size:12px;font-weight:600;padding:5px 9px;border-radius:999px}
+.p-ok{color:var(--ok);background:var(--ok-bg)}.p-bad{color:var(--bad);background:var(--bad-bg)}.p-idle{color:var(--muted);background:var(--idle-bg)}
+.qtd{display:grid;grid-template-columns:56px 1fr 56px;gap:8px}
+.qtd input{text-align:center;font:700 26px ui-monospace,Menlo,Consolas,monospace;padding:10px}
+.qtd button{font-size:24px;padding:0}
+.dois{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.escolha{display:flex;flex-direction:column;gap:8px}
+.escolha button{text-align:left;font-weight:500}
+.escolha small{display:block;color:var(--muted)}
+h3{margin:6px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+ul{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+li{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:baseline;font-size:14px}
+li:last-child{border-bottom:0}
+li b{font:700 16px ui-monospace,Menlo,Consolas,monospace;min-width:44px;text-align:right}
+li span{flex:1;min-width:0;overflow-wrap:anywhere}
+li small{color:var(--muted);white-space:nowrap}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header><h1>Conferência</h1><button id="b-quem"></button><a href="/">Painel</a></header>
+<main>
+  <div id="leitor" hidden></div>
+  <div id="cam-msg" class="aviso a-warn" hidden></div>
+  <button class="pri" id="b-cam">Abrir a câmera para bipar</button>
+  <form class="linha" id="f-cod">
+    <input id="cod" inputmode="search" autocomplete="off" placeholder="Código de barras ou nome do produto" aria-label="Código de barras ou nome do produto">
+    <button>Buscar</button>
+  </form>
+  <div id="resultado" aria-live="polite"></div>
+  <h3>Últimas contagens <span id="tot"></span></h3>
+  <ul id="ultimas"></ul>
+</main>
+
+<script src="/vendor/html5-qrcode.min.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const hora = s => s ? s.slice(8,10)+"/"+s.slice(5,7)+" "+s.slice(11,16) : "";
+async function api(url, opt){
+  const r = await fetch(url, opt);
+  if(r.status === 401){ location.href = "/login?ir=conferir"; throw new Error("login"); }
+  const j = await r.json(); if(!r.ok) throw new Error(j.erro || "Erro"); return j;
+}
+
+// quem está contando (fica no histórico de cada produto)
+let quem = "";
+try{ quem = localStorage.getItem("quem") || ""; }catch(e){}
+function mostrarQuem(){ $("#b-quem").textContent = quem || "Seu nome"; }
+$("#b-quem").onclick = () => {
+  const n = prompt("Quem está contando?", quem); if(n === null) return;
+  quem = n.trim().slice(0, 40); try{ localStorage.setItem("quem", quem); }catch(e){} mostrarQuem();
+};
+mostrarQuem();
+
+function bip(){
+  try{ navigator.vibrate && navigator.vibrate(60); }catch(e){}
+  try{
+    const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), g = a.createGain();
+    o.frequency.value = 1200; g.gain.value = .08; o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + .09);
+  }catch(e){}
+}
+
+// ---------------------------------------------------------------- câmera
+let leitor = null, lendo = false, ultimo = "", ultimoEm = 0;
+async function abrirCamera(){
+  if(!window.isSecureContext){
+    $("#cam-msg").hidden = false;
+    $("#cam-msg").textContent = "O celular só libera a câmera em endereço com cadeado (https). Digite o código ou use um leitor Bluetooth.";
+    return;
+  }
+  $("#leitor").hidden = false; $("#cam-msg").hidden = true;
+  const F = Html5QrcodeSupportedFormats;
+  leitor = new Html5Qrcode("leitor", {formatsToSupport:[F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.ITF],
+    experimentalFeatures:{useBarCodeDetectorIfSupported:true}, verbose:false});
+  try{
+    await leitor.start({facingMode:"environment"},
+      {fps:12, qrbox:(w, h) => ({width:Math.floor(w * .92), height:Math.max(80, Math.floor(h * .5))})},
+      texto => {
+        const agora = Date.now();
+        if(texto === ultimo && agora - ultimoEm < 4000) return;
+        ultimo = texto; ultimoEm = agora; bip(); buscar(texto, true);
+      }, () => {});
+    lendo = true; $("#b-cam").textContent = "Fechar a câmera"; $("#b-cam").classList.remove("pri");
+  }catch(e){
+    $("#leitor").hidden = true; leitor = null;
+    $("#cam-msg").hidden = false;
+    $("#cam-msg").textContent = "Não consegui abrir a câmera. Confira se o navegador tem permissão para usar a câmera neste site.";
+  }
+}
+async function fecharCamera(){
+  if(leitor){ try{ await leitor.stop(); leitor.clear(); }catch(e){} }
+  leitor = null; lendo = false; $("#leitor").hidden = true;
+  $("#b-cam").textContent = "Abrir a câmera para bipar"; $("#b-cam").classList.add("pri");
+}
+function pausar(sim){
+  if(!leitor || !lendo) return;
+  try{ sim ? leitor.pause(true) : leitor.resume(); }catch(e){}
+  $("#leitor").hidden = sim;   // com o produto na tela, a câmera sai da frente
+  if(!sim) window.scrollTo({top:0});
+}
+$("#b-cam").onclick = () => lendo ? fecharCamera() : abrirCamera();
+
+// ------------------------------------------------------------------ busca
+async function buscar(texto, daCamera){
+  texto = String(texto).trim(); if(!texto) return;
+  const res = $("#resultado");
+  const soNumero = /^[\d\s.-]+$/.test(texto);
+  let itens = [];
+  try{
+    if(soNumero) itens = (await api("/api/codigo?c=" + encodeURIComponent(texto))).itens;
+    else itens = (await api("/api/produtos?por_pagina=12&q=" + encodeURIComponent(texto))).itens;
+  }catch(e){ if(e.message !== "login") res.innerHTML = `<div class="aviso a-bad">${esc(e.message)}</div>`; return; }
+  if(!itens.length){
+    pausar(true);
+    res.innerHTML = soNumero ? `<div class="aviso a-bad"><b>${esc(texto)}</b> não está no cadastro.</div>
+      <div class="dois" style="margin-top:8px"><button id="b-anotar">Anotar para cadastrar</button><button id="b-seguir">Seguir</button></div>`
+      : `<div class="aviso a-warn">Nenhum produto com “${esc(texto)}”.</div>`;
+    if(soNumero){
+      $("#b-anotar").onclick = async () => {
+        const obs = prompt("O que é este produto? (opcional)", "") ?? "";
+        await api("/api/sem-cadastro", {method:"POST", body:JSON.stringify({codigo:texto, quem, obs})});
+        res.innerHTML = `<div class="aviso a-ok">Anotado: ${esc(texto)}</div>`; seguir();
+      };
+      $("#b-seguir").onclick = () => { res.innerHTML = ""; seguir(); };
+    }
+    return;
+  }
+  if(itens.length === 1) return cartao(itens[0]);
+  pausar(true);
+  res.innerHTML = `<div class="aviso a-warn">${itens.length} produtos encontrados. Qual é?</div><div class="escolha" style="margin-top:8px">${
+    itens.map((p, i) => `<button data-i="${i}">${esc(p.nome)}<small>${esc(p.ean || "sem código")}${p.estoque != null ? " · estoque " + p.estoque : ""}</small></button>`).join("")}</div>`;
+  res.querySelectorAll("button").forEach(b => b.onclick = () => cartao(itens[b.dataset.i]));
+}
+
+const NOMES = {nuvemshop:"Site", ifood:"iFood", "99food":"99Food"};
+function cartao(p){
+  pausar(true);
+  const pills = Object.keys(NOMES).map(c => {
+    const cs = p.canais.filter(x => x.canal === c);
+    if(!cs.length) return `<span class="pill p-idle">${NOMES[c]}: não está</span>`;
+    const v = cs.some(x => x.vendendo);
+    return `<span class="pill ${v ? "p-ok" : "p-bad"}">${NOMES[c]}: ${v ? "à venda" : "fora de venda"}</span>`;
+  }).join("");
+  $("#resultado").innerHTML = `<div class="cartao">
+    <h2>${esc(p.nome)}</h2>
+    <div class="cod">${esc(p.ean || "sem código de barras")}${p.gz_codigo ? " · Gestor Z " + esc(p.gz_codigo) : ""}</div>
+    <div class="pills">${pills}</div>
+    <div>${p.estoque == null ? "Ainda não conferido." : `Última contagem: <b>${p.estoque}</b> em ${hora(p.conferido_em)}`}</div>
+    <label for="qtd"><b>Quantos tem na prateleira?</b></label>
+    <div class="qtd"><button type="button" id="menos" aria-label="Menos um">−</button>
+      <input id="qtd" type="number" inputmode="numeric" min="0" step="1" value="${p.estoque ?? ""}">
+      <button type="button" id="mais" aria-label="Mais um">+</button></div>
+    <div class="dois"><button class="zero" id="b-zero">Não tem (0)</button><button class="pri" id="b-salvar">Salvar</button></div>
+    <button id="b-pular">Pular sem salvar</button>
+    <div id="c-erro" class="aviso a-bad" hidden></div>
+  </div>`;
+  const q = $("#qtd");
+  $("#menos").onclick = () => q.value = Math.max(0, (parseInt(q.value) || 0) - 1);
+  $("#mais").onclick = () => q.value = (parseInt(q.value) || 0) + 1;
+  const salvar = async valor => {
+    if(valor === "" || isNaN(parseInt(valor)) || parseInt(valor) < 0){ $("#c-erro").hidden = false; $("#c-erro").textContent = "Digite a quantidade."; return; }
+    try{
+      await api("/api/produto/" + p.id, {method:"POST", body:JSON.stringify({estoque: parseInt(valor), quem})});
+      $("#resultado").innerHTML = `<div class="aviso a-ok">Salvo: <b>${parseInt(valor)}</b> × ${esc(p.nome)}</div>`;
+      ultimas(); seguir();
+    }catch(e){ $("#c-erro").hidden = false; $("#c-erro").textContent = e.message; }
+  };
+  $("#b-salvar").onclick = () => salvar(q.value);
+  $("#b-zero").onclick = () => salvar("0");
+  $("#b-pular").onclick = () => { $("#resultado").innerHTML = ""; seguir(); };
+  q.addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); salvar(q.value); } });
+  q.focus(); q.select();
+}
+function seguir(){
+  pausar(false); ultimo = ""; $("#cod").value = "";
+  if(!lendo) $("#cod").focus();   // leitor Bluetooth ou teclado: já fica pronto para o próximo
+}
+$("#f-cod").addEventListener("submit", e => { e.preventDefault(); buscar($("#cod").value); });
+
+async function ultimas(){
+  try{
+    const r = await api("/api/conferidos");
+    $("#tot").textContent = "· " + r.total + (r.total === 1 ? " produto já conferido" : " produtos já conferidos");
+    $("#ultimas").innerHTML = r.itens.length ? r.itens.map(h =>
+      `<li><b>${esc(h.para || "—")}</b><span>${esc(h.nome)}</span><small>${hora(h.quando)}${h.origem && h.origem !== "painel" ? " · " + esc(h.origem) : ""}</small></li>`).join("")
+      : "<li><span>Nenhuma contagem ainda.</span></li>";
+  }catch(e){}
+}
+ultimas();
+</script>
+</body>
+</html>
