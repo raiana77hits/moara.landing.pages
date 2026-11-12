@@ -8,7 +8,7 @@
 <style>
 :root{
   --bg:#F3F5F4;--surface:#fff;--ink:#18252A;--muted:#5A686E;--line:#D8DEDC;
-  --kraft:#9E6A35;--kraft-soft:#F1E6D9;--teal:#2C6A6E;
+  --kraft:#9E6A35;--kraft-escuro:#7D5228;--kraft-soft:#F1E6D9;--teal:#2C6A6E;
   --ok:#2E7D4F;--ok-bg:#E3F2E8;--warn:#9A6A00;--warn-bg:#FBF0D2;--bad:#B03A2E;--bad-bg:#F8E1DE;
   --idle:#5A686E;--idle-bg:#E8ECEB;
   --mono:ui-monospace,Menlo,Consolas,monospace;
@@ -44,7 +44,7 @@ select{padding:10px;border:1px solid var(--line);border-radius:6px;font:inherit;
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:none;border-radius:999px;padding:8px 14px;font-weight:500;white-space:nowrap}
 .chip.on{background:var(--kraft);border-color:var(--kraft);color:#fff;font-weight:700}
-.chip small{opacity:.7;margin-left:4px;font-weight:500}
+.chip small{opacity:.7;margin-left:6px;font-weight:500}
 #ativos{margin-top:8px}
 .ativo{background:var(--kraft-soft);color:var(--kraft);border-color:var(--kraft);font-size:13px;padding:6px 10px}
 .conta{color:var(--muted);font-size:13px;margin:10px 2px 6px}
@@ -90,61 +90,118 @@ textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);bo
 .imp section{border:1px solid var(--line);border-radius:6px;padding:12px 14px}
 .imp p{margin:4px 0 8px;color:var(--muted);font-size:13px}
 
-/* ---------------- celular ---------------- */
+.tela-inicio{display:none}
+.tabbar{display:none}
+
+/* ======================= celular ======================= */
 @media (max-width:900px){
-  header{padding:12px 14px;padding-top:calc(12px + env(safe-area-inset-top));gap:8px}
-  header h1{font-size:18px}
-  .tit{flex:1 1 100%}
-  .acoes{margin:0;width:100%}
-  .acoes .pri{flex:1 1 100%;font-size:16px}
-  .acoes button,.acoes a:not(.pri){flex:1;font-size:13px;padding:10px 8px}
-  .layout{grid-template-columns:1fr;gap:0;padding:0 0 calc(24px + env(safe-area-inset-bottom))}
-  .principal{min-width:0}
-  .aviso{display:none}
-  #datas{display:none}
-  .sub{font-size:12px}
-  .acoes .pri{padding:12px!important}
+  html{scroll-padding-bottom:120px;scroll-padding-top:150px}
+  body{font-size:17px;padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+  header{display:none}
+  .layout{display:block;padding:0;max-width:none}
   .so-mobile{display:inline-flex}
   .so-desktop{display:none}
   .chips.so-mobile{display:flex;width:100%}
+  .aviso{display:none}
 
-  .busca{position:sticky;top:0;z-index:10;background:var(--bg);padding:10px 12px 6px;border-bottom:1px solid var(--line)}
+  body[data-v="inicio"] .tela-inicio{display:block}
+  body[data-v="inicio"] .tela-produtos{display:none}
+  body[data-v="produtos"] .tela-inicio{display:none}
+
+  /* barra de abas */
+  .tabbar{display:grid;grid-template-columns:repeat(3,1fr);position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -4px 16px rgba(0,0,0,.06)}
+  .tabbar a{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:var(--muted);font-size:14px;font-weight:700}
+  .tabbar .ic{font-size:30px;line-height:1}
+  .tabbar a.on{color:var(--kraft)}
+
+  /* início */
+  .hero{background:linear-gradient(180deg,var(--kraft) 0%,var(--kraft-escuro) 100%);color:#fff;padding:calc(26px + env(safe-area-inset-top)) 18px 26px;border-radius:0 0 28px 28px}
+  .hero-sup{font-size:12px;letter-spacing:.14em;opacity:.85;font-weight:700}
+  .hero h1{font-size:36px;line-height:1.08;margin:8px 0 6px}
+  .hero p{margin:0 0 18px;font-size:17px;opacity:.92}
+  .btn-grande{display:flex;align-items:center;gap:16px;background:#fff;color:var(--kraft);border-radius:20px;padding:18px;text-decoration:none;font-weight:800;font-size:22px;line-height:1.15;box-shadow:0 8px 20px rgba(0,0,0,.2)}
+  .btn-grande .ic{font-size:44px;line-height:1}
+  .btn-grande small{display:block;font-weight:500;font-size:15px;color:var(--muted);margin-top:3px}
+  .busca-grande{display:flex;gap:8px;margin-top:14px}
+  .busca-grande input{flex:1;min-width:0;border:0;border-radius:16px;padding:18px 16px;font-size:18px;background:#fff;color:var(--ink)}
+  .busca-grande button{border:0;border-radius:16px;background:rgba(255,255,255,.22);color:#fff;font-size:18px;padding:0 20px}
+  .bloco{padding:26px 16px 0}
+  .bloco h2{font-size:24px;margin:0 0 14px;line-height:1.15}
+  .prog{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px}
+  .prog-num{font-size:19px}
+  .prog-num b{font-size:40px;color:var(--kraft);line-height:1}
+  .barra{height:16px;background:var(--idle-bg);border-radius:999px;overflow:hidden;margin:14px 0 8px}
+  .barra i{display:block;height:100%;width:0;background:var(--kraft);border-radius:999px;transition:width .4s}
+  #p-pct{color:var(--muted);font-size:15px}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .tile{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:8px;text-align:left;border-radius:20px;padding:18px 16px;min-height:128px;background:var(--surface);border:1px solid var(--line);font-weight:500;font-size:17px}
+  .tile .n{font-size:38px;font-weight:800;line-height:1}
+  .tile .l{font-size:17px;line-height:1.25;color:var(--ink);font-weight:600}
+  .tile .ic{font-size:40px;line-height:1}
+  .tile .n2{font-size:14px;color:var(--muted)}
+  .tile.ok{background:var(--ok-bg);border-color:#bddcc9}.tile.ok .n{color:var(--ok)}
+  .tile.bad{background:var(--bad-bg);border-color:#ecc3bd}.tile.bad .n{color:var(--bad)}
+  .tile.warn{background:var(--warn-bg);border-color:#ecdba5}.tile.warn .n{color:var(--warn)}
+  .lojas{display:flex;flex-direction:column;gap:12px}
+  .loja{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px;display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center}
+  .loja .nm{font-size:21px;font-weight:800}
+  .loja .tx{color:var(--muted);font-size:15px}
+  .loja .big{font-size:42px;font-weight:800;color:var(--ok);line-height:1;text-align:right}
+  .loja-acoes{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  .loja-acoes button{border-radius:14px;padding:15px 8px;font-size:16px}
+  .btn-lista{display:flex;align-items:center;justify-content:flex-start;text-align:left;gap:16px;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px;font-size:19px;font-weight:700;margin-bottom:12px;text-decoration:none;color:var(--ink)}
+  .btn-lista .ic{font-size:32px;line-height:1}
+  .rodape{color:var(--muted);font-size:14px;padding:14px 20px 8px;text-align:center}
+
+  /* produtos */
+  .busca{position:sticky;top:0;z-index:10;background:var(--bg);padding:calc(10px + env(safe-area-inset-top)) 12px 8px;border-bottom:1px solid var(--line)}
   .busca-linha{flex-wrap:nowrap}
-  .busca-linha input[type=search]{min-width:0;padding:12px}
-  #b-filtros{padding:12px 14px;white-space:nowrap}
-  .conta{margin:10px 14px 6px}
-
-  nav{position:fixed;inset:0;z-index:30;background:var(--bg);overflow:auto;display:none;padding:0 0 24px}
-  nav.aberto{display:block}
-  .nav-topo{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg);padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));border-bottom:1px solid var(--line);font-size:18px}
+  .busca-linha input[type=search]{min-width:0;padding:16px 14px;font-size:18px;border-radius:14px}
+  #b-filtros{padding:16px 18px;white-space:nowrap;font-size:17px;border-radius:14px}
+  .chip{font-size:17px;padding:11px 18px}
+  .ativo{font-size:16px;padding:10px 14px}
+  .conta{margin:12px 16px 8px;font-size:16px}
+  #nav{position:fixed;inset:0;z-index:30;background:var(--bg);overflow:auto;display:none;padding:0 0 32px}
+  #nav.aberto{display:block}
+  .nav-topo{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg);padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));border-bottom:1px solid var(--line);font-size:22px}
+  .nav-topo button{font-size:17px;padding:13px 18px;border-radius:12px}
   #nav-lista{padding:4px 16px}
-  nav .f{padding:14px 10px;font-size:16px;border-bottom:1px solid var(--line);border-radius:0}
-  nav h2{margin:18px 0 2px}
+  nav .f{padding:18px 10px;font-size:19px;border-bottom:1px solid var(--line);border-radius:0}
+  nav .f b{font-size:16px}
+  nav h2{margin:22px 0 2px;font-size:13px}
 
   .lista{border-radius:0;border-left:0;border-right:0}
   .cab{display:none}
-  .lin{grid-template-columns:140px 1fr;grid-template-areas:"nome nome" "grupo preco" "est canais";gap:8px 12px;padding:14px;align-items:start}
-  .nome{grid-area:nome;font-size:16px;line-height:1.3}
-  .grupo{grid-area:grupo;align-self:center;font-size:12px}
-  .preco{grid-area:preco;align-self:center;font-size:15px}
+  .lin{grid-template-columns:150px 1fr;grid-template-areas:"nome nome" "grupo preco" "est canais";gap:10px 12px;padding:18px 16px;align-items:start}
+  .nome{grid-area:nome;font-size:20px;line-height:1.28}
+  .meta{font-size:14px;margin-top:4px}
+  .grupo{grid-area:grupo;align-self:center;font-size:15px}
+  .preco{grid-area:preco;align-self:center;font-size:20px;font-weight:700}
   .est{grid-area:est}
-  .est input{width:100%;padding:12px 10px;font-size:20px}
-  .canais{grid-area:canais;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
+  .est input{width:100%;padding:15px 10px;font-size:26px}
+  .est small{font-size:13px;margin-top:4px}
+  .canais{grid-area:canais;display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}
   .rot{display:inline}
   .det{display:none}
-  .pill{font-size:12px;padding:6px 9px}
-  .pag{margin:14px 12px;justify-content:space-between}
-  .pag button{flex:1;padding:14px}
-  .pag .conta{margin:0;flex:none}
+  .pill{font-size:15px;padding:9px 13px}
+  .pag{margin:16px 12px;justify-content:space-between}
+  .pag button{flex:1;padding:18px;font-size:18px;border-radius:14px}
+  .pag .conta{margin:0;flex:none;font-size:15px}
 
-  dialog{width:100vw;max-width:100vw;max-height:100vh;height:100vh;border-radius:0;border:0}
-  .corpo{max-height:calc(100vh - 70px)}
+  dialog{width:100vw;max-width:100vw;max-height:100vh;height:100vh;border-radius:0;border:0;font-size:17px}
+  .topo h3{font-size:21px}
+  .topo button{font-size:17px;padding:12px 16px}
+  .corpo{max-height:calc(100vh - 78px)}
   dl{grid-template-columns:1fr;gap:0}
-  dt{margin-top:8px;font-size:12px}
+  dt{margin-top:10px;font-size:14px}
+  .mini{font-size:15px}
+  textarea{font-size:17px}
+  .imp button{padding:16px;font-size:17px}
+  .imp input[type=file]{font-size:16px}
 }
 </style>
 </head>
-<body>
+<body data-v="inicio">
 <header>
   <div class="tit">
     <h1>Painel de Estoque</h1>
@@ -163,26 +220,76 @@ textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);bo
     <div id="nav-lista"></div>
   </nav>
 
-  <div class="principal">
-    <div class="aviso">O que você muda aqui fica só neste painel. Nada é enviado para a Nuvemshop, o iFood, a 99Food ou o Gestor Z.</div>
-    <div class="busca">
-      <div class="busca-linha">
-        <input type="search" id="q" placeholder="Buscar por nome, código de barras ou SKU" aria-label="Buscar produto" enterkeyhint="search">
-        <select id="grupo" class="so-desktop" aria-label="Grupo"><option value="">Todos os grupos</option></select>
-        <button id="b-filtros" class="so-mobile">Filtros</button>
+  <main class="principal">
+    <!-- INÍCIO: só no celular -->
+    <section class="tela-inicio" id="tela-inicio">
+      <div class="hero">
+        <div class="hero-sup">CASA DE EMBALAGENS CANGAÍBA</div>
+        <h1>Painel de Estoque</h1>
+        <p>Toque em um bloco para ver os produtos.</p>
+        <a class="btn-grande" href="/conferir"><span class="ic">📷</span><span>Conferir prateleira<small>Bipar o código de barras</small></span></a>
+        <form class="busca-grande" id="f-inicio"><input type="search" id="q-inicio" placeholder="Buscar produto ou código" aria-label="Buscar produto" enterkeyhint="search"><button>Buscar</button></form>
       </div>
-      <div class="chips so-mobile" id="chips" aria-label="Categorias"></div>
-      <div id="ativos"></div>
-    </div>
-    <div class="conta" id="conta"></div>
 
-    <div class="lista">
-      <div class="cab"><span>Produto</span><span>Grupo</span><span style="text-align:right">Preço</span><span>Estoque oficial</span><span>Nuvemshop</span><span>iFood</span><span>99Food</span></div>
-      <div id="linhas"></div>
-      <div class="vazio" id="vazio" hidden>Nenhum produto encontrado.</div>
-    </div>
-    <div class="pag"><button id="ant">Anterior</button><span id="pg" class="conta"></span><button id="prox">Próxima</button></div>
-  </div>
+      <div class="bloco">
+        <h2>Conferência</h2>
+        <div class="prog">
+          <div class="prog-num"><b id="p-conf">0</b> de <span id="p-tot">0</span> produtos conferidos</div>
+          <div class="barra"><i id="p-barra"></i></div>
+          <div id="p-pct"></div>
+        </div>
+      </div>
+
+      <div class="bloco">
+        <h2>Precisa de atenção</h2>
+        <div class="tiles" id="tiles-atencao"></div>
+      </div>
+
+      <div class="bloco">
+        <h2>Lojas online</h2>
+        <div class="lojas" id="lojas"></div>
+      </div>
+
+      <div class="bloco">
+        <h2>Categorias</h2>
+        <div class="tiles" id="cats"></div>
+      </div>
+
+      <div class="bloco">
+        <h2>Ferramentas</h2>
+        <button class="btn-lista" id="b-imp2"><span class="ic">🔄</span>Atualizar dados</button>
+        <a class="btn-lista" id="b-exp2" href="#"><span class="ic">📄</span>Baixar lista (CSV)</a>
+      </div>
+      <p class="rodape" id="rodape"></p>
+    </section>
+
+    <!-- PRODUTOS -->
+    <section class="tela-produtos" id="tela-produtos">
+      <div class="aviso">O que você muda aqui fica só neste painel. Nada é enviado para a Nuvemshop, o iFood, a 99Food ou o Gestor Z.</div>
+      <div class="busca">
+        <div class="busca-linha">
+          <input type="search" id="q" placeholder="Buscar por nome, código de barras ou SKU" aria-label="Buscar produto" enterkeyhint="search">
+          <select id="grupo" class="so-desktop" aria-label="Grupo"><option value="">Todos os grupos</option></select>
+          <button id="b-filtros" class="so-mobile">Filtros</button>
+        </div>
+        <div class="chips so-mobile" id="chips" aria-label="Categorias"></div>
+        <div id="ativos"></div>
+      </div>
+      <div class="conta" id="conta"></div>
+      <div class="lista">
+        <div class="cab"><span>Produto</span><span>Grupo</span><span style="text-align:right">Preço</span><span>Estoque oficial</span><span>Nuvemshop</span><span>iFood</span><span>99Food</span></div>
+        <div id="linhas"></div>
+        <div class="vazio" id="vazio" hidden>Nenhum produto encontrado.</div>
+      </div>
+      <div class="pag"><button id="ant">Anterior</button><span id="pg" class="conta"></span><button id="prox">Próxima</button></div>
+    </section>
+  </main>
+</div>
+
+<div class="tabbar" role="navigation" aria-label="Menu principal">
+  <a href="#" data-v="inicio"><span class="ic">🏠</span>Início</a>
+  <a href="#produtos" data-v="produtos"><span class="ic">📦</span>Produtos</a>
+  <a href="/conferir"><span class="ic">📷</span>Conferir</a>
 </div>
 
 <dialog id="dlg"><div class="topo"><h3 id="d-nome"></h3><button id="d-x">Fechar</button></div><div class="corpo" id="d-corpo"></div></dialog>
@@ -210,19 +317,31 @@ textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);bo
 </dialog>
 
 <script>
+const VERSAO = "3";
 const $ = s => document.querySelector(s);
 const est = {q:"", filtro:"todos", grupo:"", pagina:1, total:0};
+let RESUMO = null;
 const NAV = [
   ["Conferência", [["todos","Todos os produtos"],["nao_conferido","Falta conferir"],["conferido","Já conferidos"],["zerado","Estoque zero"]]],
   ["Problemas", [["vende_sem_estoque","Sem estoque, mas à venda"],["parado_com_estoque","Com estoque, mas fora de venda"]]],
   ["Nuvemshop", [["vendendo_nuvemshop","À venda"],["no_nuvemshop","Cadastrado"],["fora_nuvemshop","Não está"]]],
   ["iFood", [["vendendo_ifood","À venda"],["no_ifood","Cadastrado"],["fora_ifood","Não está"]]],
   ["99Food", [["vendendo_99food","À venda"],["no_99food","Cadastrado"],["fora_99food","Não está"]]],
-  ["Cadastro", [["sem_gestorz","Fora do Gestor Z"],["sem_ean","Sem código de barras real"],["em_nenhuma_loja","Em nenhuma loja online"]]],
+  ["Cadastro", [["sem_gestorz","Fora do Gestor Z"],["sem_ean","Sem código de barras real"],["em_nenhum_canal","Em nenhuma loja online"]]],
 ];
-NAV[5][1][2][0] = "em_nenhum_canal";
 const NOME_FILTRO = {};
-NAV.forEach(([t, its]) => its.forEach(([k, n]) => NOME_FILTRO[k] = (t === "Conferência" || t === "Problemas" || t === "Cadastro" ? "" : t + ": ") + n));
+NAV.forEach(([t, its]) => its.forEach(([k, n]) => NOME_FILTRO[k] = (["Nuvemshop","iFood","99Food"].includes(t) ? t + ": " : "") + n));
+const ATENCAO = [
+  ["nao_conferido","Falta conferir","warn"],["conferido","Já conferidos","ok"],
+  ["zerado","Estoque zero","bad"],["vende_sem_estoque","Sem estoque, mas à venda","bad"],
+  ["parado_com_estoque","Com estoque, mas fora de venda","warn"],["sem_ean","Sem código de barras real",""],
+  ["sem_gestorz","Fora do Gestor Z",""],["em_nenhum_canal","Em nenhuma loja online",""],
+];
+const LOJAS = [["nuvemshop","Site (Nuvemshop)","🌐"],["ifood","iFood","🍔"],["99food","99Food","🛵"]];
+const ICONES = [["embala","📦"],["descart","🥤"],["utilid","🍳"],["higiene","🧼"],["limpeza","🧽"],["papelar","✏️"],["escrit","📝"],["brinq","🧸"],["festa","🎉"],["balc","🛍️"],["merce","🛒"],["diverso","🧩"],["cozinha","🍽️"],["eletr","🔌"],["jardim","🌱"],["pet","🐾"],["decor","🖼️"],["cosmet","💄"],["aliment","🥫"],["bebida","🥤"],["ferrag","🔧"],["vela","🕯️"]];
+const icone = nome => { const n = String(nome).toLowerCase(); for(const [k, i] of ICONES) if(n.includes(k)) return i; return "🏷️"; };
+const cap = s => { s = String(s || "").toLowerCase(); return s.charAt(0).toUpperCase() + s.slice(1); };
+const num = n => Number(n || 0).toLocaleString("pt-BR");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const brl = v => v == null ? "" : "R$ " + Number(v).toFixed(2).replace(".", ",");
 const data = s => s ? s.slice(8,10)+"/"+s.slice(5,7)+" "+s.slice(11,16) : "";
@@ -233,28 +352,67 @@ async function api(url, opt){
   if(!r.ok) throw new Error(j.erro || "Erro"); return j;
 }
 
-let contagens = {};
+/* ---------------------------------------------------------- telas (celular) */
+function aplicarVista(){
+  const v = location.hash === "#produtos" ? "produtos" : "inicio";
+  document.body.dataset.v = v;
+  document.querySelectorAll(".tabbar [data-v]").forEach(a => a.classList.toggle("on", a.dataset.v === v));
+  window.scrollTo({top:0});
+}
+window.addEventListener("hashchange", aplicarVista);
+function irPara(o){
+  est.filtro = o.filtro || "todos"; est.grupo = o.grupo || ""; est.q = o.q || ""; est.pagina = 1;
+  $("#q").value = est.q; $("#grupo").value = est.grupo;
+  desenharNav(); desenharChips(); carregar();
+  if(location.hash === "#produtos") aplicarVista(); else location.hash = "#produtos";
+}
+
+/* ------------------------------------------------------------- desenhos */
 function desenharNav(){
+  const c = RESUMO ? RESUMO.filtros : {};
   $("#nav-lista").innerHTML = NAV.map(([t, itens]) => `<h2>${t}</h2>` + itens.map(([k, n]) =>
-    `<button class="f ${k===est.filtro?"on":""}" data-f="${k}"><span>${n}</span><b>${contagens[k] ?? 0}</b></button>`).join("")).join("");
+    `<button class="f ${k===est.filtro?"on":""}" data-f="${k}"><span>${n}</span><b>${num(c[k])}</b></button>`).join("")).join("");
   $("#ativos").innerHTML = est.filtro !== "todos"
     ? `<button class="chip ativo" id="x-filtro">${esc(NOME_FILTRO[est.filtro])} ✕</button>` : "";
   $("#b-filtros").textContent = est.filtro !== "todos" ? "Filtros ●" : "Filtros";
 }
+function desenharChips(){
+  if(!RESUMO) return;
+  const gn = RESUMO.grupos_n || RESUMO.grupos.map(x => ({grupo:x, n:""}));
+  $("#chips").innerHTML = `<button class="chip ${est.grupo ? "" : "on"}" data-g=""><span class="cn">Todos</span><small>${num(RESUMO.total)}</small></button>` +
+    gn.map(x => `<button class="chip ${x.grupo === est.grupo ? "on" : ""}" data-g="${esc(x.grupo)}"><span class="cn">${esc(x.grupo.toLowerCase())}</span><small>${x.n === "" ? "" : num(x.n)}</small></button>`).join("");
+}
+function desenharInicio(){
+  const r = RESUMO; if(!r) return; const f = r.filtros;
+  const conf = f.conferido || 0, tot = r.total || 0, pct = tot ? Math.round(conf / tot * 1000) / 10 : 0;
+  $("#p-conf").textContent = num(conf); $("#p-tot").textContent = num(tot);
+  $("#p-barra").style.width = Math.max(pct, conf ? 2 : 0) + "%";
+  $("#p-pct").textContent = String(pct).replace(".", ",") + "% da lista";
+  $("#tiles-atencao").innerHTML = ATENCAO.map(([k, nome, tom]) =>
+    `<button class="tile ${tom}" data-f="${k}"><span class="n">${num(f[k])}</span><span class="l">${nome}</span></button>`).join("");
+  $("#lojas").innerHTML = LOJAS.map(([c, nome, ic]) => `<div class="loja">
+    <div><div class="nm">${ic} ${nome}</div><div class="tx">à venda agora</div></div>
+    <div class="big">${num(f["vendendo_" + c])}</div>
+    <div class="loja-acoes"><button class="pri" data-f="vendendo_${c}">Ver à venda</button><button data-f="fora_${c}">Não está (${num(f["fora_" + c])})</button></div></div>`).join("");
+  $("#cats").innerHTML = (r.grupos_n || []).map(x =>
+    `<button class="tile" data-g="${esc(x.grupo)}"><span class="ic">${icone(x.grupo)}</span><span class="l">${esc(cap(x.grupo))}</span><span class="n2">${num(x.n)} produtos</span></button>`).join("");
+}
+function datasTexto(){
+  const m = RESUMO ? RESUMO.meta : {}, p = [];
+  if(m.nuvemshop_sync_em) p.push("Nuvemshop lida em " + data(m.nuvemshop_sync_em));
+  if(m.painel_importado_em) p.push("iFood e 99Food de " + data(m.painel_importado_em));
+  return p.join(" · ") || "sem dados ainda: toque em Atualizar dados";
+}
 
 async function carregarResumo(){
   const r = await api("/api/resumo");
-  contagens = r.filtros; desenharNav();
-  const g = $("#grupo"), atual = est.grupo;
+  RESUMO = r;
+  const g = $("#grupo");
   g.innerHTML = '<option value="">Todos os grupos</option>' + r.grupos.map(x => `<option>${esc(x)}</option>`).join("");
-  g.value = atual;
-  const gn = r.grupos_n || r.grupos.map(x => ({grupo:x, n:""}));
-  $("#chips").innerHTML = `<button class="chip ${atual ? "" : "on"}" data-g=""><span class="cn">Todos</span><small>${r.total}</small></button>` +
-    gn.map(x => `<button class="chip ${x.grupo === atual ? "on" : ""}" data-g="${esc(x.grupo)}"><span class="cn">${esc(x.grupo.toLowerCase())}</span><small>${x.n}</small></button>`).join("");
-  const m = r.meta, p = [];
-  if(m.nuvemshop_sync_em) p.push("Nuvemshop lida em " + data(m.nuvemshop_sync_em));
-  if(m.painel_importado_em) p.push("iFood e 99Food de " + data(m.painel_importado_em));
-  $("#datas").textContent = " · " + (p.join(" · ") || "sem dados ainda: toque em Atualizar dados");
+  g.value = est.grupo;
+  desenharNav(); desenharChips(); desenharInicio();
+  $("#datas").textContent = " · " + datasTexto();
+  $("#rodape").innerHTML = esc(datasTexto()) + "<br>Painel de Estoque · versão " + VERSAO;
   $("#i-nuvem").disabled = !r.nuvemshop_configurada;
   if(!r.nuvemshop_configurada) $("#i-nuvem").textContent = "Falta configurar o acesso (config.json)";
 }
@@ -272,7 +430,7 @@ function canal(itens, nome){
 
 async function carregar(){
   const u = new URLSearchParams({q:est.q, filtro:est.filtro, grupo:est.grupo, pagina:est.pagina});
-  $("#b-exp").href = "/api/exportar.csv?" + u;
+  $("#b-exp").href = $("#b-exp2").href = "/api/exportar.csv?" + u;
   const r = await api("/api/produtos?" + u);
   est.total = r.total;
   $("#linhas").innerHTML = r.itens.map(p => `<div class="lin" data-id="${p.id}">
@@ -283,7 +441,7 @@ async function carregar(){
     <div class="canais">${canal(p.canais,"nuvemshop")}${canal(p.canais,"ifood")}${canal(p.canais,"99food")}</div></div>`).join("");
   $("#vazio").hidden = r.itens.length > 0;
   const pags = Math.max(1, Math.ceil(r.total / r.por_pagina));
-  $("#conta").textContent = r.total.toLocaleString("pt-BR") + (r.total === 1 ? " produto" : " produtos");
+  $("#conta").textContent = num(r.total) + (r.total === 1 ? " produto" : " produtos");
   $("#pg").textContent = `Página ${est.pagina} de ${pags}`;
   $("#ant").disabled = est.pagina <= 1; $("#prox").disabled = est.pagina >= pags;
 }
@@ -295,7 +453,7 @@ async function salvarEstoque(inp){
     const p = await api("/api/produto/" + lin.dataset.id, {method:"POST", body:JSON.stringify({estoque: inp.value})});
     inp.defaultValue = inp.value; inp.className = "salvo";
     lin.querySelector(".est small").textContent = p.conferido_em ? "conferido " + data(p.conferido_em) : "não conferido";
-    api("/api/resumo").then(r => { contagens = r.filtros; desenharNav(); }).catch(() => {});
+    api("/api/resumo").then(r => { RESUMO = r; desenharNav(); desenharInicio(); }).catch(() => {});
   }catch(e){ inp.className = "erro"; inp.title = e.message; }
 }
 
@@ -327,27 +485,31 @@ async function abrir(id){
   if(!$("#dlg").open) $("#dlg").showModal();
 }
 
-function recarregarTudo(topo){ if(topo) window.scrollTo({top:0}); desenharNav(); carregar(); }
+function recarregar(topo){ if(topo) window.scrollTo({top:0}); desenharNav(); desenharChips(); carregar(); }
 
+/* ------------------------------------------------------------- eventos */
 let t;
 $("#q").addEventListener("input", e => { clearTimeout(t); t = setTimeout(() => { est.q = e.target.value; est.pagina = 1; carregar(); }, 250); });
 $("#q").addEventListener("keydown", e => { if(e.key === "Enter") e.target.blur(); });
-$("#grupo").addEventListener("change", e => { est.grupo = e.target.value; est.pagina = 1; carregarResumo(); carregar(); });
+$("#f-inicio").addEventListener("submit", e => { e.preventDefault(); const v = $("#q-inicio").value.trim(); $("#q-inicio").blur(); $("#q-inicio").value = ""; irPara({q: v}); });
+$("#grupo").addEventListener("change", e => { est.grupo = e.target.value; est.pagina = 1; recarregar(false); });
 $("#chips").addEventListener("click", e => {
   const b = e.target.closest(".chip"); if(!b) return;
-  est.grupo = b.dataset.g; est.pagina = 1;
-  $("#chips").querySelectorAll(".chip").forEach(c => c.classList.toggle("on", c === b));
-  $("#grupo").value = est.grupo; recarregarTudo(true);
+  est.grupo = b.dataset.g; est.pagina = 1; $("#grupo").value = est.grupo; recarregar(true);
 });
 $("#nav-lista").addEventListener("click", e => {
   const b = e.target.closest(".f"); if(!b) return;
-  est.filtro = b.dataset.f; est.pagina = 1; $("#nav").classList.remove("aberto"); recarregarTudo(true);
+  est.filtro = b.dataset.f; est.pagina = 1; $("#nav").classList.remove("aberto"); recarregar(true);
 });
-$("#ativos").addEventListener("click", e => { if(e.target.closest("#x-filtro")){ est.filtro = "todos"; est.pagina = 1; recarregarTudo(false); } });
+$("#tela-inicio").addEventListener("click", e => {
+  const b = e.target.closest("[data-f],[data-g]"); if(!b) return;
+  irPara(b.dataset.f ? {filtro: b.dataset.f} : {grupo: b.dataset.g});
+});
+$("#ativos").addEventListener("click", e => { if(e.target.closest("#x-filtro")){ est.filtro = "todos"; est.pagina = 1; recarregar(false); } });
 $("#b-filtros").onclick = () => { $("#nav").classList.add("aberto"); $("#nav").scrollTop = 0; };
 $("#nav-x").onclick = () => $("#nav").classList.remove("aberto");
-$("#ant").onclick = () => { est.pagina--; recarregarTudo(true); };
-$("#prox").onclick = () => { est.pagina++; recarregarTudo(true); };
+$("#ant").onclick = () => { est.pagina--; recarregar(true); };
+$("#prox").onclick = () => { est.pagina++; recarregar(true); };
 $("#linhas").addEventListener("change", e => { if(e.target.matches("input")) salvarEstoque(e.target); });
 $("#linhas").addEventListener("keydown", e => {
   if(e.key !== "Enter" || !e.target.matches("input")) return;
@@ -357,7 +519,8 @@ $("#linhas").addEventListener("keydown", e => {
 });
 $("#linhas").addEventListener("click", e => { const n = e.target.closest(".nome"); if(n) abrir(n.parentElement.dataset.id); });
 $("#d-x").onclick = () => $("#dlg").close();
-$("#b-imp").onclick = () => { $("#msg").textContent = ""; $("#dimp").showModal(); };
+const abrirImportar = () => { $("#msg").textContent = ""; $("#dimp").showModal(); };
+$("#b-imp").onclick = abrirImportar; $("#b-imp2").onclick = abrirImportar;
 $("#i-x").onclick = () => $("#dimp").close();
 
 async function enviar(input, url){
@@ -385,7 +548,7 @@ $("#i-nuvem").onclick = async () => {
     }
   }, 1500);
 };
-carregarResumo(); carregar();
+aplicarVista(); carregarResumo(); carregar();
 </script>
 </body>
 </html>
