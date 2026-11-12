@@ -71,6 +71,22 @@ prateleira e ela fica guardada no painel (pasta `fotos`, ao lado do `banco.db`).
   no formato `SKU__nome-do-produto__01.jpg`.
 - O filtro "Sem foto" mostra tudo o que ainda precisa ser fotografado.
 
+## Enviar o estoque contado para a Nuvemshop
+
+Botão **Enviar para as lojas** (no celular: Início, Ferramentas).
+
+1. **Conectar:** na primeira vez, cole o token de acesso do aplicativo e o número da loja. Ficam só
+   neste computador, no `config.json`.
+2. **Ver o que vai mudar:** o painel mostra a lista antes de gravar. Nada é enviado nesta etapa.
+   - *Só zerar o que acabou* (padrão): produtos contados com 0 passam a aparecer sem estoque no site.
+   - *Zerar e repor*: também grava a quantidade contada dos outros. Atenção: o site passa a
+     controlar o estoque desses produtos, mas as vendas do caixa, do iFood e da 99Food não baixam o
+     estoque do site.
+3. **Gravar:** pede confirmação, guarda um backup na pasta `backups` e confere na loja depois.
+   Vão no máximo 300 por vez.
+4. **Desfazer:** a mesma tela lista as gravações feitas e devolve o estoque ao valor anterior.
+   Se o valor mudou na loja depois da gravação, aquele item é pulado.
+
 ## Acesso à Nuvemshop
 
 Copie `config.exemplo.json` para `config.json` e cole o token (a senha é criada por `definir-senha.bat`). O arquivo fica só neste computador.

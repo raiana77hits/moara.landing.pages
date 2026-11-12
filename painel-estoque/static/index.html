@@ -97,6 +97,18 @@ textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);bo
 .imp section{border:1px solid var(--line);border-radius:6px;padding:12px 14px}
 .imp p{margin:4px 0 8px;color:var(--muted);font-size:13px}
 
+.op{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--line);border-radius:10px;margin:8px 0;cursor:pointer}
+.op input{margin-top:3px;width:20px;height:20px;flex:none}
+.op small{color:var(--muted)}
+.lista-prev{max-height:42vh;overflow:auto;border:1px solid var(--line);border-radius:10px;margin:8px 0}
+.pv{padding:9px 12px;border-bottom:1px solid var(--line);font-size:14px}
+.pv:last-child{border-bottom:0}
+.campo{display:block;margin:10px 0;font-weight:600}
+.campo input{display:block;width:100%;margin-top:4px;padding:12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:16px;background:var(--surface);color:var(--ink)}
+.ok-msg{background:var(--ok-bg);color:var(--ok);border-radius:8px;padding:10px 12px;margin-top:8px}
+.erro-msg{background:var(--bad-bg);color:var(--bad);border-radius:8px;padding:10px 12px;margin-top:8px}
+.bk{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.bk:last-child{border-bottom:0}
 .tela-inicio{display:none}
 .tabbar{display:none}
 #alerta-versao{background:var(--bad);color:#fff;padding:14px 16px;font-size:16px;font-weight:600;line-height:1.35;position:sticky;top:0;z-index:50}
@@ -208,6 +220,7 @@ textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);bo
   textarea{font-size:17px}
   .imp button{padding:16px;font-size:17px}
   .imp input[type=file]{font-size:16px}
+  .op{font-size:17px}.pv{font-size:16px}.bk button{padding:12px 16px}
 }
 </style>
 </head>
@@ -220,6 +233,7 @@ textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);bo
   </div>
   <div class="acoes">
     <a class="btn pri" href="/conferir">Conferir prateleira</a>
+    <button id="b-sync" class="pri">Enviar para as lojas</button>
     <button id="b-imp">Atualizar dados</button>
     <a class="btn" id="b-exp" href="#">Baixar lista (CSV)</a>
   </div>
@@ -268,6 +282,7 @@ textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);bo
 
       <div class="bloco">
         <h2>Ferramentas</h2>
+        <button class="btn-lista" id="b-sync2"><span class="ic">🚚</span>Enviar estoque para a Nuvemshop</button>
         <button class="btn-lista" id="b-imp2"><span class="ic">🔄</span>Atualizar dados</button>
         <a class="btn-lista" id="b-exp2" href="#"><span class="ic">📄</span>Baixar lista (CSV)</a>
         <a class="btn-lista" id="b-zip" href="/api/fotos.zip"><span class="ic">🖼️</span><span id="t-zip">Baixar fotos tiradas</span></a>
@@ -306,6 +321,11 @@ textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);bo
 
 <dialog id="dlg"><div class="topo"><h3 id="d-nome"></h3><button id="d-x">Fechar</button></div><div class="corpo" id="d-corpo"></div></dialog>
 
+<dialog id="dsync">
+  <div class="topo"><h3>Enviar estoque para a Nuvemshop</h3><button id="s-x">Fechar</button></div>
+  <div class="corpo imp" id="s-corpo"></div>
+</dialog>
+
 <dialog id="dimp">
   <div class="topo"><h3>Atualizar dados</h3><button id="i-x">Fechar</button></div>
   <div class="corpo imp">
@@ -329,7 +349,7 @@ textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);bo
 </dialog>
 
 <script>
-const VERSAO = "4";
+const VERSAO = "5";
 const $ = s => document.querySelector(s);
 const est = {q:"", filtro:"todos", grupo:"", pagina:1, total:0};
 let RESUMO = null;
@@ -430,7 +450,7 @@ async function carregarResumo(){
   $("#datas").textContent = " · " + datasTexto();
   $("#rodape").innerHTML = esc(datasTexto()) + "<br>Painel de Estoque · versão " + VERSAO;
   $("#i-nuvem").disabled = !r.nuvemshop_configurada;
-  if(!r.nuvemshop_configurada) $("#i-nuvem").textContent = "Falta configurar o acesso (config.json)";
+  if(!r.nuvemshop_configurada) $("#i-nuvem").textContent = "Falta conectar: use “Enviar para as lojas”";
 }
 
 const ROT = {nuvemshop:"Site", ifood:"iFood", "99food":"99Food"};
@@ -569,6 +589,87 @@ $("#d-x").onclick = () => $("#dlg").close();
 const abrirImportar = () => { $("#msg").textContent = ""; $("#dimp").showModal(); };
 $("#b-imp").onclick = abrirImportar; $("#b-imp2").onclick = abrirImportar;
 $("#i-x").onclick = () => $("#dimp").close();
+$("#b-sync").onclick = abrirSync; $("#b-sync2").onclick = abrirSync;
+$("#s-x").onclick = () => $("#dsync").close();
+
+
+/* ------------------------------------------------ enviar estoque para a Nuvemshop */
+let sinc = {modo:"zerar", previa:null, ultimo:""};
+const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
+async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
+async function desenharSync(){
+  const r = await api("/api/resumo"), c = $("#s-corpo");
+  if(!r.nuvemshop_configurada){
+    c.innerHTML = `<section><b>1. Conectar a Nuvemshop</b>
+      <p>Cole o token de acesso do aplicativo da loja. Ele fica guardado só neste computador, no arquivo config.json.</p>
+      <label class="campo">Token de acesso<input id="s-token" type="password" autocomplete="off"></label>
+      <label class="campo">Número da loja<input id="s-loja" inputmode="numeric" autocomplete="off" placeholder="só números"></label>
+      <button class="pri" id="s-conectar">Conectar</button><div id="s-msg" role="status"></div></section>`;
+    $("#s-conectar").onclick = async () => {
+      $("#s-msg").className = ""; $("#s-msg").textContent = "Conferindo o token…";
+      try{
+        const d = await api("/api/config/nuvemshop", {method:"POST", body:JSON.stringify({token:$("#s-token").value, loja:$("#s-loja").value})});
+        $("#s-token").value = ""; $("#s-msg").className = "ok-msg"; $("#s-msg").textContent = "Conectado: " + d.loja;
+        setTimeout(() => { carregarResumo(); desenharSync(); }, 900);
+      }catch(e){ $("#s-msg").className = "erro-msg"; $("#s-msg").textContent = e.message; }
+    };
+    return;
+  }
+  const bk = (await api("/api/nuvemshop/backups")).itens.filter(b => b.desfazer).slice(0, 5);
+  c.innerHTML = `<section><b>Nuvemshop conectada ✔</b>
+      <p>Primeiro você vê o que vai mudar. Só grava quando você confirmar, e sempre guarda um backup para desfazer.</p>
+      <label class="op"><input type="radio" name="modo" value="zerar" checked><span><b>Só zerar o que acabou</b> (recomendado)<br><small>Produtos contados com 0 passam a aparecer sem estoque no site.</small></span></label>
+      <label class="op"><input type="radio" name="modo" value="repor"><span><b>Zerar e repor as quantidades contadas</b><br><small>Também grava no site a quantidade contada dos outros produtos, e o site passa a controlar o estoque deles.</small></span></label>
+      <button class="pri" id="s-ver">Ver o que vai mudar</button></section>
+    <div id="s-previa"></div><div id="s-andamento" role="status"></div>
+    <section><b>Desfazer uma gravação</b>${bk.length ? bk.map(b => `<div class="bk"><span>${data(b.quando)} · ${b.itens} produtos</span><button data-bk="${esc(b.arquivo)}">Desfazer</button></div>`).join("") : "<p>Nenhuma gravação para desfazer.</p>"}</section>`;
+  $("#s-ver").onclick = verPrevia;
+  c.querySelectorAll("[data-bk]").forEach(b => b.onclick = () => desfazerSync(b.dataset.bk));
+  if(sinc.ultimo) $("#s-andamento").innerHTML = sinc.ultimo;     // o resultado continua na tela depois de redesenhar
+}
+async function verPrevia(){
+  sinc.modo = document.querySelector("input[name=modo]:checked").value;
+  sinc.ultimo = ""; $("#s-andamento").innerHTML = "";
+  $("#s-previa").innerHTML = "<p>Calculando…</p>";
+  try{
+    const p = await api("/api/nuvemshop/previa?modo=" + sinc.modo); sinc.previa = p;
+    const it = p.itens, n = Math.min(it.length, p.limite);
+    $("#s-previa").innerHTML = `<section><b>Prévia: nada foi gravado ainda</b>
+      <p>${num(p.conferidos)} produtos conferidos · <b>${num(p.mudancas)}</b> vão mudar no site · ${num(p.ja_certos)} já estão certos${p.sem_loja ? " · " + num(p.sem_loja) + " conferidos que não estão no site" : ""}</p>
+      ${p.varias_variacoes ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)"><b>${num(p.varias_variacoes)} produto${p.varias_variacoes === 1 ? "" : "s"} contado${p.varias_variacoes === 1 ? "" : "s"} ficaram de fora</b> porque têm várias variações no site (cores ou tamanhos) e o painel não sabe qual delas a contagem representa. Ajuste esses direto na Nuvemshop.<br><small>${p.revisar.map(esc).join(" · ")}${p.varias_variacoes > p.revisar.length ? " · …" : ""}</small></p>` : ""}
+      ${it.length ? `<div class="lista-prev">${it.slice(0, 100).map(i => `<div class="pv"><b>${esc(i.nome)}</b>${i.publicado ? "" : ' <span class="pill p-idle">oculto</span>'}<br><small>site: ${esc(i.de)} → <b>${i.para}</b> · ${esc(i.motivo)}</small></div>`).join("")}${it.length > 100 ? `<div class="pv"><small>… e mais ${it.length - 100}</small></div>` : ""}</div>
+      <button class="pri" id="s-gravar">Gravar ${n} mudança${n === 1 ? "" : "s"} na loja</button>${it.length > p.limite ? `<p>Por segurança vão ${p.limite} por vez; depois é só repetir.</p>` : ""}` : "<p>Nada para mudar agora. Conte mais produtos e volte aqui.</p>"}</section>`;
+    const g = $("#s-gravar"); if(g) g.onclick = () => gravarSync(n);
+  }catch(e){ $("#s-previa").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+}
+async function gravarSync(n){
+  if(!confirm(`Vou gravar ${n} mudança${n === 1 ? "" : "s"} na Nuvemshop agora. Antes eu guardo um backup para você poder desfazer. Confirmar?`)) return;
+  $("#s-previa").innerHTML = ""; sinc.ultimo = "";
+  try{
+    await api("/api/nuvemshop/aplicar", {method:"POST", body:JSON.stringify({modo:sinc.modo, vids:sinc.previa.itens.slice(0, sinc.previa.limite).map(i => i.var_site), quem:quemContando()})});
+    acompanhar("gravado");
+  }catch(e){ $("#s-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+}
+async function desfazerSync(arquivo){
+  if(!confirm("Vou devolver o estoque desses produtos ao valor que eles tinham antes da gravação. Confirmar?")) return;
+  sinc.ultimo = "";
+  try{
+    await api("/api/nuvemshop/desfazer", {method:"POST", body:JSON.stringify({arquivo, quem:quemContando()})});
+    acompanhar("desfeito");
+  }catch(e){ $("#s-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+}
+function acompanhar(verbo){
+  const iv = setInterval(async () => {
+    const s = await api("/api/tarefa");
+    if(s.rodando){ $("#s-andamento").innerHTML = `<div class="ok-msg">${esc(s.msg)}</div>`; return; }
+    clearInterval(iv);
+    if(s.erro){ $("#s-andamento").innerHTML = `<div class="erro-msg">Não deu certo: ${esc(s.erro)}</div>`; return; }
+    const r = s.resultado || {};
+    sinc.ultimo = `<div class="${r.falharam && r.falharam.length ? "erro-msg" : "ok-msg"}"><b>Pronto.</b> ${num(r.gravados)} ${verbo}${r.gravados === 1 ? "" : "s"} e conferidos na loja${r.pulados ? " · " + num(r.pulados) + " pulados (já estavam certos ou mudaram)" : ""}.${r.backup ? "<br>Backup: " + esc(r.backup) : ""}${r.falharam && r.falharam.length ? "<br>Não gravou: " + esc(r.falharam.join("; ")) : ""}</div>`;
+    $("#s-andamento").innerHTML = sinc.ultimo;
+    carregarResumo(); carregar(); desenharSync();
+  }, 1500);
+}
 
 async function enviar(input, url){
   const f = input.files[0]; if(!f) return;

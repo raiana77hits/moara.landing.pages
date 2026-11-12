@@ -35,12 +35,13 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("PAINEL_DB", os.path.join(BASE, "banco.db"))
-CONFIG_PATH = os.path.join(BASE, "config.json")
+CONFIG_PATH = os.environ.get("PAINEL_CONFIG", os.path.join(BASE, "config.json"))
+API_BASE = os.environ.get("NUVEMSHOP_API_BASE", "https://api.tiendanube.com/v1").rstrip("/")
 STATIC = os.path.join(BASE, "static")
 PORTA = int(os.environ.get("PAINEL_PORTA") or os.environ.get("PORT") or "8765")
 HOST = os.environ.get("PAINEL_HOST", "127.0.0.1")
 SESSAO_DIAS = 30
-VERSAO_SERVIDOR = "4"      # a tela compara com este número para detectar janela antiga aberta
+VERSAO_SERVIDOR = "5"      # a tela compara com este número para detectar janela antiga aberta
 
 CANAIS = ("nuvemshop", "ifood", "99food")
 
@@ -288,7 +289,7 @@ def carregar_config():
 
 
 def _get_nuvemshop(cfg, pagina):
-    url = f"https://api.tiendanube.com/v1/{cfg['loja']}/products?per_page=200&page={pagina}"
+    url = f"{API_BASE}/{cfg['loja']}/products?per_page=200&page={pagina}"
     req = urllib.request.Request(url, headers={
         "Authentication": "bearer " + cfg["token"], "User-Agent": cfg["agente"]})
     espera = 3
@@ -388,6 +389,260 @@ def sync_nuvemshop(con, progresso=None):
     con.commit()
     return {"produtos": len(produtos), "variacoes": variacoes, "por_sku": por_sku,
             "por_ean": por_ean, "sem_par": criados}
+
+
+# ------------------------------------------------- envio de estoque para a Nuvemshop
+# Regras: nunca grava sem prévia + confirmação; sempre guarda backup; dá para desfazer.
+MAX_POR_ENVIO = 300
+
+
+def backups_dir():
+    return os.path.join(os.path.dirname(os.path.abspath(DB_PATH)), "backups")
+
+
+def _nuvem(cfg, metodo, caminho, corpo=None):
+    """Chamada à API da Nuvemshop, com espera e nova tentativa no limite de requisições."""
+    url = f"{API_BASE}/{cfg['loja']}{caminho}"
+    dados = json.dumps(corpo).encode() if corpo is not None else None
+    espera = 3
+    for _ in range(6):
+        req = urllib.request.Request(url, data=dados, method=metodo, headers={
+            "Authentication": "bearer " + cfg["token"], "User-Agent": cfg["agente"],
+            "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                return json.load(resp)
+        except urllib.error.HTTPError as e:
+            detalhe = e.read().decode("utf-8", "replace")[:300]
+            if e.code == 429 or e.code >= 500:
+                time.sleep(espera)
+                espera *= 2
+                continue
+            if e.code in (401, 403):
+                raise RuntimeError("A Nuvemshop recusou o acesso (token inválido ou sem permissão "
+                                   "para gravar produtos).")
+            raise RuntimeError(f"A Nuvemshop respondeu {e.code}: {detalhe}")
+    raise RuntimeError("A Nuvemshop não respondeu depois de várias tentativas.")
+
+
+def _exigir_nuvemshop():
+    cfg = carregar_config()
+    if not cfg["token"] or not cfg["loja"]:
+        raise RuntimeError("A Nuvemshop ainda não está conectada. Informe o token em "
+                           "“Enviar para a Nuvemshop”.")
+    return cfg
+
+
+def conectar_nuvemshop(token, loja):
+    """Confere o token (só leitura) e o guarda no config.json, neste computador."""
+    token = (token or "").strip()
+    loja = "".join(c for c in str(loja or "") if c.isdigit())
+    if len(token) < 20 or not loja:
+        raise ValueError("Informe o token (código longo) e o número da loja.")
+    cfg = {"token": token, "loja": loja, "agente": carregar_config()["agente"]}
+    try:
+        info = _nuvem(cfg, "GET", "/store")
+    except RuntimeError as e:
+        raise ValueError(str(e))
+    dados = {}
+    if os.path.exists(CONFIG_PATH):
+        with open(CONFIG_PATH, encoding="utf-8") as f:
+            dados = json.load(f)
+    dados["nuvemshop_token"], dados["nuvemshop_loja"] = token, loja
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(dados, f, indent=2, ensure_ascii=False)
+    try:
+        os.chmod(CONFIG_PATH, 0o600)
+    except OSError:
+        pass
+    return {"loja": _texto(info.get("name")) or "loja conectada"}
+
+
+def previa_nuvemshop(con, modo="zerar"):
+    """O que mudaria no site com base no estoque contado. Não altera nada."""
+    modo = "repor" if modo == "repor" else "zerar"
+    itens, ja_igual, varias = [], 0, {}
+    for r in con.execute(
+            "SELECT p.id pid, p.nome, p.sku, p.estoque, k.id_externo prod_site, k.id_variacao var_site, "
+            "k.estoque site, k.status, m.n FROM produtos p JOIN canais k ON k.produto_id=p.id "
+            "AND k.canal='nuvemshop' JOIN (SELECT produto_id, COUNT(*) n FROM canais WHERE canal='nuvemshop' "
+            "GROUP BY produto_id) m ON m.produto_id=p.id WHERE p.estoque IS NOT NULL ORDER BY p.nome"):
+        if r["n"] > 1:
+            # um produto contado ligado a várias variações do site (cores, tamanhos): não dá para
+            # saber qual variação a contagem representa, então fica para decidir à mão
+            varias[r["pid"]] = r["nome"]
+            continue
+        site, contado = (r["site"] or "").strip(), r["estoque"]
+        if contado == 0:
+            alvo, motivo = (None, None) if site == "0" else (0, "acabou na prateleira")
+        elif modo == "repor" and site != str(contado):
+            alvo, motivo = contado, "quantidade contada"
+        else:
+            alvo, motivo = None, None
+        if alvo is None:
+            ja_igual += 1
+            continue
+        itens.append({"pid": r["pid"], "nome": r["nome"], "sku": r["sku"], "prod_site": int(r["prod_site"]),
+                      "var_site": int(r["var_site"]), "de": site or "ilimitado", "para": alvo,
+                      "publicado": r["status"] == "Publicado", "motivo": motivo})
+    conferidos = con.execute("SELECT COUNT(*) FROM produtos WHERE estoque IS NOT NULL").fetchone()[0]
+    sem_loja = con.execute("SELECT COUNT(*) FROM produtos p WHERE p.estoque IS NOT NULL AND NOT EXISTS "
+                           "(SELECT 1 FROM canais k WHERE k.produto_id=p.id AND k.canal='nuvemshop')").fetchone()[0]
+    return {"modo": modo, "conferidos": conferidos, "mudancas": len(itens), "ja_certos": ja_igual,
+            "sem_loja": sem_loja, "varias_variacoes": len(varias), "revisar": sorted(varias.values())[:15],
+            "limite": MAX_POR_ENVIO, "itens": itens}
+
+
+def _gravar_estoques(cfg, grupos, progresso):
+    """grupos: lista de (produto_site, variacao_site, valor) com valor int, ou "" para ilimitado.
+    Devolve {variacao: erro ou None}."""
+    resultado = {}
+    numericos = [g for g in grupos if g[2] != ""]
+    ilimitados = [g for g in grupos if g[2] == ""]
+    lotes, atual, por_produto, n = [], [], {}, 0
+    for prod, var, valor in numericos:                     # até 50 variações por chamada
+        if n >= 50:
+            lotes.append(atual); atual, por_produto, n = [], {}, 0
+        if prod not in por_produto:
+            por_produto[prod] = {"id": prod, "variants": []}
+            atual.append(por_produto[prod])
+        por_produto[prod]["variants"].append({"id": var, "inventory_levels": [{"stock": valor}]})
+        n += 1
+    if atual:
+        lotes.append(atual)
+    feitos = 0
+    for lote in lotes:
+        resp = _nuvem(cfg, "PATCH", "/products/stock-price", lote)
+        ok = {}
+        for prod in (resp if isinstance(resp, list) else []):
+            for v in prod.get("variants") or []:
+                ok[v.get("id")] = None if v.get("success") else (str(v.get("errors") or "recusado")[:120])
+        for prod in lote:
+            for v in prod["variants"]:
+                resultado[v["id"]] = ok.get(v["id"], "sem resposta da loja")
+        feitos += sum(len(p["variants"]) for p in lote)
+        progresso(f"Gravando na loja: {feitos} de {len(grupos)}")
+        time.sleep(1.5)
+    for prod, var, _ in ilimitados:                        # voltar ao ilimitado: uma por vez
+        try:
+            _nuvem(cfg, "PUT", f"/products/{prod}/variants/{var}", {"inventory_levels": [{"stock": ""}]})
+            resultado[var] = None
+        except RuntimeError as e:
+            resultado[var] = str(e)[:120]
+        feitos += 1
+        progresso(f"Gravando na loja: {feitos} de {len(grupos)}")
+        time.sleep(1.5)
+    return resultado
+
+
+def _estado_site(con):
+    return {int(r["id_variacao"]): (r["estoque"] or "") for r in
+            con.execute("SELECT id_variacao, estoque FROM canais WHERE canal='nuvemshop'")}
+
+
+def _salvar_backup(prefixo, linhas):
+    os.makedirs(backups_dir(), exist_ok=True)
+    nome = f"{prefixo}_{datetime.now():%Y%m%d_%H%M%S}.csv"
+    with open(os.path.join(backups_dir(), nome), "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["produto_site", "variacao_site", "sku", "nome", "antes", "para"])
+        w.writerows(linhas)
+    return nome
+
+
+def listar_backups():
+    if not os.path.isdir(backups_dir()):
+        return []
+    saida = []
+    for nome in sorted(os.listdir(backups_dir()), reverse=True):
+        if nome.startswith("nuvemshop_") and nome.endswith(".csv") and not nome.endswith(".desfeito.csv"):
+            caminho = os.path.join(backups_dir(), nome)
+            with open(caminho, encoding="utf-8-sig") as f:
+                qtd = max(0, sum(1 for _ in f) - 1)
+            saida.append({"arquivo": nome, "quando": datetime.fromtimestamp(os.path.getmtime(caminho)).strftime("%Y-%m-%d %H:%M"),
+                          "itens": qtd, "desfazer": not nome.startswith("nuvemshop_desfazer_")})
+    return saida
+
+
+def aplicar_nuvemshop(modo, vids, quem, progresso):
+    cfg = _exigir_nuvemshop()
+    quer = {int(v) for v in vids}
+    if not quer:
+        raise RuntimeError("Nada para gravar.")
+    if len(quer) > MAX_POR_ENVIO:
+        raise RuntimeError(f"Por segurança, grave no máximo {MAX_POR_ENVIO} por vez.")
+    con = conectar()
+    try:
+        progresso("Lendo a loja para conferir o estado atual…")
+        sync_nuvemshop(con)
+        plano = {i["var_site"]: i for i in previa_nuvemshop(con, modo)["itens"]}
+        escolhidos = [plano[v] for v in quer if v in plano]
+        pulados = len(quer) - len(escolhidos)          # mudaram desde a prévia
+        if not escolhidos:
+            return {"gravados": 0, "pulados": pulados, "falharam": [], "backup": None}
+        backup = _salvar_backup("nuvemshop", [[i["prod_site"], i["var_site"], i["sku"] or "", i["nome"],
+                                               i["de"], i["para"]] for i in escolhidos])
+        resultado = _gravar_estoques(cfg, [(i["prod_site"], i["var_site"], i["para"]) for i in escolhidos], progresso)
+        progresso("Conferindo na loja o que foi gravado…")
+        sync_nuvemshop(con)
+        depois = _estado_site(con)
+        falharam, gravados = [], 0
+        for i in escolhidos:
+            if resultado.get(i["var_site"]) is None and depois.get(i["var_site"]) == str(i["para"]):
+                gravados += 1
+                con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                            (i["pid"], agora(), "estoque no site", i["de"], str(i["para"]), quem or "painel"))
+            else:
+                falharam.append(f"{i['nome']}: " + (resultado.get(i["var_site"]) or "o site não mostra o valor esperado"))
+        con.commit()
+        return {"gravados": gravados, "pulados": pulados, "falharam": falharam[:10], "backup": backup}
+    finally:
+        con.close()
+
+
+def _ler_backup(arquivo):
+    permitidos = {b["arquivo"] for b in listar_backups() if b["desfazer"]}
+    if arquivo not in permitidos:
+        raise RuntimeError("Backup não encontrado.")
+    with open(os.path.join(backups_dir(), arquivo), encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def desfazer_nuvemshop(arquivo, quem, progresso):
+    cfg = _exigir_nuvemshop()
+    linhas = _ler_backup(arquivo)
+    con = conectar()
+    try:
+        progresso("Lendo a loja para conferir o estado atual…")
+        sync_nuvemshop(con)
+        atual = _estado_site(con)
+        restaurar, pulados = [], 0
+        for l in linhas:
+            var = int(l["variacao_site"])
+            if atual.get(var) != str(l["para"]):        # mudou depois da gravação: não mexo
+                pulados += 1
+                continue
+            restaurar.append((int(l["produto_site"]), var, "" if l["antes"] == "ilimitado" else int(l["antes"]), l))
+        if not restaurar:
+            return {"gravados": 0, "pulados": pulados, "falharam": [], "backup": None}
+        backup = _salvar_backup("nuvemshop_desfazer", [[p, v, l["sku"], l["nome"], atual.get(v, ""),
+                                                        "ilimitado" if val == "" else val] for p, v, val, l in restaurar])
+        resultado = _gravar_estoques(cfg, [(p, v, val) for p, v, val, _ in restaurar], progresso)
+        progresso("Conferindo na loja o que foi desfeito…")
+        sync_nuvemshop(con)
+        depois = _estado_site(con)
+        falharam, feitos = [], 0
+        for p, v, val, l in restaurar:
+            esperado = "ilimitado" if val == "" else str(val)
+            if resultado.get(v) is None and depois.get(v) == esperado:
+                feitos += 1
+            else:
+                falharam.append(f"{l['nome']}: " + (resultado.get(v) or "o site não mostra o valor esperado"))
+        if not falharam and not pulados:
+            os.replace(os.path.join(backups_dir(), arquivo), os.path.join(backups_dir(), arquivo[:-4] + ".desfeito.csv"))
+        return {"gravados": feitos, "pulados": pulados, "falharam": falharam[:10], "backup": backup}
+    finally:
+        con.close()
 
 
 # ------------------------------------------------------------------- consultas
@@ -728,6 +983,23 @@ def exportar_csv(con, q, filtro, grupo):
 TAREFA = {"rodando": False, "msg": "", "erro": "", "resultado": None}
 
 
+def _tarefa(funcao, *args):
+    """Roda uma tarefa longa em segundo plano; a tela acompanha por /api/tarefa."""
+    def correr():
+        TAREFA.update(rodando=True, msg="Começando…", erro="", resultado=None)
+        try:
+            TAREFA["resultado"] = funcao(*args, lambda m: TAREFA.update(msg=m))
+            TAREFA["msg"] = "Concluído"
+        except Exception as e:  # noqa: BLE001 - a mensagem vai para a tela
+            TAREFA["erro"] = str(e)
+        finally:
+            TAREFA["rodando"] = False
+    if TAREFA["rodando"]:
+        raise ValueError("Já tem uma tarefa em andamento. Espere terminar.")
+    TAREFA["rodando"] = True
+    threading.Thread(target=correr, daemon=True).start()
+
+
 def _rodar_sync():
     TAREFA.update(rodando=True, msg="Conectando na Nuvemshop", erro="", resultado=None)
     try:
@@ -835,6 +1107,10 @@ class Handler(BaseHTTPRequestHandler):
             if u.path == "/api/sem-cadastro":
                 return self._json({"itens": [dict(r) for r in con.execute(
                     "SELECT * FROM leituras_sem_cadastro ORDER BY id DESC LIMIT 200")]})
+            if u.path == "/api/nuvemshop/previa":
+                return self._json(previa_nuvemshop(con, qs.get("modo", "zerar")))
+            if u.path == "/api/nuvemshop/backups":
+                return self._json({"itens": listar_backups()})
             if u.path.startswith("/api/foto/"):
                 arq = os.path.join(fotos_dir(), f"{int(u.path.rsplit('/', 1)[1])}.jpg")
                 if not os.path.exists(arq):
@@ -907,6 +1183,17 @@ class Handler(BaseHTTPRequestHandler):
             if u.path.startswith("/api/produto/"):
                 dados = json.loads(self._corpo() or b"{}")
                 return self._json(alterar(con, int(u.path.rsplit("/", 1)[1]), dados))
+            if u.path == "/api/config/nuvemshop":
+                d = json.loads(self._corpo() or b"{}")
+                return self._json(conectar_nuvemshop(d.get("token"), d.get("loja")))
+            if u.path == "/api/nuvemshop/aplicar":
+                d = json.loads(self._corpo() or b"{}")
+                _tarefa(aplicar_nuvemshop, d.get("modo", "zerar"), d.get("vids") or [], (d.get("quem") or "painel")[:40])
+                return self._json({"ok": True})
+            if u.path == "/api/nuvemshop/desfazer":
+                d = json.loads(self._corpo() or b"{}")
+                _tarefa(desfazer_nuvemshop, str(d.get("arquivo") or ""), (d.get("quem") or "painel")[:40])
+                return self._json({"ok": True})
             if u.path.startswith("/api/foto/"):
                 return self._json(salvar_foto(con, int(u.path.rsplit("/", 1)[1]), self._corpo(),
                                               unquote(self.headers.get("X-Quem") or "")))

@@ -6,3 +6,4 @@ dados/
 *.xlsx
 __pycache__/
 fotos/
+backups/
