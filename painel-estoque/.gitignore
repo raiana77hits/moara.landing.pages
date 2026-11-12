@@ -1,0 +1,7 @@
+# Dados da loja e chaves de acesso ficam só no computador, nunca no repositório
+banco.db*
+config.json
+dados/
+*.csv
+*.xlsx
+__pycache__/
