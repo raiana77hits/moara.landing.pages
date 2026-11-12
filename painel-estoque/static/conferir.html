@@ -31,6 +31,15 @@ input{font:inherit;padding:14px;border:1px solid var(--line);border-radius:8px;w
 .cartao{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--kraft);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px}
 .cartao h2{margin:0;font-size:19px;line-height:1.25}
 .cartao .cod{color:var(--muted);font:13px ui-monospace,Menlo,Consolas,monospace}
+.topo-cartao{display:flex;gap:12px;align-items:flex-start}
+.topo-cartao>div:last-child{min-width:0;flex:1}
+.foto-c{width:104px;height:104px;border-radius:12px;object-fit:cover;flex:none;background:var(--idle-bg);cursor:zoom-in;display:block}
+.foto-c.sem{display:flex;align-items:center;justify-content:center;text-align:center;font-size:13px;color:var(--muted);border:2px dashed var(--line);cursor:default;padding:6px}
+.btn-foto.destaque{background:var(--warn-bg);border-color:var(--warn);color:var(--warn);font-size:18px;padding:16px}
+#foto-msg{font-size:14px;color:var(--muted);margin-top:6px}
+dialog#d-zoom{border:0;padding:0;background:transparent;max-width:96vw;max-height:96vh}
+dialog#d-zoom::backdrop{background:rgba(0,0,0,.8)}
+dialog#d-zoom img{display:block;max-width:96vw;max-height:92vh;border-radius:10px}
 .pills{display:flex;flex-wrap:wrap;gap:6px}
 .pill{font-size:12px;font-weight:600;padding:5px 9px;border-radius:999px}
 .p-ok{color:var(--ok);background:var(--ok-bg)}.p-bad{color:var(--bad);background:var(--bad-bg)}.p-idle{color:var(--muted);background:var(--idle-bg)}
@@ -48,15 +57,24 @@ li:last-child{border-bottom:0}
 li b{font:700 16px ui-monospace,Menlo,Consolas,monospace;min-width:44px;text-align:right}
 li span{flex:1;min-width:0;overflow-wrap:anywhere}
 li small{color:var(--muted);white-space:nowrap}
+#caixa{position:relative}
+.mira{position:absolute;left:6%;right:6%;top:50%;height:0;border-top:2px solid rgba(255,60,60,.9);pointer-events:none}
+.status{border-radius:8px;padding:11px 13px;font-size:15px;background:var(--idle-bg);color:var(--ink)}
+.status.aviso{background:var(--warn-bg);color:var(--warn)}
+.btn-foto{display:block;text-align:center;font:600 16px inherit;font-family:inherit;padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer}
+.btn-foto:focus-within{outline:3px solid var(--kraft);outline-offset:2px}
 [hidden]{display:none!important}
 </style>
 </head>
 <body>
 <header><h1>Conferência</h1><button id="b-quem"></button><a href="/">Painel</a></header>
 <main>
-  <div id="leitor" hidden></div>
+  <div id="caixa" hidden><div id="leitor"></div><div class="mira"></div></div>
+  <div id="cam-status" class="status" hidden role="status"></div>
   <div id="cam-msg" class="aviso a-warn" hidden></div>
   <button class="pri" id="b-cam">Abrir a câmera para bipar</button>
+  <label class="btn-foto" for="f-foto">📷 Tirar foto do código<input type="file" id="f-foto" accept="image/*" capture="environment" hidden></label>
+  <div id="leitor-arq" hidden></div>
   <form class="linha" id="f-cod">
     <input id="cod" inputmode="search" autocomplete="off" placeholder="Código de barras ou nome do produto" aria-label="Código de barras ou nome do produto">
     <button>Buscar</button>
@@ -66,10 +84,12 @@ li small{color:var(--muted);white-space:nowrap}
   <ul id="ultimas"></ul>
 </main>
 
+<dialog id="d-zoom"><img id="z-img" alt=""></dialog>
 <script src="/vendor/html5-qrcode.min.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const mini = (u, t) => u && /-\d+-\d+\.\w+$/.test(u) ? u.replace(/-\d+-\d+(\.\w+)$/, "-" + t + "-0$1") : u;
 const hora = s => s ? s.slice(8,10)+"/"+s.slice(5,7)+" "+s.slice(11,16) : "";
 async function api(url, opt){
   const r = await fetch(url, opt);
@@ -95,45 +115,106 @@ function bip(){
   }catch(e){}
 }
 
+
+// ------------------------------------------------------------------ fotos
+async function reduzirFoto(file, lado){
+  lado = lado || 1280;
+  const url = URL.createObjectURL(file);
+  try{
+    const img = new Image(); img.src = url; await img.decode();
+    const k = Math.min(1, lado / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise((ok, no) => c.toBlob(b => b ? ok(b) : no(new Error("Não consegui preparar a foto.")), "image/jpeg", 0.82));
+  } finally { URL.revokeObjectURL(url); }
+}
+async function enviarFoto(id, file){
+  let quem = ""; try{ quem = localStorage.getItem("quem") || ""; }catch(e){}
+  const blob = await reduzirFoto(file);
+  return api("/api/foto/" + id, {method:"POST", body: blob, headers:{"Content-Type":"image/jpeg", "X-Quem": encodeURIComponent(quem)}});
+}
+
 // ---------------------------------------------------------------- câmera
-let leitor = null, lendo = false, ultimo = "", ultimoEm = 0;
+// Só aceita código com dígito verificador certo: leitura torta é ignorada em vez de buscar produto errado.
+function gs1Ok(c){
+  if(!/^\d+$/.test(c) || ![8, 12, 13, 14].includes(c.length)) return false;
+  const n = c.length; let soma = 0;
+  for(let i = 0; i < n - 1; i++) soma += (+c[n - 2 - i]) * (i % 2 === 0 ? 3 : 1);
+  return (10 - soma % 10) % 10 === +c[n - 1];
+}
+function status(t, tipo){ const e = $("#cam-status"); e.hidden = !t; e.textContent = t || ""; e.className = "status" + (tipo ? " " + tipo : ""); }
+function msgErro(e){
+  const n = String((e && e.name) || ""), m = String((e && e.message) || e || ""), tudo = n + " " + m;
+  if(/NotAllowed|Permission|denied/i.test(tudo)) return "O celular bloqueou a câmera para este endereço. No iPhone: toque em “aA” na barra de endereço do Safari, depois Ajustes do Site, Câmera e Permitir. Depois tente de novo.";
+  if(/NotFound|no camera|Requested device/i.test(tudo)) return "Não encontrei uma câmera neste aparelho.";
+  if(/NotReadable|TrackStart|in use|Could not start/i.test(tudo)) return "A câmera está em uso por outro aplicativo. Feche os outros apps e tente de novo.";
+  return "Não consegui abrir a câmera (" + (n || m).slice(0, 80) + "). Use o botão “Tirar foto do código” ou digite o código.";
+}
+let leitor = null, lendo = false, ultimo = "", ultimoEm = 0, descartes = 0, dica = null;
+const FORMATOS = () => { const F = Html5QrcodeSupportedFormats; return [F.EAN_13, F.EAN_8, F.UPC_A, F.ITF]; };
+function onLido(texto){
+  texto = String(texto).trim();
+  if(!gs1Ok(texto)){
+    if(++descartes >= 3) status("Estou vendo o código, mas ele sai errado (“" + texto + "”). Deixe o celular reto, bem de frente e com mais luz.", "aviso");
+    return;
+  }
+  descartes = 0;
+  const agora = Date.now();
+  if(texto === ultimo && agora - ultimoEm < 4000) return;
+  ultimo = texto; ultimoEm = agora; bip(); status("Código lido: " + texto); buscar(texto, true);
+}
 async function abrirCamera(){
   if(!window.isSecureContext){
     $("#cam-msg").hidden = false;
-    $("#cam-msg").textContent = "O celular só libera a câmera em endereço com cadeado (https). Digite o código ou use um leitor Bluetooth.";
+    $("#cam-msg").textContent = "O celular só libera a câmera em endereço com cadeado (https). Digite o código, tire uma foto ou use um leitor Bluetooth.";
     return;
   }
-  $("#leitor").hidden = false; $("#cam-msg").hidden = true;
-  const F = Html5QrcodeSupportedFormats;
-  leitor = new Html5Qrcode("leitor", {formatsToSupport:[F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.ITF],
+  $("#caixa").hidden = false; $("#cam-msg").hidden = true; descartes = 0;
+  status("Abrindo a câmera… se o celular perguntar, toque em Permitir.");
+  leitor = new Html5Qrcode("leitor", {formatsToSupport: FORMATOS(),
     experimentalFeatures:{useBarCodeDetectorIfSupported:true}, verbose:false});
   try{
     await leitor.start({facingMode:"environment"},
-      {fps:12, qrbox:(w, h) => ({width:Math.floor(w * .92), height:Math.max(80, Math.floor(h * .5))})},
-      texto => {
-        const agora = Date.now();
-        if(texto === ultimo && agora - ultimoEm < 4000) return;
-        ultimo = texto; ultimoEm = agora; bip(); buscar(texto, true);
-      }, () => {});
+      {fps:10, disableFlip:true, videoConstraints:{facingMode:"environment", width:{ideal:1920}, height:{ideal:1080}}},
+      onLido, () => {});
     lendo = true; $("#b-cam").textContent = "Fechar a câmera"; $("#b-cam").classList.remove("pri");
+    let res = ""; try{ const st = leitor.getRunningTrackSettings(); res = " (" + st.width + "×" + st.height + ")"; }catch(e){}
+    status("Câmera ligada" + res + ". Deixe as listras na horizontal, a uns 15 a 20 cm, com boa luz.");
+    clearTimeout(dica);
+    dica = setTimeout(() => { if(lendo && $("#caixa").hidden === false) status("Ainda não li nada. Afaste um pouco o celular até o código ficar nítido, ou use “Tirar foto do código”.", "aviso"); }, 12000);
   }catch(e){
-    $("#leitor").hidden = true; leitor = null;
-    $("#cam-msg").hidden = false;
-    $("#cam-msg").textContent = "Não consegui abrir a câmera. Confira se o navegador tem permissão para usar a câmera neste site.";
+    $("#caixa").hidden = true; leitor = null; status("");
+    $("#cam-msg").hidden = false; $("#cam-msg").textContent = msgErro(e);
   }
 }
 async function fecharCamera(){
+  clearTimeout(dica);
   if(leitor){ try{ await leitor.stop(); leitor.clear(); }catch(e){} }
-  leitor = null; lendo = false; $("#leitor").hidden = true;
+  leitor = null; lendo = false; $("#caixa").hidden = true; status("");
   $("#b-cam").textContent = "Abrir a câmera para bipar"; $("#b-cam").classList.add("pri");
 }
 function pausar(sim){
   if(!leitor || !lendo) return;
   try{ sim ? leitor.pause(true) : leitor.resume(); }catch(e){}
-  $("#leitor").hidden = sim;   // com o produto na tela, a câmera sai da frente
+  $("#caixa").hidden = sim;   // com o produto na tela, a câmera sai da frente
   if(!sim) window.scrollTo({top:0});
 }
 $("#b-cam").onclick = () => lendo ? fecharCamera() : abrirCamera();
+
+// Plano B: foto tirada pela câmera do próprio celular (foca melhor que o vídeo ao vivo)
+$("#f-foto").addEventListener("change", async e => {
+  const f = e.target.files[0]; e.target.value = ""; if(!f) return;
+  status("Lendo a foto…");
+  const arq = new Html5Qrcode("leitor-arq", {formatsToSupport: FORMATOS(), experimentalFeatures:{useBarCodeDetectorIfSupported:true}, verbose:false});
+  try{
+    const t = String(await arq.scanFile(f, false)).trim();
+    if(!gs1Ok(t)){ status("Li “" + t + "”, mas parece errado. Tire outra foto, mais de perto e com o código reto.", "aviso"); return; }
+    bip(); status("Código lido: " + t); buscar(t, true);
+  }catch(err){
+    status("Não achei um código de barras na foto. Chegue mais perto, deixe as listras na horizontal e bem iluminadas.", "aviso");
+  }finally{ try{ arq.clear(); }catch(x){} }
+});
 
 // ------------------------------------------------------------------ busca
 async function buscar(texto, daCamera){
@@ -177,9 +258,12 @@ function cartao(p){
     return `<span class="pill ${v ? "p-ok" : "p-bad"}">${NOMES[c]}: ${v ? "à venda" : "fora de venda"}</span>`;
   }).join("");
   $("#resultado").innerHTML = `<div class="cartao">
-    <h2>${esc(p.nome)}</h2>
-    <div class="cod">${esc(p.ean || "sem código de barras")}${p.gz_codigo ? " · Gestor Z " + esc(p.gz_codigo) : ""}</div>
+    <div class="topo-cartao"><div id="foto-img"></div><div>
+      <h2>${esc(p.nome)}</h2>
+      <div class="cod">${esc(p.ean || "sem código de barras")}${p.gz_codigo ? " · Gestor Z " + esc(p.gz_codigo) : ""}</div>
+    </div></div>
     <div class="pills">${pills}</div>
+    <div id="foto-acao"></div>
     <div>${p.estoque == null ? "Ainda não conferido." : `Última contagem: <b>${p.estoque}</b> em ${hora(p.conferido_em)}`}</div>
     <label for="qtd"><b>Quantos tem na prateleira?</b></label>
     <div class="qtd"><button type="button" id="menos" aria-label="Menos um">−</button>
@@ -189,6 +273,7 @@ function cartao(p){
     <button id="b-pular">Pular sem salvar</button>
     <div id="c-erro" class="aviso a-bad" hidden></div>
   </div>`;
+  desenharFoto(p);
   const q = $("#qtd");
   $("#menos").onclick = () => q.value = Math.max(0, (parseInt(q.value) || 0) - 1);
   $("#mais").onclick = () => q.value = (parseInt(q.value) || 0) + 1;
@@ -206,6 +291,24 @@ function cartao(p){
   q.addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); salvar(q.value); } });
   q.focus(); q.select();
 }
+function desenharFoto(p){
+  const img = $("#foto-img"), acao = $("#foto-acao"); if(!img || !acao) return;
+  img.innerHTML = p.foto ? `<img class="foto-c" src="${esc(mini(p.foto, 320))}" data-full="${esc(p.foto)}" alt="Foto de ${esc(p.nome)}">` : `<div class="foto-c sem">Sem foto</div>`;
+  const el = img.querySelector("img");
+  if(el) el.onclick = () => { $("#z-img").src = el.dataset.full; $("#d-zoom").showModal(); };
+  const texto = p.foto_local ? "📷 Tirar outra foto" : (p.foto ? "📷 Tirar outra foto (a do site pode estar errada)" : "📷 Sem foto: tirar foto na prateleira");
+  acao.innerHTML = `<label class="btn-foto ${p.foto ? "" : "destaque"}" for="f-prod">${texto}<input type="file" id="f-prod" accept="image/*" capture="environment" hidden></label><div id="foto-msg" role="status"></div>`;
+  $("#f-prod").onchange = async e => {
+    const f = e.target.files[0]; e.target.value = ""; if(!f) return;
+    $("#foto-msg").textContent = "Enviando a foto…";
+    try{
+      const d = await enviarFoto(p.id, f);
+      p.foto = d.foto; p.foto_local = true; desenharFoto(p);
+      $("#foto-msg").textContent = "Foto salva ✔";
+    }catch(err){ $("#foto-msg").textContent = "Não consegui salvar a foto: " + err.message; }
+  };
+}
+$("#d-zoom").addEventListener("click", () => $("#d-zoom").close());
 function seguir(){
   pausar(false); ultimo = ""; $("#cod").value = "";
   if(!lendo) $("#cod").focus();   // leitor Bluetooth ou teclado: já fica pronto para o próximo

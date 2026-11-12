@@ -31,7 +31,7 @@ import urllib.request
 import webbrowser
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("PAINEL_DB", os.path.join(BASE, "banco.db"))
@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS produtos (
     vendas_ano REAL,
     ultima_compra TEXT,
     obs TEXT,
+    foto_url TEXT,           -- foto do produto no site (Nuvemshop)
     atualizado_em TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_prod_sku ON produtos(sku);
@@ -99,6 +100,13 @@ CREATE INDEX IF NOT EXISTS ix_hist_prod ON historico(produto_id);
 
 CREATE TABLE IF NOT EXISTS meta (chave TEXT PRIMARY KEY, valor TEXT);
 
+-- fotos tiradas na prateleira (arquivo na pasta fotos, ao lado do banco)
+CREATE TABLE IF NOT EXISTS fotos (
+    produto_id INTEGER PRIMARY KEY REFERENCES produtos(id),
+    quando TEXT NOT NULL,
+    quem TEXT
+);
+
 -- códigos bipados na prateleira que não existem no cadastro
 CREATE TABLE IF NOT EXISTS leituras_sem_cadastro (
     id INTEGER PRIMARY KEY,
@@ -114,11 +122,19 @@ def agora():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
+def fotos_dir():
+    return os.path.join(os.path.dirname(os.path.abspath(DB_PATH)), "fotos")
+
+
 def conectar():
     con = sqlite3.connect(DB_PATH, timeout=30)
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA journal_mode=WAL")
     con.executescript(SCHEMA)
+    colunas = {r["name"] for r in con.execute("PRAGMA table_info(produtos)")}
+    if "foto_url" not in colunas:          # banco criado por uma versão anterior
+        con.execute("ALTER TABLE produtos ADD COLUMN foto_url TEXT")
+        con.commit()
     return con
 
 
@@ -322,6 +338,9 @@ def sync_nuvemshop(con, progresso=None):
     for p in produtos:
         nome = _texto(p.get("name"))
         publicado = bool(p.get("published"))
+        imagens = sorted(p.get("images") or [], key=lambda i: i.get("position") or 0)
+        src_por_id = {i.get("id"): i.get("src") for i in imagens}
+        src_primeira = imagens[0].get("src") if imagens else None
         for v in p.get("variants") or []:
             variacoes += 1
             sku = (v.get("sku") or "").strip()
@@ -338,6 +357,9 @@ def sync_nuvemshop(con, progresso=None):
                                 (ean_n,)).fetchone()
                 if r:
                     por_ean += 1
+            if r is None and not sku and not ean_n:
+                r = con.execute("SELECT id FROM produtos WHERE origem='nuvemshop' AND nome=?",
+                                (nome_v,)).fetchone()
             if r is None:
                 cur = con.execute(
                     "INSERT INTO produtos(sku,ean,ean_norm,nome,preco,origem,atualizado_em) "
@@ -348,6 +370,9 @@ def sync_nuvemshop(con, progresso=None):
                 criados += 1
             else:
                 pid = r["id"]
+            src = src_por_id.get(v.get("image_id")) or src_primeira
+            if src:
+                con.execute("UPDATE produtos SET foto_url=? WHERE id=?", (src, pid))
             if not v.get("stock_management") or v.get("stock") is None:
                 estoque, tem = "ilimitado", True
             else:
@@ -378,6 +403,9 @@ FILTROS = {
     "sem_gestorz": "p.origem <> 'gestorz'",
     "sem_ean": "(p.ean_norm IS NULL OR p.ean_norm = '' OR p.ean_norm LIKE '200%')",
     "em_nenhum_canal": "NOT EXISTS (SELECT 1 FROM canais c WHERE c.produto_id=p.id)",
+    "sem_foto": "(p.foto_url IS NULL OR p.foto_url = '') AND NOT EXISTS "
+                "(SELECT 1 FROM fotos f WHERE f.produto_id=p.id)",
+    "foto_tirada": "EXISTS (SELECT 1 FROM fotos f WHERE f.produto_id=p.id)",
 }
 for _c in CANAIS:
     FILTROS["no_" + _c] = f"EXISTS (SELECT 1 FROM canais c WHERE c.produto_id=p.id AND c.canal='{_c}')"
@@ -409,6 +437,21 @@ def _canais_de(con, ids):
     return saida
 
 
+def _anexar_fotos(con, itens):
+    """Acrescenta o endereço da foto: a tirada na prateleira vale mais que a do site."""
+    ids = [i["id"] for i in itens]
+    locais = {}
+    if ids:
+        marcas = ",".join("?" * len(ids))
+        locais = {r["produto_id"]: r["quando"] for r in con.execute(
+            f"SELECT produto_id, quando FROM fotos WHERE produto_id IN ({marcas})", ids)}
+    for i in itens:
+        q = locais.get(i["id"])
+        i["foto_local"] = bool(q)
+        i["foto"] = (f"/api/foto/{i['id']}?v=" + "".join(c for c in q if c.isdigit())) if q \
+            else (i.get("foto_url") or None)
+
+
 def listar(con, q="", filtro="todos", grupo="", pagina=1, por_pagina=50):
     where, args = _where(q, filtro, grupo)
     total = con.execute(f"SELECT COUNT(*) FROM produtos p WHERE {where}", args).fetchone()[0]
@@ -418,6 +461,7 @@ def listar(con, q="", filtro="todos", grupo="", pagina=1, por_pagina=50):
     canais = _canais_de(con, [l["id"] for l in linhas])
     for l in linhas:
         l["canais"] = canais[l["id"]]
+    _anexar_fotos(con, linhas)
     return {"total": total, "pagina": pagina, "por_pagina": por_pagina, "itens": linhas}
 
 
@@ -432,6 +476,7 @@ def resumo(con):
              "SELECT grupo, COUNT(*) FROM produtos WHERE grupo<>'' GROUP BY grupo "
              "ORDER BY COUNT(*) DESC, grupo")],
          "meta": {x["chave"]: x["valor"] for x in con.execute("SELECT * FROM meta")},
+         "fotos_tiradas": um("SELECT COUNT(*) FROM fotos"),
          "nuvemshop_configurada": bool(carregar_config()["token"])}
     return r
 
@@ -442,6 +487,7 @@ def detalhe(con, pid):
         return None
     d = dict(p)
     d["canais"] = _canais_de(con, [pid])[pid]
+    _anexar_fotos(con, [d])
     d["historico"] = [dict(h) for h in con.execute(
         "SELECT * FROM historico WHERE produto_id=? ORDER BY id DESC LIMIT 50", (pid,))]
     return d
@@ -616,6 +662,45 @@ def tentar_login(con, ip, senha):
     raise PermissionError("Senha incorreta.")
 
 
+MAX_FOTO = 8 * 1024 * 1024
+
+
+def salvar_foto(con, pid, dados, quem):
+    if not con.execute("SELECT 1 FROM produtos WHERE id=?", (pid,)).fetchone():
+        raise ValueError("Produto não encontrado.")
+    if len(dados) < 1000 or len(dados) > MAX_FOTO or dados[:3] != b"\xff\xd8\xff":
+        raise ValueError("A foto precisa ser um JPEG de até 8 MB.")
+    os.makedirs(fotos_dir(), exist_ok=True)
+    with open(os.path.join(fotos_dir(), f"{pid}.jpg"), "wb") as f:
+        f.write(dados)
+    quem = (quem or "").strip()[:40] or "painel"
+    con.execute("INSERT INTO fotos(produto_id,quando,quem) VALUES(?,?,?) ON CONFLICT(produto_id) "
+                "DO UPDATE SET quando=excluded.quando, quem=excluded.quem", (pid, agora(), quem))
+    con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                (pid, agora(), "foto", "", "foto tirada na prateleira", quem))
+    con.commit()
+    return detalhe(con, pid)
+
+
+def zip_fotos(con):
+    import re
+    import zipfile
+    buf, usados = io.BytesIO(), set()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as z:
+        for r in con.execute("SELECT p.id, p.sku, p.nome FROM fotos f JOIN produtos p "
+                             "ON p.id=f.produto_id ORDER BY p.nome"):
+            arq = os.path.join(fotos_dir(), f"{r['id']}.jpg")
+            if not os.path.exists(arq):
+                continue
+            slug = re.sub(r"[^a-z0-9]+", "-", (r["nome"] or "").lower())[:50].strip("-") or "produto"
+            nome = f"{r['sku'] or 'SEM-SKU'}__{slug}__01.jpg"
+            if nome in usados:
+                nome = f"{r['sku'] or 'SEM-SKU'}__{slug}-{r['id']}__01.jpg"
+            usados.add(nome)
+            z.write(arq, nome)
+    return buf.getvalue()
+
+
 def exportar_csv(con, q, filtro, grupo):
     where, args = _where(q, filtro, grupo)
     saida = io.StringIO()
@@ -671,6 +756,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def _corpo(self):
         n = int(self.headers.get("Content-Length") or 0)
+        if n > 12_000_000:
+            raise ValueError("Arquivo grande demais.")
         return self.rfile.read(n) if n else b""
 
     def _arquivo(self, nome, tipo):
@@ -746,6 +833,29 @@ class Handler(BaseHTTPRequestHandler):
             if u.path == "/api/sem-cadastro":
                 return self._json({"itens": [dict(r) for r in con.execute(
                     "SELECT * FROM leituras_sem_cadastro ORDER BY id DESC LIMIT 200")]})
+            if u.path.startswith("/api/foto/"):
+                arq = os.path.join(fotos_dir(), f"{int(u.path.rsplit('/', 1)[1])}.jpg")
+                if not os.path.exists(arq):
+                    return self._json({"erro": "Sem foto."}, 404)
+                with open(arq, "rb") as f:
+                    corpo = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "image/jpeg")
+                self.send_header("Content-Length", str(len(corpo)))
+                self.send_header("Cache-Control", "private, max-age=86400")
+                self.end_headers()
+                self.wfile.write(corpo)
+                return
+            if u.path == "/api/fotos.zip":
+                corpo = zip_fotos(con)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/zip")
+                self.send_header("Content-Disposition",
+                                 f'attachment; filename="fotos_prateleira_{datetime.now():%Y-%m-%d}.zip"')
+                self.send_header("Content-Length", str(len(corpo)))
+                self.end_headers()
+                self.wfile.write(corpo)
+                return
             if u.path.startswith("/api/produto/"):
                 d = detalhe(con, int(u.path.rsplit("/", 1)[1]))
                 return self._json(d or {"erro": "Produto não encontrado."}, 200 if d else 404)
@@ -795,6 +905,9 @@ class Handler(BaseHTTPRequestHandler):
             if u.path.startswith("/api/produto/"):
                 dados = json.loads(self._corpo() or b"{}")
                 return self._json(alterar(con, int(u.path.rsplit("/", 1)[1]), dados))
+            if u.path.startswith("/api/foto/"):
+                return self._json(salvar_foto(con, int(u.path.rsplit("/", 1)[1]), self._corpo(),
+                                              unquote(self.headers.get("X-Quem") or "")))
             if u.path == "/api/sem-cadastro":
                 return self._json(registrar_sem_cadastro(con, json.loads(self._corpo() or b"{}")))
             if u.path == "/api/importar/gestorz":

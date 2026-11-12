@@ -51,11 +51,18 @@ select{padding:10px;border:1px solid var(--line);border-radius:6px;font:inherit;
 .so-mobile{display:none}
 
 .lista{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.cab,.lin{display:grid;grid-template-columns:minmax(220px,3fr) 1.2fr .8fr 1fr 1.3fr 1.3fr 1.3fr;gap:0 12px;align-items:center;padding:9px 14px}
+.cab,.lin{display:grid;grid-template-columns:56px minmax(200px,3fr) 1.2fr .8fr 1fr 1.3fr 1.3fr 1.3fr;gap:0 12px;align-items:center;padding:9px 14px}
 .cab{background:var(--bg);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .lin{border-top:1px solid var(--line)}
 .lin:hover{background:#FAFBFA}
 .nome{cursor:pointer;font-weight:700;overflow-wrap:anywhere}
+.foto{width:48px;height:48px;border-radius:8px;object-fit:cover;background:var(--idle-bg);cursor:pointer;display:block}
+.foto.sem{display:flex;align-items:center;justify-content:center;text-align:center;font-size:10px;line-height:1.1;color:var(--muted);border:1px dashed var(--line);padding:2px}
+.gp{display:contents}
+.foto-grande{display:block;max-width:100%;max-height:320px;margin:0 auto;border-radius:12px}
+.btn-foto2{display:block;text-align:center;font-weight:600;padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);cursor:pointer}
+.btn-foto2.destaque{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
+.btn-foto2:focus-within{outline:3px solid var(--kraft);outline-offset:2px}
 .meta{display:block;color:var(--muted);font:12px var(--mono);font-weight:400;margin-top:2px}
 .grupo{color:var(--muted);font-size:13px}
 .grupo::first-letter,.cn::first-letter{text-transform:uppercase}
@@ -172,13 +179,15 @@ textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);bo
 
   .lista{border-radius:0;border-left:0;border-right:0}
   .cab{display:none}
-  .lin{grid-template-columns:150px 1fr;grid-template-areas:"nome nome" "grupo preco" "est canais";gap:10px 12px;padding:18px 16px;align-items:start}
-  .nome{grid-area:nome;font-size:20px;line-height:1.28}
-  .meta{font-size:14px;margin-top:4px}
-  .grupo{grid-area:grupo;align-self:center;font-size:15px}
-  .preco{grid-area:preco;align-self:center;font-size:20px;font-weight:700}
+  .lin{grid-template-columns:104px 1fr;grid-template-areas:"foto nome" "foto gp" "est canais";gap:10px 14px;padding:18px 16px;align-items:start}
+  .foto{grid-area:foto;width:104px;height:104px;border-radius:14px;font-size:13px}
+  .nome{grid-area:nome;font-size:19px;line-height:1.28}
+  .meta{font-size:13px;margin-top:4px}
+  .gp{grid-area:gp;display:flex;justify-content:space-between;align-items:center;gap:8px;align-self:start}
+  .grupo{font-size:14px}
+  .preco{font-size:20px;font-weight:700}
   .est{grid-area:est}
-  .est input{width:100%;padding:15px 10px;font-size:26px}
+  .est input{width:100%;padding:15px 8px;font-size:24px}
   .est small{font-size:13px;margin-top:4px}
   .canais{grid-area:canais;display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}
   .rot{display:inline}
@@ -259,6 +268,7 @@ textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);bo
         <h2>Ferramentas</h2>
         <button class="btn-lista" id="b-imp2"><span class="ic">🔄</span>Atualizar dados</button>
         <a class="btn-lista" id="b-exp2" href="#"><span class="ic">📄</span>Baixar lista (CSV)</a>
+        <a class="btn-lista" id="b-zip" href="/api/fotos.zip"><span class="ic">🖼️</span><span id="t-zip">Baixar fotos tiradas</span></a>
       </div>
       <p class="rodape" id="rodape"></p>
     </section>
@@ -277,7 +287,7 @@ textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);bo
       </div>
       <div class="conta" id="conta"></div>
       <div class="lista">
-        <div class="cab"><span>Produto</span><span>Grupo</span><span style="text-align:right">Preço</span><span>Estoque oficial</span><span>Nuvemshop</span><span>iFood</span><span>99Food</span></div>
+        <div class="cab"><span></span><span>Produto</span><span>Grupo</span><span style="text-align:right">Preço</span><span>Estoque oficial</span><span>Nuvemshop</span><span>iFood</span><span>99Food</span></div>
         <div id="linhas"></div>
         <div class="vazio" id="vazio" hidden>Nenhum produto encontrado.</div>
       </div>
@@ -317,7 +327,7 @@ textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);bo
 </dialog>
 
 <script>
-const VERSAO = "3";
+const VERSAO = "4";
 const $ = s => document.querySelector(s);
 const est = {q:"", filtro:"todos", grupo:"", pagina:1, total:0};
 let RESUMO = null;
@@ -327,7 +337,7 @@ const NAV = [
   ["Nuvemshop", [["vendendo_nuvemshop","À venda"],["no_nuvemshop","Cadastrado"],["fora_nuvemshop","Não está"]]],
   ["iFood", [["vendendo_ifood","À venda"],["no_ifood","Cadastrado"],["fora_ifood","Não está"]]],
   ["99Food", [["vendendo_99food","À venda"],["no_99food","Cadastrado"],["fora_99food","Não está"]]],
-  ["Cadastro", [["sem_gestorz","Fora do Gestor Z"],["sem_ean","Sem código de barras real"],["em_nenhum_canal","Em nenhuma loja online"]]],
+  ["Cadastro", [["sem_gestorz","Fora do Gestor Z"],["sem_ean","Sem código de barras real"],["em_nenhum_canal","Em nenhuma loja online"],["sem_foto","Sem foto"],["foto_tirada","Fotos tiradas na prateleira"]]],
 ];
 const NOME_FILTRO = {};
 NAV.forEach(([t, its]) => its.forEach(([k, n]) => NOME_FILTRO[k] = (["Nuvemshop","iFood","99Food"].includes(t) ? t + ": " : "") + n));
@@ -336,10 +346,12 @@ const ATENCAO = [
   ["zerado","Estoque zero","bad"],["vende_sem_estoque","Sem estoque, mas à venda","bad"],
   ["parado_com_estoque","Com estoque, mas fora de venda","warn"],["sem_ean","Sem código de barras real",""],
   ["sem_gestorz","Fora do Gestor Z",""],["em_nenhum_canal","Em nenhuma loja online",""],
+  ["sem_foto","Sem foto","warn"],["foto_tirada","Fotos tiradas na prateleira","ok"],
 ];
 const LOJAS = [["nuvemshop","Site (Nuvemshop)","🌐"],["ifood","iFood","🍔"],["99food","99Food","🛵"]];
 const ICONES = [["embala","📦"],["descart","🥤"],["utilid","🍳"],["higiene","🧼"],["limpeza","🧽"],["papelar","✏️"],["escrit","📝"],["brinq","🧸"],["festa","🎉"],["balc","🛍️"],["merce","🛒"],["diverso","🧩"],["cozinha","🍽️"],["eletr","🔌"],["jardim","🌱"],["pet","🐾"],["decor","🖼️"],["cosmet","💄"],["aliment","🥫"],["bebida","🥤"],["ferrag","🔧"],["vela","🕯️"]];
 const icone = nome => { const n = String(nome).toLowerCase(); for(const [k, i] of ICONES) if(n.includes(k)) return i; return "🏷️"; };
+const mini = (u, t) => u && /-\d+-\d+\.\w+$/.test(u) ? u.replace(/-\d+-\d+(\.\w+)$/, "-" + t + "-0$1") : u;
 const cap = s => { s = String(s || "").toLowerCase(); return s.charAt(0).toUpperCase() + s.slice(1); };
 const num = n => Number(n || 0).toLocaleString("pt-BR");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -394,6 +406,7 @@ function desenharInicio(){
     <div><div class="nm">${ic} ${nome}</div><div class="tx">à venda agora</div></div>
     <div class="big">${num(f["vendendo_" + c])}</div>
     <div class="loja-acoes"><button class="pri" data-f="vendendo_${c}">Ver à venda</button><button data-f="fora_${c}">Não está (${num(f["fora_" + c])})</button></div></div>`).join("");
+  $("#t-zip").textContent = "Baixar fotos tiradas (" + num(r.fotos_tiradas) + ")";
   $("#cats").innerHTML = (r.grupos_n || []).map(x =>
     `<button class="tile" data-g="${esc(x.grupo)}"><span class="ic">${icone(x.grupo)}</span><span class="l">${esc(cap(x.grupo))}</span><span class="n2">${num(x.n)} produtos</span></button>`).join("");
 }
@@ -434,9 +447,10 @@ async function carregar(){
   const r = await api("/api/produtos?" + u);
   est.total = r.total;
   $("#linhas").innerHTML = r.itens.map(p => `<div class="lin" data-id="${p.id}">
+    ${p.foto ? `<img class="foto" loading="lazy" src="${esc(mini(p.foto, 320))}" alt="">` : `<div class="foto sem">sem foto</div>`}
     <div class="nome">${esc(p.nome)}<span class="meta">${esc(p.ean || "sem código de barras")}${p.sku ? " · SKU " + esc(p.sku) : ""}${p.gz_codigo ? " · GZ " + esc(p.gz_codigo) : ""}</span></div>
-    <div class="grupo">${esc((p.grupo || "").toLowerCase())}</div>
-    <div class="preco">${brl(p.preco)}</div>
+    <div class="gp"><div class="grupo">${esc((p.grupo || "").toLowerCase())}</div>
+    <div class="preco">${brl(p.preco)}</div></div>
     <div class="est"><input type="number" min="0" step="1" inputmode="numeric" value="${p.estoque ?? ""}" placeholder="—" aria-label="Estoque de ${esc(p.nome)}"><small>${p.conferido_em ? "conferido " + data(p.conferido_em) : "não conferido"}</small></div>
     <div class="canais">${canal(p.canais,"nuvemshop")}${canal(p.canais,"ifood")}${canal(p.canais,"99food")}</div></div>`).join("");
   $("#vazio").hidden = r.itens.length > 0;
@@ -457,11 +471,35 @@ async function salvarEstoque(inp){
   }catch(e){ inp.className = "erro"; inp.title = e.message; }
 }
 
+
+// ------------------------------------------------------------------ fotos
+async function reduzirFoto(file, lado){
+  lado = lado || 1280;
+  const url = URL.createObjectURL(file);
+  try{
+    const img = new Image(); img.src = url; await img.decode();
+    const k = Math.min(1, lado / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise((ok, no) => c.toBlob(b => b ? ok(b) : no(new Error("Não consegui preparar a foto.")), "image/jpeg", 0.82));
+  } finally { URL.revokeObjectURL(url); }
+}
+async function enviarFoto(id, file){
+  let quem = ""; try{ quem = localStorage.getItem("quem") || ""; }catch(e){}
+  const blob = await reduzirFoto(file);
+  return api("/api/foto/" + id, {method:"POST", body: blob, headers:{"Content-Type":"image/jpeg", "X-Quem": encodeURIComponent(quem)}});
+}
+
 async function abrir(id){
   const p = await api("/api/produto/" + id);
   $("#d-nome").textContent = p.nome;
   const nomes = {nuvemshop:"Nuvemshop", ifood:"iFood", "99food":"99Food"};
+  const fotoTxt = p.foto_local ? "📷 Trocar a foto tirada" : (p.foto ? "📷 Tirar outra foto" : "📷 Sem foto: tirar foto na prateleira");
   $("#d-corpo").innerHTML = `
+    <div>${p.foto ? `<img class="foto-grande" src="${esc(mini(p.foto, 480))}" alt="">` : ""}
+      <label class="btn-foto2 ${p.foto ? "" : "destaque"}" for="f-det" style="margin-top:10px">${fotoTxt}<input type="file" id="f-det" accept="image/*" capture="environment" hidden></label>
+      <div id="det-foto-msg" class="sub" role="status"></div></div>
     <dl>
       <dt>Código de barras</dt><dd>${esc(p.ean) || "—"}</dd>
       <dt>SKU (Nuvemshop)</dt><dd>${esc(p.sku) || "—"}</dd>
@@ -481,6 +519,12 @@ async function abrir(id){
     <div><h4>Observação</h4><textarea id="d-obs">${esc(p.obs)}</textarea><div style="margin-top:8px"><button class="pri" id="d-salvar">Salvar observação</button></div></div>
     <div><h4>Histórico</h4>${p.historico.length ? `<div class="rolagem"><table class="mini"><tbody>${
       p.historico.map(h => `<tr><td>${data(h.quando)}</td><td>${esc(h.campo)}</td><td>${esc(h.de) || "—"} → ${esc(h.para) || "—"}</td></tr>`).join("")}</tbody></table></div>` : "Nenhuma alteração ainda."}</div>`;
+  $("#f-det").onchange = async e => {
+    const f = e.target.files[0]; e.target.value = ""; if(!f) return;
+    $("#det-foto-msg").textContent = "Enviando a foto…";
+    try{ await enviarFoto(id, f); await abrir(id); carregar(); carregarResumo(); }
+    catch(err){ $("#det-foto-msg").textContent = "Não consegui salvar a foto: " + err.message; }
+  };
   $("#d-salvar").onclick = async () => { await api("/api/produto/" + id, {method:"POST", body:JSON.stringify({obs: $("#d-obs").value})}); abrir(id); };
   if(!$("#dlg").open) $("#dlg").showModal();
 }
@@ -517,7 +561,7 @@ $("#linhas").addEventListener("keydown", e => {
   const prox = e.target.closest(".lin").nextElementSibling; e.target.blur();
   if(prox) prox.querySelector("input").focus();
 });
-$("#linhas").addEventListener("click", e => { const n = e.target.closest(".nome"); if(n) abrir(n.parentElement.dataset.id); });
+$("#linhas").addEventListener("click", e => { const n = e.target.closest(".nome,.foto"); if(n) abrir(n.closest(".lin").dataset.id); });
 $("#d-x").onclick = () => $("#dlg").close();
 const abrirImportar = () => { $("#msg").textContent = ""; $("#dimp").showModal(); };
 $("#b-imp").onclick = abrirImportar; $("#b-imp2").onclick = abrirImportar;

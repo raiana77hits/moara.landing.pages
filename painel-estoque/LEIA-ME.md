@@ -59,6 +59,18 @@ ser que você desligue. Para desligar: `tailscale serve --https=443 off` no term
 - **Não abre no celular:** confira se o Tailscale está ligado no celular e no computador.
 - **Pede senha de novo:** normal depois de 30 dias ou se trocar a senha.
 
+## Fotos dos produtos
+
+A foto do produto aparece ao lado dele (a que já está no site da Nuvemshop). Quando o produto
+não tem foto, a tela de conferência mostra um botão amarelo grande: toque nele, tire a foto na
+prateleira e ela fica guardada no painel (pasta `fotos`, ao lado do `banco.db`).
+
+- O celular não deixa um site abrir a câmera sozinho; é preciso tocar no botão.
+- As fotos tiradas ficam **só no painel**. Nada é enviado para a Nuvemshop, iFood ou 99Food.
+- Para pegar todas as fotos tiradas: tela inicial, "Baixar fotos tiradas". Vem um ZIP com nomes
+  no formato `SKU__nome-do-produto__01.jpg`.
+- O filtro "Sem foto" mostra tudo o que ainda precisa ser fotografado.
+
 ## Acesso à Nuvemshop
 
 Copie `config.exemplo.json` para `config.json` e cole o token (a senha é criada por `definir-senha.bat`). O arquivo fica só neste computador.

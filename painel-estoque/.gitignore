@@ -5,3 +5,4 @@ dados/
 *.csv
 *.xlsx
 __pycache__/
+fotos/
