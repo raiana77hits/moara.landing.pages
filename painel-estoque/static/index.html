@@ -349,7 +349,7 @@ textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);bo
 </dialog>
 
 <script>
-const VERSAO = "5";
+const VERSAO = "6";
 const $ = s => document.querySelector(s);
 const est = {q:"", filtro:"todos", grupo:"", pagina:1, total:0};
 let RESUMO = null;
@@ -359,7 +359,7 @@ const NAV = [
   ["Nuvemshop", [["vendendo_nuvemshop","À venda"],["no_nuvemshop","Cadastrado"],["fora_nuvemshop","Não está"]]],
   ["iFood", [["vendendo_ifood","À venda"],["no_ifood","Cadastrado"],["fora_ifood","Não está"]]],
   ["99Food", [["vendendo_99food","À venda"],["no_99food","Cadastrado"],["fora_99food","Não está"]]],
-  ["Cadastro", [["sem_gestorz","Fora do Gestor Z"],["sem_ean","Sem código de barras real"],["em_nenhum_canal","Em nenhuma loja online"],["sem_foto","Sem foto"],["foto_tirada","Fotos tiradas na prateleira"]]],
+  ["Cadastro", [["sem_gestorz","Fora do Gestor Z"],["sem_ean","Sem código de barras real"],["em_nenhum_canal","Em nenhuma loja online"],["sem_foto","Sem foto"],["foto_tirada","Fotos tiradas na prateleira"],["cadastro_manual","Cadastrados à mão"]]],
 ];
 const NOME_FILTRO = {};
 NAV.forEach(([t, its]) => its.forEach(([k, n]) => NOME_FILTRO[k] = (["Nuvemshop","iFood","99Food"].includes(t) ? t + ": " : "") + n));
@@ -369,6 +369,7 @@ const ATENCAO = [
   ["parado_com_estoque","Com estoque, mas fora de venda","warn"],["sem_ean","Sem código de barras real",""],
   ["sem_gestorz","Fora do Gestor Z",""],["em_nenhum_canal","Em nenhuma loja online",""],
   ["sem_foto","Sem foto","warn"],["foto_tirada","Fotos tiradas na prateleira","ok"],
+  ["cadastro_manual","Cadastrados à mão: falta cadastrar nas lojas","warn"],
 ];
 const LOJAS = [["nuvemshop","Site (Nuvemshop)","🌐"],["ifood","iFood","🍔"],["99food","99Food","🛵"]];
 const ICONES = [["embala","📦"],["descart","🥤"],["utilid","🍳"],["higiene","🧼"],["limpeza","🧽"],["papelar","✏️"],["escrit","📝"],["brinq","🧸"],["festa","🎉"],["balc","🛍️"],["merce","🛒"],["diverso","🧩"],["cozinha","🍽️"],["eletr","🔌"],["jardim","🌱"],["pet","🐾"],["decor","🖼️"],["cosmet","💄"],["aliment","🥫"],["bebida","🥤"],["ferrag","🔧"],["vela","🕯️"]];
@@ -528,6 +529,7 @@ async function abrir(id){
       <dt>SKU (Nuvemshop)</dt><dd>${esc(p.sku) || "—"}</dd>
       <dt>Código Gestor Z</dt><dd>${esc(p.gz_codigo) || "—"}</dd>
       <dt>Grupo</dt><dd>${esc(p.grupo) || "—"}</dd>
+      ${p.origem === "manual" ? "<dt>Origem</dt><dd>Cadastrado à mão no painel (falta cadastrar nas lojas)</dd>" : ""}
       <dt>Preço no caixa</dt><dd>${brl(p.preco) || "—"}</dd>
       <dt>Custo</dt><dd>${p.custo ? brl(p.custo) : "—"}</dd>
       <dt>Estoque oficial</dt><dd><b>${p.estoque ?? "não conferido"}</b>${p.conferido_em ? " · " + data(p.conferido_em) : ""}</dd>

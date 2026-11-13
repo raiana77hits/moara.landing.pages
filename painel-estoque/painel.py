@@ -41,7 +41,7 @@ STATIC = os.path.join(BASE, "static")
 PORTA = int(os.environ.get("PAINEL_PORTA") or os.environ.get("PORT") or "8765")
 HOST = os.environ.get("PAINEL_HOST", "127.0.0.1")
 SESSAO_DIAS = 30
-VERSAO_SERVIDOR = "5"      # a tela compara com este número para detectar janela antiga aberta
+VERSAO_SERVIDOR = "6"      # a tela compara com este número para detectar janela antiga aberta
 
 CANAIS = ("nuvemshop", "ifood", "99food")
 
@@ -199,6 +199,9 @@ def importar_gestorz(con, origem):
         if r is None and campos["gz_codigo"]:
             r = con.execute("SELECT id FROM produtos WHERE gz_codigo=? AND sku IS NULL",
                             (campos["gz_codigo"],)).fetchone()
+        if r is None and campos["ean_norm"]:
+            r = con.execute("SELECT id FROM produtos WHERE origem='manual' AND ean_norm=? ORDER BY id LIMIT 1",
+                            (campos["ean_norm"],)).fetchone()
         if r:
             sets = ",".join(f"{k}=:{k}" for k in campos)
             con.execute(f"UPDATE produtos SET {sets}, origem='gestorz' WHERE id=:id",
@@ -662,6 +665,7 @@ FILTROS = {
     "sem_foto": "(p.foto_url IS NULL OR p.foto_url = '') AND NOT EXISTS "
                 "(SELECT 1 FROM fotos f WHERE f.produto_id=p.id)",
     "foto_tirada": "EXISTS (SELECT 1 FROM fotos f WHERE f.produto_id=p.id)",
+    "cadastro_manual": "p.origem = 'manual'",
 }
 for _c in CANAIS:
     FILTROS["no_" + _c] = f"EXISTS (SELECT 1 FROM canais c WHERE c.produto_id=p.id AND c.canal='{_c}')"
@@ -809,6 +813,53 @@ def buscar_codigo(con, codigo):
         for r in con.execute("SELECT id FROM produtos WHERE sku=? OR gz_codigo=?", (bruto, bruto)):
             ids.append(r["id"])
     return [detalhe(con, i) for i in ids[:10]]
+
+
+def criar_produto_manual(con, d, quem=None):
+    """Cadastro na hora, pela tela de conferência. Fica só no painel: não cria SKU
+    (o SKU vem do Gestor Z) e não envia nada para as lojas."""
+    ean = "".join(c for c in str(d.get("ean") or "") if c.isdigit())
+    nome = " ".join(str(d.get("nome") or "").split())
+    if not 6 <= len(ean) <= 14:
+        raise ValueError("Código de barras inválido.")
+    if len(nome) < 2:
+        raise ValueError("Escreva o nome do produto.")
+    if len(nome) > 150:
+        raise ValueError("Nome muito longo (máximo 150 letras).")
+    ja = buscar_codigo(con, ean)
+    if ja:
+        raise ValueError(f"Este código já está cadastrado: {ja[0]['nome']}.")
+    preco, custo = num(d.get("preco")), num(d.get("custo"))
+    for v in (preco, custo):
+        if v is not None and not 0 <= v <= 100000:
+            raise ValueError("Preço fora do normal.")
+    estoque = d.get("estoque")
+    if estoque in (None, ""):
+        estoque = None
+    else:
+        try:
+            estoque = int(estoque)
+        except (TypeError, ValueError):
+            raise ValueError("A quantidade precisa ser um número inteiro.")
+        if not 0 <= estoque <= 1_000_000:
+            raise ValueError("Quantidade fora do normal.")
+    quem = (quem or d.get("quem") or "").strip()[:40] or "painel"
+    grupo = " ".join(str(d.get("grupo") or "").split())[:60].upper()   # os grupos do Gestor Z são em maiúsculas
+    unidade = (str(d.get("unidade") or "UN").strip().upper() or "UN")[:6]
+    obs = str(d.get("obs") or "").strip()[:300]
+    cur = con.execute(
+        "INSERT INTO produtos(ean,ean_norm,nome,grupo,unidade,custo,preco,ativo,origem,estoque,conferido_em,"
+        "obs,atualizado_em) VALUES(?,?,?,?,?,?,?,1,'manual',?,?,?,?)",
+        (ean, norm_ean(ean), nome, grupo or None, unidade, custo, preco, estoque,
+         agora() if estoque is not None else None, obs or None, agora()))
+    pid = cur.lastrowid
+    con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                (pid, agora(), "cadastro", "", "cadastrado à mão na conferência", quem))
+    if estoque is not None:
+        con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                    (pid, agora(), "estoque", "", str(estoque), quem))
+    con.commit()
+    return detalhe(con, pid)
 
 
 def registrar_sem_cadastro(con, dados):
@@ -1197,6 +1248,8 @@ class Handler(BaseHTTPRequestHandler):
             if u.path.startswith("/api/foto/"):
                 return self._json(salvar_foto(con, int(u.path.rsplit("/", 1)[1]), self._corpo(),
                                               unquote(self.headers.get("X-Quem") or "")))
+            if u.path == "/api/produto-novo":
+                return self._json(criar_produto_manual(con, json.loads(self._corpo() or b"{}")))
             if u.path == "/api/sem-cadastro":
                 return self._json(registrar_sem_cadastro(con, json.loads(self._corpo() or b"{}")))
             if u.path == "/api/importar/gestorz":
