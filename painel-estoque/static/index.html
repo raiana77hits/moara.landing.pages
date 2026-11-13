@@ -449,7 +449,7 @@ async function carregarResumo(){
   g.value = est.grupo;
   desenharNav(); desenharChips(); desenharInicio();
   $("#datas").textContent = " · " + datasTexto();
-  $("#rodape").innerHTML = esc(datasTexto()) + "<br>Painel de Estoque · versão " + VERSAO;
+  $("#rodape").innerHTML = esc(datasTexto()) + "<br>Painel de Estoque · tela versão " + VERSAO + " · programa versão " + esc(r.servidor || "?") + (r.pasta ? "<br><small>Pasta do programa: " + esc(r.pasta) + "</small>" : "");
   $("#i-nuvem").disabled = !r.nuvemshop_configurada;
   if(!r.nuvemshop_configurada) $("#i-nuvem").textContent = "Falta conectar: use “Enviar para as lojas”";
 }

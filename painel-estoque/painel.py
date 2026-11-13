@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# versao-do-painel: 6
 """Painel de Estoque - cadastro central (Casa de Embalagens Cangaíba).
 
 Roda só neste computador (127.0.0.1). Usa apenas a biblioteca padrão do Python.
@@ -738,6 +739,7 @@ def resumo(con):
          "meta": {x["chave"]: x["valor"] for x in con.execute("SELECT * FROM meta")},
          "fotos_tiradas": um("SELECT COUNT(*) FROM fotos"),
          "servidor": VERSAO_SERVIDOR,
+         "pasta": BASE,
          "nuvemshop_configurada": bool(carregar_config()["token"])}
     return r
 
