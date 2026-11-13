@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- tela-build: 6.1 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -102,6 +103,11 @@ textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);bo
 .op small{color:var(--muted)}
 .lista-prev{max-height:42vh;overflow:auto;border:1px solid var(--line);border-radius:10px;margin:8px 0}
 .pv{padding:9px 12px;border-bottom:1px solid var(--line);font-size:14px}
+label.pv{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
+.sel-barra{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.sel-barra button{padding:10px 14px}
+.dica-sel{color:var(--muted);font-size:14px;margin:6px 0}
 .pv:last-child{border-bottom:0}
 .campo{display:block;margin:10px 0;font-weight:600}
 .campo input{display:block;width:100%;margin-top:4px;padding:12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:16px;background:var(--surface);color:var(--ink)}
@@ -221,6 +227,7 @@ textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);bo
   .imp button{padding:16px;font-size:17px}
   .imp input[type=file]{font-size:16px}
   .op{font-size:17px}.pv{font-size:16px}.bk button{padding:12px 16px}
+  label.pv input{width:26px;height:26px}.sel-barra button{padding:13px 16px}
 }
 </style>
 </head>
@@ -449,7 +456,7 @@ async function carregarResumo(){
   g.value = est.grupo;
   desenharNav(); desenharChips(); desenharInicio();
   $("#datas").textContent = " · " + datasTexto();
-  $("#rodape").innerHTML = esc(datasTexto()) + "<br>Painel de Estoque · tela versão " + VERSAO + " · programa versão " + esc(r.servidor || "?") + (r.pasta ? "<br><small>Pasta do programa: " + esc(r.pasta) + "</small>" : "");
+  $("#rodape").innerHTML = esc(datasTexto()) + "<br>Painel de Estoque · tela versão " + BUILD + " · programa versão " + esc(r.servidor || "?") + (r.pasta ? "<br><small>Pasta do programa: " + esc(r.pasta) + "</small>" : "");
   $("#i-nuvem").disabled = !r.nuvemshop_configurada;
   if(!r.nuvemshop_configurada) $("#i-nuvem").textContent = "Falta conectar: use “Enviar para as lojas”";
 }
@@ -596,7 +603,8 @@ $("#s-x").onclick = () => $("#dsync").close();
 
 
 /* ------------------------------------------------ enviar estoque para a Nuvemshop */
-let sinc = {modo:"zerar", previa:null, ultimo:""};
+let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
+const BUILD = "6.1";
 const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
 async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
 async function desenharSync(){
@@ -635,20 +643,38 @@ async function verPrevia(){
   $("#s-previa").innerHTML = "<p>Calculando…</p>";
   try{
     const p = await api("/api/nuvemshop/previa?modo=" + sinc.modo); sinc.previa = p;
-    const it = p.itens, n = Math.min(it.length, p.limite);
+    const it = p.itens, lim = p.limite;
+    sinc.sel = new Set(sinc.modo === "zerar" ? it.slice(0, lim).map(i => i.var_site) : []);   // "repor": você marca o que quer enviar
+    const MAX_LISTA = 800;
     $("#s-previa").innerHTML = `<section><b>Prévia: nada foi gravado ainda</b>
       <p>${num(p.conferidos)} produtos conferidos · <b>${num(p.mudancas)}</b> vão mudar no site · ${num(p.ja_certos)} já estão certos${p.sem_loja ? " · " + num(p.sem_loja) + " conferidos que não estão no site" : ""}</p>
       ${p.varias_variacoes ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)"><b>${num(p.varias_variacoes)} produto${p.varias_variacoes === 1 ? "" : "s"} contado${p.varias_variacoes === 1 ? "" : "s"} ficaram de fora</b> porque têm várias variações no site (cores ou tamanhos) e o painel não sabe qual delas a contagem representa. Ajuste esses direto na Nuvemshop.<br><small>${p.revisar.map(esc).join(" · ")}${p.varias_variacoes > p.revisar.length ? " · …" : ""}</small></p>` : ""}
-      ${it.length ? `<div class="lista-prev">${it.slice(0, 100).map(i => `<div class="pv"><b>${esc(i.nome)}</b>${i.publicado ? "" : ' <span class="pill p-idle">oculto</span>'}<br><small>site: ${esc(i.de)} → <b>${i.para}</b> · ${esc(i.motivo)}</small></div>`).join("")}${it.length > 100 ? `<div class="pv"><small>… e mais ${it.length - 100}</small></div>` : ""}</div>
-      <button class="pri" id="s-gravar">Gravar ${n} mudança${n === 1 ? "" : "s"} na loja</button>${it.length > p.limite ? `<p>Por segurança vão ${p.limite} por vez; depois é só repetir.</p>` : ""}` : "<p>Nada para mudar agora. Conte mais produtos e volte aqui.</p>"}</section>`;
-    const g = $("#s-gravar"); if(g) g.onclick = () => gravarSync(n);
+      ${it.length ? `<p class="dica-sel">Marque só o que você quer enviar agora. <b>Para um primeiro teste, marque 3 ou 4 itens.</b></p>
+      <div class="sel-barra"><button id="s-todos">Marcar todos</button><button id="s-nenhum">Desmarcar todos</button><span id="s-cont"></span></div>
+      <div class="lista-prev" id="s-lista">${it.slice(0, MAX_LISTA).map(i => `<label class="pv"><input type="checkbox" data-v="${i.var_site}" ${sinc.sel.has(i.var_site) ? "checked" : ""}><span><b>${esc(i.nome)}</b>${i.publicado ? "" : ' <span class="pill p-idle">oculto</span>'}<br><small>site: ${esc(i.de)} → <b>${i.para}</b> · ${esc(i.motivo)}</small></span></label>`).join("")}${it.length > MAX_LISTA ? `<div class="pv"><small>… e mais ${it.length - MAX_LISTA} que não cabem na lista; envie estes primeiros e repita.</small></div>` : ""}</div>
+      <button class="pri" id="s-gravar"></button><p id="s-aviso-lim"></p>` : "<p>Nada para mudar agora. Conte mais produtos e volte aqui.</p>"}</section>`;
+    if(it.length){
+      const mostrar = it.slice(0, MAX_LISTA).map(i => i.var_site);
+      const atualizar = () => {
+        const n = sinc.sel.size, g = $("#s-gravar");
+        $("#s-cont").textContent = `${n} marcado${n === 1 ? "" : "s"}`;
+        g.textContent = `Gravar ${n} mudança${n === 1 ? "" : "s"} na loja`;
+        g.disabled = n === 0 || n > lim;
+        $("#s-aviso-lim").textContent = n > lim ? `Marque no máximo ${lim} por vez (você marcou ${n}).` : "";
+      };
+      $("#s-lista").addEventListener("change", e => { const c = e.target.closest("input[data-v]"); if(!c) return; c.checked ? sinc.sel.add(+c.dataset.v) : sinc.sel.delete(+c.dataset.v); atualizar(); });
+      $("#s-todos").onclick = () => { mostrar.slice(0, lim).forEach(v => sinc.sel.add(v)); $("#s-lista").querySelectorAll("input[data-v]").forEach(c => c.checked = sinc.sel.has(+c.dataset.v)); atualizar(); };
+      $("#s-nenhum").onclick = () => { sinc.sel.clear(); $("#s-lista").querySelectorAll("input[data-v]").forEach(c => c.checked = false); atualizar(); };
+      $("#s-gravar").onclick = () => gravarSync(sinc.sel.size);
+      atualizar();
+    }
   }catch(e){ $("#s-previa").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
 }
 async function gravarSync(n){
   if(!confirm(`Vou gravar ${n} mudança${n === 1 ? "" : "s"} na Nuvemshop agora. Antes eu guardo um backup para você poder desfazer. Confirmar?`)) return;
   $("#s-previa").innerHTML = ""; sinc.ultimo = "";
   try{
-    await api("/api/nuvemshop/aplicar", {method:"POST", body:JSON.stringify({modo:sinc.modo, vids:sinc.previa.itens.slice(0, sinc.previa.limite).map(i => i.var_site), quem:quemContando()})});
+    await api("/api/nuvemshop/aplicar", {method:"POST", body:JSON.stringify({modo:sinc.modo, vids:[...sinc.sel], quem:quemContando()})});
     acompanhar("gravado");
   }catch(e){ $("#s-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
 }
