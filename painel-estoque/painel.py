@@ -422,10 +422,7 @@ def sync_nuvemshop(con, progresso=None, completo=False):
         except Exception:  # noqa: BLE001 - sem permissão: ficamos só com as que os produtos mostram
             pass
 
-    def caminho(cid, n=0):
-        nome, pai = vistas.get(cid, ("", None))
-        return (caminho(pai, n + 1) + " > " if pai and pai in vistas and n < 6 else "") + nome
-    caminhos = {cid: caminho(cid) for cid in vistas}
+    caminhos = _caminhos_categorias(vistas)
     if completo:
         con.execute("DELETE FROM categorias_site")
     con.executemany("INSERT OR REPLACE INTO categorias_site(id, nome) VALUES(?,?)", list(caminhos.items()))
@@ -1021,6 +1018,28 @@ def desfazer_publicar(arquivo, quem, progresso):
 # ------------------------------------------- cadastrar produtos novos na Nuvemshop
 
 MAX_CADASTRAR = 30
+
+
+def _caminhos_categorias(vistas):
+    """vistas: id -> (nome, pai). Devolve id -> 'Pai > Filha'."""
+    def caminho(cid, n=0):
+        nome, pai = vistas.get(cid, ("", None))
+        return (caminho(pai, n + 1) + " > " if pai and pai in vistas and n < 6 else "") + nome
+    return {cid: caminho(cid) for cid in vistas}
+
+
+def ler_categorias(con):
+    """Lê só a lista de categorias da loja (uma chamada rápida) e guarda no painel."""
+    cfg = _exigir_nuvemshop()
+    vistas = {}
+    for c in categorias_nuvemshop_cruas(cfg):
+        vistas[str(c.get("id"))] = (_texto(c.get("name")), str(c["parent"]) if c.get("parent") else None)
+    if not vistas:
+        raise RuntimeError("A loja não tem nenhuma categoria cadastrada (ou o token não enxerga as categorias).")
+    con.execute("DELETE FROM categorias_site")
+    con.executemany("INSERT OR REPLACE INTO categorias_site(id, nome) VALUES(?,?)", list(_caminhos_categorias(vistas).items()))
+    con.commit()
+    return {"ok": True, "categorias": len(vistas)}
 
 
 def categorias_nuvemshop_cruas(cfg):
@@ -2334,6 +2353,8 @@ class Handler(BaseHTTPRequestHandler):
                 d = json.loads(self._corpo() or b"{}")
                 _tarefa(aplicar_nuvemshop, d.get("modo", "zerar"), d.get("vids") or [], (d.get("quem") or "painel")[:40])
                 return self._json({"ok": True})
+            if u.path == "/api/nuvemshop/categorias/ler":
+                return self._json(ler_categorias(con))
             if u.path == "/api/nuvemshop/categorias/mapa":
                 d = json.loads(self._corpo() or b"{}")
                 return self._json(salvar_mapa(con, d.get("grupo"), d.get("categoria_id"), d.get("categoria_nome")))

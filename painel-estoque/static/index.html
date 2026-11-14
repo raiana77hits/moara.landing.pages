@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- tela-build: 8.0 -->
+<!-- tela-build: 8.1 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -472,6 +472,11 @@ function desenharNav(){
     ? `<button class="chip ativo" id="x-filtro">${esc(NOME_FILTRO[est.filtro])} ✕</button>` : "";
   $("#b-filtros").textContent = est.filtro !== "todos" ? "Filtros ●" : "Filtros";
 }
+async function lerCategorias(botao, depois){
+  const t = botao.textContent; botao.disabled = true; botao.textContent = "Lendo as categorias da loja…";
+  try{ const r = await api("/api/nuvemshop/categorias/ler", {method:"POST", body:"{}"}); await carregarResumo(); await depois(); return r; }
+  catch(e){ botao.disabled = false; botao.textContent = t; alert("Não consegui ler as categorias da loja: " + e.message + "\n\nSe for permissão, abra o aplicativo da Nuvemshop e libere a leitura de “Categorias” (produtos)."); }
+}
 const listaCats = () => (RESUMO.categorias_n && RESUMO.categorias_n.length) ? RESUMO.categorias_n : (RESUMO.grupos_n || []).map(x => ({key:x.grupo, nome:x.grupo, n:x.n}));
 const curto = n => String(n).split(" > ").pop();
 function desenharChips(){
@@ -498,8 +503,13 @@ function desenharInicio(){
     <div class="big">${num(f["vendendo_" + c])}</div>
     <div class="loja-acoes"><button class="pri" data-f="vendendo_${c}">Ver à venda</button><button data-f="fora_${c}">Não está (${num(f["fora_" + c])})</button></div></div>`).join("");
   $("#t-zip").textContent = "Baixar fotos tiradas (" + num(r.fotos_tiradas) + ")";
+  const semSite = !(r.categorias_n && r.categorias_n.length);
+  const aviso = document.getElementById("aviso-cats");
+  if(aviso) aviso.remove();
+  if(semSite) $("#cats").insertAdjacentHTML("beforebegin", `<div id="aviso-cats" class="aviso">Estas são as categorias do Gestor Z. Para usar as <b>categorias da loja</b>: <button id="b-lercats" class="pri" style="margin-left:6px">Ler categorias da loja</button></div>`);
+  if(semSite) document.getElementById("b-lercats").onclick = e => lerCategorias(e.target, async () => { desenharInicio(); desenharChips(); });
   $("#cats").innerHTML = listaCats().map(x =>
-    `<button class="tile" data-g="${esc(x.key)}"><span class="ic">${icone(curto(x.nome))}</span><span class="l">${esc(cap(curto(x.nome)))}</span><span class="n2">${num(x.n)} produtos</span></button>`).join("");
+    `<button class="tile" data-g="${esc(x.key)}"><span class="ic">${icone(curto(x.nome))}</span><span class="l">${esc(cap(curto(x.nome)))}</span><span class="n2">${num(x.n)} ${x.n === 1 ? "produto" : "produtos"}</span></button>`).join("");
 }
 function datasTexto(){
   const m = RESUMO ? RESUMO.meta : {}, p = [];
@@ -598,7 +608,7 @@ async function abrir(id){
       <label class="campo" for="e-preco">Preço de venda (R$)</label><input id="e-preco" inputmode="decimal" value="${p.preco != null ? String(p.preco).replace(".", ",") : ""}" autocomplete="off">
       <label class="campo" for="e-ean">Código de barras</label><input id="e-ean" inputmode="numeric" value="${esc(p.ean || "")}" autocomplete="off">
       <label class="campo" for="e-cat">Categoria da loja</label><select id="e-cat"><option value="">— sem categoria —</option>${catsLista.map(k => `<option value="${esc(k.id)}" ${k.id === p.categoria_id ? "selected" : ""}>${esc(k.nome)}</option>`).join("")}</select>
-      ${catsLista.length ? "" : '<small style="color:var(--muted)">As categorias aparecem depois de “Atualizar dados” &gt; “Ler a Nuvemshop agora”.</small>'}
+      ${catsLista.length ? "" : '<button id="e-lercats" style="margin-top:6px">Ler categorias da loja agora</button>'}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="pri" id="e-salvar">Salvar no painel</button>
       ${p.canais.filter(c => c.canal === "nuvemshop").length === 1 ? '<button id="e-site">Salvar e enviar ao site</button>' : ""}</div>
       <div id="e-msg" role="status" style="margin-top:6px"></div></details>
@@ -635,6 +645,7 @@ async function abrir(id){
     $("#e-msg").className = ""; $("#e-msg").textContent = "Salvando…";
     await api("/api/produto/" + id, {method:"POST", body:JSON.stringify(corpo)});
   };
+  if($("#e-lercats")) $("#e-lercats").onclick = e => lerCategorias(e.target, async () => { await abrir(id); $("#edit-box").open = true; });
   $("#e-salvar").onclick = async () => {
     try{ await salvarEdicao(); carregar(); carregarResumo(); await abrir(id); $("#edit-box").open = true; $("#e-msg").className = "ok-msg"; $("#e-msg").textContent = "Salvo no painel."; }
     catch(e){ $("#e-msg").className = "erro-msg"; $("#e-msg").textContent = e.message; }
@@ -707,7 +718,7 @@ $("#s-x").onclick = () => $("#dsync").close();
 
 /* ------------------------------------------------ enviar estoque para a Nuvemshop */
 let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
-const BUILD = "8.0";
+const BUILD = "8.1";
 const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
 async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
 async function desenharSync(){
@@ -858,7 +869,7 @@ async function abrirCadastrar(){
   const opcoes = id => `<option value="">— sem categoria —</option>` + cats.map(k => `<option value="${esc(k.id)}" ${k.id === id ? "selected" : ""}>${esc(k.nome)}</option>`).join("");
   c.innerHTML = `<section><b>Produtos novos para cadastrar no site</b>
     <p>Estes são os produtos que cadastramos no painel e ainda não existem na Nuvemshop. Eles são criados <b>ocultos</b> (o cliente não vê), do jeito que estão. Depois a gente confere e publica.</p>
-    ${p.erro_categorias ? `<div class="erro-msg">Não consegui ler as categorias da loja: ${esc(p.erro_categorias)}<br>Os produtos serão criados sem categoria. Se for permissão, libere “Categorias” no aplicativo da Nuvemshop.</div>` : ""}
+    <div style="margin:6px 0"><button id="c-lercats" class="${cats.length ? "" : "pri"}">${cats.length ? "Atualizar categorias da loja" : "Ler categorias da loja agora"}</button> <small style="color:var(--muted)">${cats.length ? num(cats.length) + " categorias lidas" : "Sem isso os produtos são criados sem categoria."}</small></div>
     ${it.length ? `<div class="sel-barra"><button id="c-todos">Marcar todos</button><button id="c-nenhum">Desmarcar todos</button><span id="c-cont"></span></div>
     <input type="search" class="busca-lista" data-lista="#c-lista" placeholder="Buscar produto nesta lista" aria-label="Buscar nesta lista"><div class="lista-prev" id="c-lista" style="max-height:55vh">${it.map(i => `<div class="pv" style="flex-direction:column;align-items:stretch;gap:6px;border-bottom:1px solid var(--line);padding:10px 4px">
       <label style="display:flex;gap:10px;align-items:center"><input type="checkbox" data-p="${i.pid}" ${ca.sel.has(i.pid) ? "checked" : ""}>${i.foto ? `<img src="${i.foto}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px">` : '<span class="pill p-idle">sem foto</span>'}<span><b>${esc(i.nome)}</b><br><small>${i.preco ? brl(i.preco) : "sem preço"} · estoque ${i.estoque ?? "—"} · ${esc(i.ean || "sem código")}</small></span></label>
@@ -870,6 +881,7 @@ async function abrirCadastrar(){
     <section><b>Desfazer um cadastro</b><p>Só apaga da loja produtos que continuam ocultos.</p>${bk.itens.length ? bk.itens.slice(0, 5).map(b => `<div class="bk"><span>${data(b.quando)} · ${b.itens} produtos</span><button data-cbk="${esc(b.arquivo)}">Apagar esses produtos da loja</button></div>`).join("") : "<p>Nenhum cadastro para desfazer.</p>"}</section>`;
   if(ca.ultimo) $("#c-andamento").innerHTML = ca.ultimo;
   c.querySelectorAll("[data-cbk]").forEach(b => b.onclick = () => desfazerCadastrar(b.dataset.cbk));
+  $("#c-lercats").onclick = e => lerCategorias(e.target, abrirCadastrar);
   if(!it.length) return;
   const atualizar = () => {
     const n = ca.sel.size, g = $("#c-criar");
