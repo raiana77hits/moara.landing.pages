@@ -1126,32 +1126,57 @@ def sugerir_produtos(con, descricao, limite=3):
     return [{"id": pid, "nome": nome, "parecido": round(r, 2)} for r, pid, nome in saida[:limite]]
 
 
-def listar_entradas(con, estado="pendente", q="", pagina=1, por_pagina=25):
+_SUG_CACHE = {}
+
+
+def _sug_cache(con, descricao):
+    ind = _indice_produtos(con)
+    chave = (ind["n"], descricao)
+    if chave not in _SUG_CACHE:
+        if len(_SUG_CACHE) > 5000:
+            _SUG_CACHE.clear()
+        _SUG_CACHE[chave] = sugerir_produtos(con, descricao)
+    return _SUG_CACHE[chave]
+
+
+def listar_entradas(con, estado="pendente", q="", pagina=1, por_pagina=25, so_contados=False):
     """Itens das notas agrupados por fornecedor+código, com o vínculo (se houver)."""
     conds, args = ["1=1"], []
     for t in (q or "").split():
         conds.append("(n.descricao LIKE ? OR n.fornecedor LIKE ? OR n.cod_fornecedor LIKE ?)")
         args += [f"%{t}%"] * 3
-    having = {"pendente": "d.estado IS NULL", "confirmado": "d.estado='confirmado'",
-              "ignorar": "d.estado='ignorar'"}.get(estado, "1=1")
+    filtro_estado = {"pendente": "d.estado IS NULL", "confirmado": "d.estado='confirmado'",
+                     "ignorar": "d.estado='ignorar'"}.get(estado, "1=1")
     base = (" FROM notas_itens n LEFT JOIN de_para d ON d.cnpj=n.cnpj AND "
             "d.cod_fornecedor=n.cod_fornecedor WHERE " + " AND ".join(conds) +
-            " AND " + having + " GROUP BY n.cnpj, n.cod_fornecedor")
-    total = con.execute("SELECT COUNT(*) FROM (SELECT 1" + base + ")", args).fetchone()[0]
+            " AND " + filtro_estado + " GROUP BY n.cnpj, n.cod_fornecedor")
     linhas = con.execute(
         "SELECT n.cnpj, n.cod_fornecedor AS cod, MAX(n.descricao) AS descricao, "
         "MAX(n.fornecedor) AS fornecedor, MAX(n.un) AS un, SUM(n.quantidade) AS quantidade, "
         "COUNT(DISTINCT n.nota) AS notas, MAX(n.emissao) AS ultima, d.estado, d.fator, "
-        "d.produto_id, (SELECT nome FROM produtos WHERE id=d.produto_id) AS produto" + base +
-        " ORDER BY MAX(n.emissao) DESC, n.descricao LIMIT ? OFFSET ?",
-        args + [por_pagina, (pagina - 1) * por_pagina]).fetchall()
+        "d.produto_id, (SELECT nome FROM produtos WHERE id=d.produto_id) AS produto, "
+        "(SELECT estoque FROM produtos WHERE id=d.produto_id) AS prod_estoque" + base +
+        " ORDER BY MAX(n.emissao) DESC, n.descricao", args).fetchall()
+    contados = {r[0] for r in con.execute("SELECT id FROM produtos WHERE estoque IS NOT NULL")}
     itens = []
     for r in linhas:
         d = dict(r)
         d["fator_sugerido"] = _fator_sugerido(d["un"])
         if d["estado"] is None:
-            d["sugestoes"] = sugerir_produtos(con, d["descricao"])
+            sug = [dict(x) for x in _sug_cache(con, d["descricao"])]
+            for x in sug:
+                x["contado"] = x["id"] in contados
+            d["sugestoes"] = sug
+            d["rapido"] = bool(sug and sug[0]["parecido"] >= 0.9)
+            d["contado"] = any(x["contado"] for x in sug)
+        elif d["estado"] == "confirmado":
+            d["contado"] = d.pop("prod_estoque", None) is not None
+        if so_contados and d.get("estado") != "ignorar" and not d.get("contado"):
+            continue
+        d.pop("prod_estoque", None)
         itens.append(d)
+    total = len(itens)
+    itens = itens[(pagina - 1) * por_pagina: pagina * por_pagina]
     contagem = {k: con.execute(
         "SELECT COUNT(*) FROM (SELECT 1 FROM notas_itens n LEFT JOIN de_para d ON d.cnpj=n.cnpj "
         "AND d.cod_fornecedor=n.cod_fornecedor WHERE " + w + " GROUP BY n.cnpj, n.cod_fornecedor)"
@@ -1160,6 +1185,21 @@ def listar_entradas(con, estado="pendente", q="", pagina=1, por_pagina=25):
                                  ("ignorar", "d.estado='ignorar'"))}
     return {"total": total, "pagina": pagina, "por_pagina": por_pagina, "itens": itens,
             "contagem": contagem}
+
+
+def ignorar_lote(con, itens, quem="painel"):
+    n = 0
+    for i in itens[:500]:
+        cnpj, cod = str(i.get("cnpj") or ""), str(i.get("cod") or "")
+        if cnpj and cod:
+            antigo = con.execute("SELECT produto_id FROM de_para WHERE cnpj=? AND cod_fornecedor=?",
+                                 (cnpj, cod)).fetchone()
+            con.execute("INSERT OR REPLACE INTO de_para VALUES(?,?,NULL,NULL,'ignorar',?,?)",
+                        (cnpj, cod, quem, agora()))
+            n += 1
+    con.commit()
+    recalcular(con)
+    return {"ok": True, "ignorados": n}
 
 
 def vincular_entrada(con, d, quem="painel"):
@@ -1566,7 +1606,8 @@ class Handler(BaseHTTPRequestHandler):
                     "SELECT * FROM leituras_sem_cadastro ORDER BY id DESC LIMIT 200")]})
             if u.path == "/api/entradas":
                 return self._json(listar_entradas(con, qs.get("estado", "pendente"), qs.get("q", ""),
-                                                  max(1, int(qs.get("pagina", 1)))))
+                                                  max(1, int(qs.get("pagina", 1))),
+                                                  so_contados=qs.get("contados") == "1"))
             if u.path == "/api/importacoes":
                 return self._json(listar_importacoes(con))
             if u.path == "/api/nuvemshop/previa":
@@ -1675,6 +1716,9 @@ class Handler(BaseHTTPRequestHandler):
             if u.path == "/api/entradas/vinculo":
                 d = json.loads(self._corpo() or b"{}")
                 return self._json(vincular_entrada(con, d, (d.get("quem") or "painel")[:40]))
+            if u.path == "/api/entradas/ignorar-lote":
+                d = json.loads(self._corpo() or b"{}")
+                return self._json(ignorar_lote(con, d.get("itens") or [], (d.get("quem") or "painel")[:40]))
             if u.path == "/api/importacoes/remover":
                 return self._json(remover_importacao(con, json.loads(self._corpo() or b"{}").get("id")))
             if u.path == "/api/importar/gestorz":

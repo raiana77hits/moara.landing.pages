@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- tela-build: 7.0 -->
+<!-- tela-build: 7.1 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -640,7 +640,7 @@ $("#s-x").onclick = () => $("#dsync").close();
 
 /* ------------------------------------------------ enviar estoque para a Nuvemshop */
 let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
-const BUILD = "7.0";
+const BUILD = "7.1";
 const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
 async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
 async function desenharSync(){
@@ -761,7 +761,7 @@ $("#i-nuvem").onclick = async () => {
   }, 1500);
 };
 /* ------------------------------------------------ notas e vendas (estoque estimado) */
-const mov = {aba:"importar", estado:"pendente", q:"", pagina:1};
+const mov = {aba:"importar", estado:"pendente", q:"", pagina:1, contados:true, sel:new Set()};
 const ABAS = [["importar","Importar"],["entradas","Itens das notas"],["historico","Importações"]];
 function abrirMov(aba){ mov.aba = aba || "importar"; $("#dmov").showModal(); desenharMov(); }
 $("#b-mov").onclick = () => abrirMov(); $("#b-mov2").onclick = () => abrirMov();
@@ -829,16 +829,28 @@ $("#m-corpo").addEventListener("click", async e => {
 });
 
 async function desenharEntradas(){
-  const r0 = await api("/api/entradas?" + new URLSearchParams({estado:mov.estado, q:mov.q, pagina:mov.pagina}));
+  const r0 = await api("/api/entradas?" + new URLSearchParams({estado:mov.estado, q:mov.q, pagina:mov.pagina, contados:mov.contados ? "1" : "0"}));
   const c = r0.contagem;
   const cab = `<div class="linha" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
     <select id="e-estado">${[["pendente","Falta ligar"],["confirmado","Ligados"],["ignorar","Ignorados"],["todos","Todos"]].map(([k, n]) =>
       `<option value="${k}" ${mov.estado === k ? "selected" : ""}>${n}${c[k] != null ? " (" + num(c[k]) + ")" : ""}</option>`).join("")}</select>
     <input type="search" id="e-q" placeholder="Buscar item ou fornecedor" value="${esc(mov.q)}" style="flex:1;min-width:160px"></div>
+    <label class="pv" style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="e-cont" ${mov.contados ? "checked" : ""}> Só itens de produtos que já contei <small style="color:var(--muted)">(${num(r0.total)} aqui)</small></label>
+    ${mov.estado === "pendente" ? `<div class="linha" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px"><button id="e-todos">Marcar todos desta página</button><button id="e-ign-lote" ${mov.sel.size ? "" : "disabled"}>Ignorar marcados (${mov.sel.size})</button></div>` : ""}
     <p style="color:var(--muted);font-size:13px;margin:0 0 6px">Para cada item da nota, escolha o produto e diga <b>quantas unidades vêm em cada caixa/pacote</b> (ex.: caixa com 12 → 12). Ignore o que não é para revenda.</p>`;
   const pags = Math.max(1, Math.ceil(r0.total / r0.por_pagina));
   $("#m-corpo").innerHTML = cab + (r0.itens.length ? r0.itens.map(cartaoEntrada).join("") : "<p>Nenhum item aqui.</p>") +
     `<div class="linha" style="display:flex;gap:8px;align-items:center;margin-top:8px"><button id="e-ant" ${mov.pagina <= 1 ? "disabled" : ""}>←</button><span>Página ${mov.pagina} de ${pags}</span><button id="e-prox" ${mov.pagina >= pags ? "disabled" : ""}>→</button></div>`;
+  $("#e-cont").onchange = e => { mov.contados = e.target.checked; mov.pagina = 1; desenharEntradas(); };
+  if($("#e-todos")){
+    $("#e-todos").onclick = () => { document.querySelectorAll(".ent[data-pid] .marca").forEach(c => { c.checked = true; mov.sel.add(c.closest(".ent").dataset.cnpj + "|" + c.closest(".ent").dataset.cod); }); desenharEntradas(); };
+    $("#e-ign-lote").onclick = async () => {
+      if(!confirm("Ignorar " + mov.sel.size + " itens? Eles saem da lista e não entram no estoque (dá para desfazer na aba Ignorados).")) return;
+      const itens = [...mov.sel].map(k => { const [cnpj, cod] = k.split("|"); return {cnpj, cod}; });
+      await api("/api/entradas/ignorar-lote", {method:"POST", body:JSON.stringify({itens, quem:quemContando()})});
+      mov.sel.clear(); carregarResumo(); desenharEntradas();
+    };
+  }
   $("#e-estado").onchange = e => { mov.estado = e.target.value; mov.pagina = 1; desenharEntradas(); };
   let t2; $("#e-q").oninput = e => { clearTimeout(t2); t2 = setTimeout(() => { mov.q = e.target.value; mov.pagina = 1; desenharEntradas(); }, 350); };
   $("#e-ant").onclick = () => { mov.pagina--; desenharEntradas(); };
@@ -849,7 +861,10 @@ function cartaoEntrada(i){
   const dados = `data-cnpj="${esc(i.cnpj)}" data-cod="${esc(i.cod)}"`;
   if(i.estado === "confirmado") return `<div class="ent" ${dados}>${info}<div class="escolhido">→ ${esc(i.produto)} · ${fmtN(i.fator)} un por ${esc(i.un)}</div><div><button data-ac="remover">Desfazer ligação</button></div></div>`;
   if(i.estado === "ignorar") return `<div class="ent" ${dados}>${info}<div class="m">Ignorado (não entra no estoque)</div><div><button data-ac="remover">Voltar para a lista</button></div></div>`;
-  return `<div class="ent" ${dados} data-pid="">${info}
+  const chave = i.cnpj + "|" + i.cod;
+  const rapido = i.rapido ? `<button class="pri" data-ac="rapido" data-pid="${i.sugestoes[0].id}" data-fator="${i.fator_sugerido}">Ligar com a sugestão (×${fmtN(i.fator_sugerido)})</button>` : "";
+  return `<div class="ent" ${dados} data-pid=""><label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" class="marca" ${mov.sel.has(chave) ? "checked" : ""} style="margin-top:4px"><span style="flex:1">${info}</span></label>
+    ${rapido ? `<div class="m">Parece ser: <b>${esc(i.sugestoes[0].nome)}</b>${i.sugestoes[0].contado ? " (já contado)" : ""} · confira se a caixa realmente tem ${fmtN(i.fator_sugerido)} un.</div><div>${rapido}</div>` : ""}
     <div class="sug">${(i.sugestoes || []).map(s => `<button data-ac="usar" data-pid="${s.id}" data-nome="${esc(s.nome)}">${esc(s.nome)}</button>`).join("")}</div>
     <div class="linha"><input type="search" class="busca" placeholder="Procurar outro produto"><button data-ac="novo">Cadastrar produto novo</button></div>
     <div class="res"></div>
@@ -861,6 +876,12 @@ function escolher(card, id, nome){
   card.dataset.pid = id; card.querySelector(".escolhido").textContent = "Produto: " + nome;
   card.querySelector("[data-ac=ok]").disabled = false; card.querySelector(".res").innerHTML = "";
 }
+$("#m-corpo").addEventListener("change", e => {
+  const c = e.target.closest(".marca"); if(!c) return;
+  const card = c.closest(".ent"), k = card.dataset.cnpj + "|" + card.dataset.cod;
+  c.checked ? mov.sel.add(k) : mov.sel.delete(k);
+  const bt = $("#e-ign-lote"); if(bt){ bt.disabled = !mov.sel.size; bt.textContent = "Ignorar marcados (" + mov.sel.size + ")"; }
+});
 $("#m-corpo").addEventListener("input", async e => {
   const inp = e.target.closest(".busca"); if(!inp) return;
   const card = inp.closest(".ent"), q = inp.value.trim();
@@ -877,6 +898,7 @@ $("#m-corpo").addEventListener("click", async e => {
   const base = {cnpj:card.dataset.cnpj, cod:card.dataset.cod, quem:quemContando()};
   const enviar = async corpo => { await api("/api/entradas/vinculo", {method:"POST", body:JSON.stringify({...base, ...corpo})}); carregarResumo(); carregar(); desenharEntradas(); };
   try{
+    if(ac === "rapido") return await enviar({estado:"confirmado", produto_id:+b.dataset.pid, fator:b.dataset.fator});
     if(ac === "usar") return escolher(card, b.dataset.pid, b.dataset.nome);
     if(ac === "ok") return await enviar({estado:"confirmado", produto_id:+card.dataset.pid, fator:card.querySelector(".fator").value});
     if(ac === "ignorar") return await enviar({estado:"ignorar"});
