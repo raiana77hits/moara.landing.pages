@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- tela-build: 7.5 -->
+<!-- tela-build: 8.0 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -94,6 +94,17 @@ h4{margin:0 0 6px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;c
 .mini th,.mini td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left}
 .mini th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
 textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:16px}
+.pv[hidden]{display:none}
+.busca-lista{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:16px;background:var(--surface);color:var(--ink);margin:6px 0}
+.menu-loja{position:relative}
+.menu-loja summary{list-style:none;cursor:pointer}.menu-loja summary::-webkit-details-marker{display:none}
+.menu-itens{position:absolute;right:0;top:calc(100% + 6px);z-index:20;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:6px;min-width:230px;display:flex;flex-direction:column;gap:2px}
+.menu-itens button{text-align:left;border:0;background:transparent;padding:11px 14px;border-radius:8px;font-size:15px}
+.menu-itens button:hover{background:var(--kraft-soft)}
+.edit-box{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.edit-box summary{cursor:pointer;font-weight:700;color:var(--kraft-escuro)}
+.edit-box label.campo{display:block;margin:8px 0 2px;font-size:13px;color:var(--muted)}
+.edit-box input,.edit-box select{width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:16px;background:var(--surface);color:var(--ink)}
 .abas{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
 .abas button.on{background:var(--kraft);border-color:var(--kraft);color:#fff;font-weight:700}
 .ent{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0;display:flex;flex-direction:column;gap:6px}
@@ -251,11 +262,10 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
   </div>
   <div class="acoes">
     <a class="btn pri" href="/conferir">Conferir prateleira</a>
-    <button id="b-sync" class="pri">Enviar para as lojas</button>
+    <details class="menu-loja" id="menu-loja"><summary class="btn pri">Loja online ▾</summary><div class="menu-itens">
+      <button id="b-sync">Enviar estoque</button><button id="b-foto">Enviar fotos</button>
+      <button id="b-cad">Cadastrar produtos novos</button><button id="b-pub">Publicar produtos</button></div></details>
     <button id="b-mov">Notas e vendas</button>
-    <button id="b-foto">Enviar fotos</button>
-    <button id="b-cad">Cadastrar no site</button>
-    <button id="b-pub">Publicar no site</button>
     <button id="b-imp">Atualizar dados</button>
     <a class="btn" id="b-exp" href="#">Baixar lista (CSV)</a>
   </div>
@@ -318,11 +328,11 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 
     <!-- PRODUTOS -->
     <section class="tela-produtos" id="tela-produtos">
-      <div class="aviso">O que você muda aqui fica só neste painel. Nada é enviado para a Nuvemshop, o iFood, a 99Food ou o Gestor Z.</div>
+      <div class="aviso">O que você muda aqui fica neste painel. Só vai para a Nuvemshop quando você usa o menu <b>Loja online</b> (sempre com prévia e desfazer). Nada é enviado ao iFood, à 99Food ou ao Gestor Z.</div>
       <div class="busca">
         <div class="busca-linha">
           <input type="search" id="q" placeholder="Buscar por nome, código de barras ou SKU" aria-label="Buscar produto" enterkeyhint="search">
-          <select id="grupo" class="so-desktop" aria-label="Grupo"><option value="">Todos os grupos</option></select>
+          <select id="grupo" class="so-desktop" aria-label="Grupo"><option value="">Todas as categorias</option></select>
           <button id="b-filtros" class="so-mobile">Filtros</button>
         </div>
         <div class="chips so-mobile" id="chips" aria-label="Categorias"></div>
@@ -398,7 +408,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 </dialog>
 
 <script>
-const VERSAO = "7";
+const VERSAO = "8";
 const $ = s => document.querySelector(s);
 const est = {q:"", filtro:"todos", grupo:"", pagina:1, total:0};
 let RESUMO = null;
@@ -462,11 +472,12 @@ function desenharNav(){
     ? `<button class="chip ativo" id="x-filtro">${esc(NOME_FILTRO[est.filtro])} ✕</button>` : "";
   $("#b-filtros").textContent = est.filtro !== "todos" ? "Filtros ●" : "Filtros";
 }
+const listaCats = () => (RESUMO.categorias_n && RESUMO.categorias_n.length) ? RESUMO.categorias_n : (RESUMO.grupos_n || []).map(x => ({key:x.grupo, nome:x.grupo, n:x.n}));
+const curto = n => String(n).split(" > ").pop();
 function desenharChips(){
   if(!RESUMO) return;
-  const gn = RESUMO.grupos_n || RESUMO.grupos.map(x => ({grupo:x, n:""}));
   $("#chips").innerHTML = `<button class="chip ${est.grupo ? "" : "on"}" data-g=""><span class="cn">Todos</span><small>${num(RESUMO.total)}</small></button>` +
-    gn.map(x => `<button class="chip ${x.grupo === est.grupo ? "on" : ""}" data-g="${esc(x.grupo)}"><span class="cn">${esc(x.grupo.toLowerCase())}</span><small>${x.n === "" ? "" : num(x.n)}</small></button>`).join("");
+    listaCats().map(x => `<button class="chip ${x.key === est.grupo ? "on" : ""}" data-g="${esc(x.key)}" title="${esc(x.nome)}"><span class="cn">${esc(curto(x.nome))}</span><small>${num(x.n)}</small></button>`).join("");
 }
 const fmtN = v => Number(v).toLocaleString("pt-BR", {maximumFractionDigits:1});
 function textoEst(p){
@@ -487,8 +498,8 @@ function desenharInicio(){
     <div class="big">${num(f["vendendo_" + c])}</div>
     <div class="loja-acoes"><button class="pri" data-f="vendendo_${c}">Ver à venda</button><button data-f="fora_${c}">Não está (${num(f["fora_" + c])})</button></div></div>`).join("");
   $("#t-zip").textContent = "Baixar fotos tiradas (" + num(r.fotos_tiradas) + ")";
-  $("#cats").innerHTML = (r.grupos_n || []).map(x =>
-    `<button class="tile" data-g="${esc(x.grupo)}"><span class="ic">${icone(x.grupo)}</span><span class="l">${esc(cap(x.grupo))}</span><span class="n2">${num(x.n)} produtos</span></button>`).join("");
+  $("#cats").innerHTML = listaCats().map(x =>
+    `<button class="tile" data-g="${esc(x.key)}"><span class="ic">${icone(curto(x.nome))}</span><span class="l">${esc(cap(curto(x.nome)))}</span><span class="n2">${num(x.n)} produtos</span></button>`).join("");
 }
 function datasTexto(){
   const m = RESUMO ? RESUMO.meta : {}, p = [];
@@ -502,7 +513,7 @@ async function carregarResumo(){
   RESUMO = r;
   $("#alerta-versao").hidden = r.servidor === VERSAO;
   const g = $("#grupo");
-  g.innerHTML = '<option value="">Todos os grupos</option>' + r.grupos.map(x => `<option>${esc(x)}</option>`).join("");
+  g.innerHTML = '<option value="">Todas as categorias</option>' + listaCats().map(x => `<option value="${esc(x.key)}">${esc(x.nome)} (${num(x.n)})</option>`).join("");
   g.value = est.grupo;
   desenharNav(); desenharChips(); desenharInicio();
   $("#datas").textContent = " · " + datasTexto();
@@ -574,6 +585,7 @@ async function enviarFoto(id, file){
 
 async function abrir(id){
   const p = await api("/api/produto/" + id);
+  let catsLista = []; try{ catsLista = (await api("/api/categorias")).itens; }catch(e){}
   $("#d-nome").textContent = p.nome;
   const nomes = {nuvemshop:"Nuvemshop", ifood:"iFood", "99food":"99Food"};
   const fotoTxt = p.foto_local ? "📷 Trocar a foto tirada" : (p.foto ? "📷 Tirar outra foto" : "📷 Sem foto: tirar foto na prateleira");
@@ -581,16 +593,26 @@ async function abrir(id){
     <div>${p.foto ? `<img class="foto-grande" src="${esc(mini(p.foto, 480))}" alt="">` : ""}
       <label class="btn-foto2 ${p.foto ? "" : "destaque"}" for="f-det" style="margin-top:10px">${fotoTxt}<input type="file" id="f-det" accept="image/*" capture="environment" hidden></label>
       <div id="det-foto-msg" class="sub" role="status"></div></div>
+    <details class="edit-box" id="edit-box"><summary>✏️ Editar produto (nome, preço, categoria)</summary>
+      <label class="campo" for="e-nome">Nome</label><input id="e-nome" value="${esc(p.nome)}" maxlength="150" autocomplete="off">
+      <label class="campo" for="e-preco">Preço de venda (R$)</label><input id="e-preco" inputmode="decimal" value="${p.preco != null ? String(p.preco).replace(".", ",") : ""}" autocomplete="off">
+      <label class="campo" for="e-ean">Código de barras</label><input id="e-ean" inputmode="numeric" value="${esc(p.ean || "")}" autocomplete="off">
+      <label class="campo" for="e-cat">Categoria da loja</label><select id="e-cat"><option value="">— sem categoria —</option>${catsLista.map(k => `<option value="${esc(k.id)}" ${k.id === p.categoria_id ? "selected" : ""}>${esc(k.nome)}</option>`).join("")}</select>
+      ${catsLista.length ? "" : '<small style="color:var(--muted)">As categorias aparecem depois de “Atualizar dados” &gt; “Ler a Nuvemshop agora”.</small>'}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="pri" id="e-salvar">Salvar no painel</button>
+      ${p.canais.filter(c => c.canal === "nuvemshop").length === 1 ? '<button id="e-site">Salvar e enviar ao site</button>' : ""}</div>
+      <div id="e-msg" role="status" style="margin-top:6px"></div></details>
     <dl>
       <dt>Código de barras</dt><dd>${esc(p.ean) || "—"}</dd>
       <dt>SKU (Nuvemshop)</dt><dd>${esc(p.sku) || "—"}</dd>
       <dt>Código Gestor Z</dt><dd>${esc(p.gz_codigo) || "—"}</dd>
-      <dt>Grupo</dt><dd>${esc(p.grupo) || "—"}</dd>
+      <dt>Categoria da loja</dt><dd>${esc(p.categoria_nome) || "—"}</dd>
+      <dt>Grupo (Gestor Z)</dt><dd>${esc(p.grupo) || "—"}</dd>
       ${p.origem === "manual" ? "<dt>Origem</dt><dd>Cadastrado à mão no painel (falta cadastrar nas lojas)</dd>" : ""}
       <dt>Preço no caixa</dt><dd>${brl(p.preco) || "—"}</dd>
       <dt>Custo</dt><dd>${p.custo ? brl(p.custo) : "—"}</dd>
       <dt>Estoque oficial</dt><dd><b>${p.estoque ?? "não conferido"}</b>${p.conferido_em ? " · " + data(p.conferido_em) : ""}</dd>
-      <dt>Estoque estimado</dt><dd>${p.estimado != null ? "<b>" + fmtN(p.estimado) + "</b> (contagem + notas − vendas do caixa; margem de erro: ver abaixo)" : (p.est_aviso === "peso" ? "vende por peso: sem estimativa" : "precisa de contagem")}</dd>
+      <dt>Estoque estimado</dt><dd>${p.estimado != null ? "<b>" + fmtN(p.estimado) + "</b> (contagem + notas − vendas do caixa; vendas do site, iFood e 99 ainda não entram)" : (p.est_aviso === "peso" ? "vende por peso: sem estimativa" : "precisa de contagem")}</dd>
       <dt>Saldo no Gestor Z</dt><dd>${esc(p.gz_saldo) || "sem controle"}</dd>
       <dt>Situação estimada</dt><dd>${esc(p.situacao) || "—"}</dd>
       <dt>Ação sugerida</dt><dd>${esc(p.acao) || "—"}</dd>
@@ -608,6 +630,24 @@ async function abrir(id){
     <div><h4>Observação</h4><textarea id="d-obs">${esc(p.obs)}</textarea><div style="margin-top:8px"><button class="pri" id="d-salvar">Salvar observação</button></div></div>
     <div><h4>Histórico</h4>${p.historico.length ? `<div class="rolagem"><table class="mini"><tbody>${
       p.historico.map(h => `<tr><td>${data(h.quando)}</td><td>${esc(h.campo)}</td><td>${esc(h.de) || "—"} → ${esc(h.para) || "—"}</td></tr>`).join("")}</tbody></table></div>` : "Nenhuma alteração ainda."}</div>`;
+  const salvarEdicao = async () => {
+    const corpo = {nome:$("#e-nome").value, preco:$("#e-preco").value, ean:$("#e-ean").value, categoria_id:$("#e-cat").value, quem:quemContando()};
+    $("#e-msg").className = ""; $("#e-msg").textContent = "Salvando…";
+    await api("/api/produto/" + id, {method:"POST", body:JSON.stringify(corpo)});
+  };
+  $("#e-salvar").onclick = async () => {
+    try{ await salvarEdicao(); carregar(); carregarResumo(); await abrir(id); $("#edit-box").open = true; $("#e-msg").className = "ok-msg"; $("#e-msg").textContent = "Salvo no painel."; }
+    catch(e){ $("#e-msg").className = "erro-msg"; $("#e-msg").textContent = e.message; }
+  };
+  if($("#e-site")) $("#e-site").onclick = async () => {
+    try{
+      await salvarEdicao();
+      if(!confirm("Vou mudar o nome, a categoria e o preço deste produto também na Nuvemshop (os clientes veem se ele estiver publicado). Confirmar?")){ $("#e-msg").textContent = "Salvo só no painel."; return; }
+      $("#e-msg").textContent = "Enviando para a loja…";
+      await api("/api/nuvemshop/produto/" + id, {method:"POST", body:JSON.stringify({quem:quemContando()})});
+      carregar(); carregarResumo(); await abrir(id); $("#edit-box").open = true; $("#e-msg").className = "ok-msg"; $("#e-msg").textContent = "Salvo no painel e enviado ao site.";
+    }catch(e){ $("#e-msg").className = "erro-msg"; $("#e-msg").textContent = e.message; }
+  };
   $("#f-det").onchange = async e => {
     const f = e.target.files[0]; e.target.value = ""; if(!f) return;
     $("#det-foto-msg").textContent = "Enviando a foto…";
@@ -661,7 +701,7 @@ $("#s-x").onclick = () => $("#dsync").close();
 
 /* ------------------------------------------------ enviar estoque para a Nuvemshop */
 let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
-const BUILD = "7.5";
+const BUILD = "8.0";
 const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
 async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
 async function desenharSync(){
@@ -708,7 +748,7 @@ async function verPrevia(){
       ${p.varias_variacoes ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)"><b>${num(p.varias_variacoes)} produto${p.varias_variacoes === 1 ? "" : "s"} contado${p.varias_variacoes === 1 ? "" : "s"} ficaram de fora</b> porque têm várias variações no site (cores ou tamanhos) e o painel não sabe qual delas a contagem representa. Ajuste esses direto na Nuvemshop.<br><small>${p.revisar.map(esc).join(" · ")}${p.varias_variacoes > p.revisar.length ? " · …" : ""}</small></p>` : ""}
       ${it.length ? `<p class="dica-sel">Marque só o que você quer enviar agora. <b>Para um primeiro teste, marque 3 ou 4 itens.</b></p>
       <div class="sel-barra"><button id="s-todos">Marcar todos</button><button id="s-nenhum">Desmarcar todos</button><span id="s-cont"></span></div>
-      <div class="lista-prev" id="s-lista">${it.slice(0, MAX_LISTA).map(i => `<label class="pv"><input type="checkbox" data-v="${i.var_site}" ${sinc.sel.has(i.var_site) ? "checked" : ""}><span><b>${esc(i.nome)}</b>${i.publicado ? "" : ' <span class="pill p-idle">oculto</span>'}<br><small>site: ${esc(i.de)} → <b>${i.para}</b> · ${esc(i.motivo)}</small></span></label>`).join("")}${it.length > MAX_LISTA ? `<div class="pv"><small>… e mais ${it.length - MAX_LISTA} que não cabem na lista; envie estes primeiros e repita.</small></div>` : ""}</div>
+      <input type="search" class="busca-lista" data-lista="#s-lista" placeholder="Buscar produto nesta lista" aria-label="Buscar nesta lista"><div class="lista-prev" id="s-lista">${it.slice(0, MAX_LISTA).map(i => `<label class="pv"><input type="checkbox" data-v="${i.var_site}" ${sinc.sel.has(i.var_site) ? "checked" : ""}><span><b>${esc(i.nome)}</b>${i.publicado ? "" : ' <span class="pill p-idle">oculto</span>'}<br><small>site: ${esc(i.de)} → <b>${i.para}</b> · ${esc(i.motivo)}</small></span></label>`).join("")}${it.length > MAX_LISTA ? `<div class="pv"><small>… e mais ${it.length - MAX_LISTA} que não cabem na lista; envie estes primeiros e repita.</small></div>` : ""}</div>
       <button class="pri" id="s-gravar"></button><p id="s-aviso-lim"></p>` : "<p>Nada para mudar agora. Conte mais produtos e volte aqui.</p>"}</section>`;
     if(it.length){
       const mostrar = it.slice(0, MAX_LISTA).map(i => i.var_site);
@@ -720,7 +760,7 @@ async function verPrevia(){
         $("#s-aviso-lim").textContent = n > lim ? `Marque no máximo ${lim} por vez (você marcou ${n}).` : "";
       };
       $("#s-lista").addEventListener("change", e => { const c = e.target.closest("input[data-v]"); if(!c) return; c.checked ? sinc.sel.add(+c.dataset.v) : sinc.sel.delete(+c.dataset.v); atualizar(); });
-      $("#s-todos").onclick = () => { mostrar.slice(0, lim).forEach(v => sinc.sel.add(v)); $("#s-lista").querySelectorAll("input[data-v]").forEach(c => c.checked = sinc.sel.has(+c.dataset.v)); atualizar(); };
+      $("#s-todos").onclick = () => { [...$("#s-lista").querySelectorAll(".pv:not([hidden]) input[data-v]")].slice(0, lim).forEach(c => sinc.sel.add(+c.dataset.v)); $("#s-lista").querySelectorAll("input[data-v]").forEach(c => c.checked = sinc.sel.has(+c.dataset.v)); atualizar(); };
       $("#s-nenhum").onclick = () => { sinc.sel.clear(); $("#s-lista").querySelectorAll("input[data-v]").forEach(c => c.checked = false); atualizar(); };
       $("#s-gravar").onclick = () => gravarSync(sinc.sel.size);
       atualizar();
@@ -781,6 +821,19 @@ $("#i-nuvem").onclick = async () => {
     }
   }, 1500);
 };
+/* ------------------------------------------------ busca dentro das listas dos diálogos */
+const visiveis = lista => [...document.querySelectorAll(lista + " .pv:not([hidden]) input[data-p]")].map(x => +x.dataset.p);
+document.addEventListener("input", e => {
+  const b = e.target.closest(".busca-lista"); if(!b) return;
+  const termos = b.value.toLowerCase().split(/\s+/).filter(Boolean);
+  document.querySelectorAll(b.dataset.lista + " .pv").forEach(r => {
+    const t = r.textContent.toLowerCase(); r.hidden = !termos.every(w => t.includes(w));
+  });
+});
+document.addEventListener("click", e => {          // fecha o menu "Loja online" depois de escolher
+  const m = $("#menu-loja"); if(m && m.open && (e.target.closest(".menu-itens button") || !e.target.closest("#menu-loja"))) m.open = false;
+});
+
 /* ------------------------------------------------ cadastrar produtos novos no site */
 const ca = {sel:new Set(), ultimo:""};
 $("#b-cad").onclick = () => abrirCadastrar(); $("#b-cad2").onclick = () => abrirCadastrar();
@@ -801,7 +854,7 @@ async function abrirCadastrar(){
     <p>Estes são os produtos que cadastramos no painel e ainda não existem na Nuvemshop. Eles são criados <b>ocultos</b> (o cliente não vê), do jeito que estão. Depois a gente confere e publica.</p>
     ${p.erro_categorias ? `<div class="erro-msg">Não consegui ler as categorias da loja: ${esc(p.erro_categorias)}<br>Os produtos serão criados sem categoria. Se for permissão, libere “Categorias” no aplicativo da Nuvemshop.</div>` : ""}
     ${it.length ? `<div class="sel-barra"><button id="c-todos">Marcar todos</button><button id="c-nenhum">Desmarcar todos</button><span id="c-cont"></span></div>
-    <div class="lista-prev" id="c-lista" style="max-height:55vh">${it.map(i => `<div class="pv" style="flex-direction:column;align-items:stretch;gap:6px;border-bottom:1px solid var(--line);padding:10px 4px">
+    <input type="search" class="busca-lista" data-lista="#c-lista" placeholder="Buscar produto nesta lista" aria-label="Buscar nesta lista"><div class="lista-prev" id="c-lista" style="max-height:55vh">${it.map(i => `<div class="pv" style="flex-direction:column;align-items:stretch;gap:6px;border-bottom:1px solid var(--line);padding:10px 4px">
       <label style="display:flex;gap:10px;align-items:center"><input type="checkbox" data-p="${i.pid}" ${ca.sel.has(i.pid) ? "checked" : ""}>${i.foto ? `<img src="${i.foto}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px">` : '<span class="pill p-idle">sem foto</span>'}<span><b>${esc(i.nome)}</b><br><small>${i.preco ? brl(i.preco) : "sem preço"} · estoque ${i.estoque ?? "—"} · ${esc(i.ean || "sem código")}</small></span></label>
       <select data-c="${i.pid}" data-g="${esc(i.grupo || "")}" ${cats.length ? "" : "disabled"}>${opcoes(i.categoria_id || "")}</select>
       ${i.faltas.length ? `<small style="color:var(--warn)">Falta: ${i.faltas.join(", ")}</small>` : ""}</div>`).join("")}</div>
@@ -828,7 +881,7 @@ async function abrirCadastrar(){
       c.querySelectorAll(`select[data-g="${CSS.escape(sl.dataset.g)}"]`).forEach(o2 => { if(o2 !== sl && !ca.cat[o2.dataset.c]){ o2.value = sl.value; ca.cat[o2.dataset.c] = sl.value; } });
     }
   });
-  $("#c-todos").onclick = () => { ca.sel = new Set(it.slice(0, lim).map(i => i.pid)); c.querySelectorAll("#c-lista input[data-p]").forEach(x => x.checked = ca.sel.has(+x.dataset.p)); atualizar(); };
+  $("#c-todos").onclick = () => { ca.sel = new Set(visiveis("#c-lista").slice(0, lim)); c.querySelectorAll("#c-lista input[data-p]").forEach(x => x.checked = ca.sel.has(+x.dataset.p)); atualizar(); };
   $("#c-nenhum").onclick = () => { ca.sel.clear(); c.querySelectorAll("#c-lista input[data-p]").forEach(x => x.checked = false); atualizar(); };
   $("#c-criar").onclick = async () => {
     const n = ca.sel.size;
@@ -889,7 +942,7 @@ async function abrirPublicar(dia){
     ${p.varias_variacoes ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.varias_variacoes)} ficam de fora: têm várias variações. Publique direto na Nuvemshop.${lista("", rv.varias)}</p>` : ""}` : ""}
     ${it.length ? `<p class="dica-sel"><b>Para o primeiro teste, desmarque tudo e deixe só 1 ou 2.</b> Máximo ${lim} por vez.</p>
     <div class="sel-barra"><button id="p-todos">Marcar todos</button><button id="p-nenhum">Desmarcar todos</button><span id="p-cont"></span></div>
-    <div class="lista-prev" id="p-lista">${it.map(i => `<label class="pv"><input type="checkbox" data-p="${i.pid}" ${pu.sel.has(i.pid) ? "checked" : ""}><img src="${esc(i.foto)}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px"><span><b>${esc(i.nome)}</b><br><small>estoque ${i.estoque} · ${brl(i.preco) || "sem preço"}</small></span></label>`).join("")}</div>
+    <input type="search" class="busca-lista" data-lista="#p-lista" placeholder="Buscar produto nesta lista" aria-label="Buscar nesta lista"><div class="lista-prev" id="p-lista">${it.map(i => `<label class="pv"><input type="checkbox" data-p="${i.pid}" ${pu.sel.has(i.pid) ? "checked" : ""}><img src="${esc(i.foto)}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px"><span><b>${esc(i.nome)}</b><br><small>estoque ${i.estoque} · ${brl(i.preco) || "sem preço"}</small></span></label>`).join("")}</div>
     <button class="pri" id="p-pub"></button>` : ""}</section>
     <div id="p-andamento" role="status"></div>
     <section><b>Desfazer uma publicação</b>${bk.itens.length ? bk.itens.slice(0, 5).map(b => `<div class="bk"><span>${data(b.quando)} · ${b.itens} produtos</span><button data-pbk="${esc(b.arquivo)}">Ocultar de novo</button></div>`).join("") : "<p>Nenhuma publicação para desfazer.</p>"}</section>`;
@@ -904,7 +957,7 @@ async function abrirPublicar(dia){
     c.querySelectorAll("#p-lista input").forEach(x => x.checked = pu.sel.has(+x.dataset.p));
   };
   $("#p-lista").addEventListener("change", e => { const x = e.target.closest("input[data-p]"); if(!x) return; x.checked ? pu.sel.add(+x.dataset.p) : pu.sel.delete(+x.dataset.p); atualizar(); });
-  $("#p-todos").onclick = () => { pu.sel = new Set(it.slice(0, lim).map(i => i.pid)); atualizar(); };
+  $("#p-todos").onclick = () => { pu.sel = new Set(visiveis("#p-lista").slice(0, lim)); atualizar(); };
   $("#p-nenhum").onclick = () => { pu.sel.clear(); atualizar(); };
   $("#p-pub").onclick = async () => {
     const n = pu.sel.size;
@@ -957,7 +1010,7 @@ async function abrirFotos(){
       <p>A foto vai como <b>primeira imagem</b> do produto no site. O leitor de “Ler a Nuvemshop” só mostra a foto do site depois de reler.</p>
       ${it.length ? `<p class="dica-sel"><b>Comece com 1 foto</b> (já vem marcada), confira no admin da loja e depois marque o resto.</p>
       <div class="sel-barra"><button id="f-um">Só a primeira</button><button id="f-todos">Marcar até ${lim}</button><button id="f-nenhum">Desmarcar</button><span id="f-cont"></span></div>
-      <div class="lista-prev" id="f-lista">${it.map(i => `<label class="pv"><input type="checkbox" data-p="${i.pid}" ${fo.sel.has(i.pid) ? "checked" : ""}><img src="${i.foto}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px"><span><b>${esc(i.nome)}</b>${i.publicado ? "" : ' <span class="pill p-idle">oculto</span>'}<br><small>${esc(i.sku || "sem SKU")}</small></span></label>`).join("")}</div>
+      <input type="search" class="busca-lista" data-lista="#f-lista" placeholder="Buscar produto nesta lista" aria-label="Buscar nesta lista"><div class="lista-prev" id="f-lista">${it.map(i => `<label class="pv"><input type="checkbox" data-p="${i.pid}" ${fo.sel.has(i.pid) ? "checked" : ""}><img src="${i.foto}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px"><span><b>${esc(i.nome)}</b>${i.publicado ? "" : ' <span class="pill p-idle">oculto</span>'}<br><small>${esc(i.sku || "sem SKU")}</small></span></label>`).join("")}</div>
       <button class="pri" id="f-enviar"></button>` : "<p>Nenhuma foto para enviar agora.</p>"}</section>
     <div id="f-andamento" role="status"></div>
     <section><b>Desfazer um envio de fotos</b>${bk.itens.length ? bk.itens.slice(0, 5).map(b => `<div class="bk"><span>${data(b.quando)} · ${b.itens} fotos</span><button data-fbk="${esc(b.arquivo)}">Remover essas fotos do site</button></div>`).join("") : "<p>Nenhum envio para desfazer.</p>"}</section>`;
@@ -972,7 +1025,7 @@ async function abrirFotos(){
   };
   $("#f-lista").addEventListener("change", e => { const x = e.target.closest("input[data-p]"); if(!x) return; x.checked ? fo.sel.add(+x.dataset.p) : fo.sel.delete(+x.dataset.p); atualizar(); });
   $("#f-um").onclick = () => { fo.sel = new Set(it.slice(0, 1).map(i => i.pid)); atualizar(); };
-  $("#f-todos").onclick = () => { fo.sel = new Set(it.slice(0, lim).map(i => i.pid)); atualizar(); };
+  $("#f-todos").onclick = () => { fo.sel = new Set(visiveis("#f-lista").slice(0, lim)); atualizar(); };
   $("#f-nenhum").onclick = () => { fo.sel.clear(); atualizar(); };
   $("#f-enviar").onclick = async () => {
     const n = fo.sel.size;

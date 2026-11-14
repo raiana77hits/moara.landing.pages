@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# versao-do-painel: 7
+# versao-do-painel: 8
 """Painel de Estoque - cadastro central (Casa de Embalagens Cangaíba).
 
 Roda só neste computador (127.0.0.1). Usa apenas a biblioteca padrão do Python.
@@ -47,7 +47,7 @@ STATIC = os.path.join(BASE, "static")
 PORTA = int(os.environ.get("PAINEL_PORTA") or os.environ.get("PORT") or "8765")
 HOST = os.environ.get("PAINEL_HOST", "127.0.0.1")
 SESSAO_DIAS = 30
-VERSAO_SERVIDOR = "7"      # a tela compara com este número para detectar janela antiga aberta
+VERSAO_SERVIDOR = "8"      # a tela compara com este número para detectar janela antiga aberta
 
 CANAIS = ("nuvemshop", "ifood", "99food")
 
@@ -76,7 +76,9 @@ CREATE TABLE IF NOT EXISTS produtos (
     foto_url TEXT,           -- foto do produto no site (Nuvemshop)
     atualizado_em TEXT,
     estimado REAL,           -- estoque estimado = contagem + entradas - vendas (calculado)
-    est_aviso TEXT           -- 'peso' = vende por KG, não estimamos
+    est_aviso TEXT,          -- 'peso' = vende por KG, não estimamos
+    categoria_id TEXT,       -- categoria da loja (Nuvemshop)
+    categoria_nome TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_prod_sku ON produtos(sku);
 CREATE INDEX IF NOT EXISTS ix_prod_gz ON produtos(gz_codigo);
@@ -159,6 +161,12 @@ CREATE TABLE IF NOT EXISTS de_para (
     PRIMARY KEY (cnpj, cod_fornecedor)
 );
 
+-- categorias da loja (lidas da Nuvemshop)
+CREATE TABLE IF NOT EXISTS categorias_site (
+    id TEXT PRIMARY KEY,
+    nome TEXT NOT NULL       -- caminho completo: Pai > Filha
+);
+
 -- grupo do Gestor Z -> categoria da loja (Nuvemshop)
 CREATE TABLE IF NOT EXISTS categoria_map (
     grupo TEXT PRIMARY KEY,
@@ -193,7 +201,8 @@ def conectar():
     colunas = {r["name"] for r in con.execute("PRAGMA table_info(produtos)")}
     if "foto_url" not in colunas:          # banco criado por uma versão anterior
         con.execute("ALTER TABLE produtos ADD COLUMN foto_url TEXT")
-    for col, tipo in (("estimado", "REAL"), ("est_aviso", "TEXT")):
+    for col, tipo in (("estimado", "REAL"), ("est_aviso", "TEXT"), ("categoria_id", "TEXT"),
+                      ("categoria_nome", "TEXT")):
         if col not in colunas:
             con.execute(f"ALTER TABLE produtos ADD COLUMN {col} {tipo}")
         con.commit()
@@ -401,6 +410,23 @@ def sync_nuvemshop(con, progresso=None):
 
     con.execute("DELETE FROM canais WHERE canal='nuvemshop'")
     con.execute("UPDATE produtos SET foto_url=NULL")       # a foto do site é relida a cada leitura
+    con.execute("UPDATE produtos SET categoria_id=NULL, categoria_nome=NULL WHERE origem<>'manual'")
+    vistas = {}                                            # categorias vistas nos produtos: id -> (nome, pai)
+    for p in produtos:
+        for c in p.get("categories") or []:
+            vistas[str(c.get("id"))] = (_texto(c.get("name")), str(c["parent"]) if c.get("parent") else None)
+    try:                                                   # lista completa, se o token deixar
+        for c in categorias_nuvemshop_cruas(cfg):
+            vistas.setdefault(str(c.get("id")), (_texto(c.get("name")), str(c["parent"]) if c.get("parent") else None))
+    except Exception:  # noqa: BLE001 - sem permissão: ficamos só com as que os produtos mostram
+        pass
+
+    def caminho(cid, n=0):
+        nome, pai = vistas.get(cid, ("", None))
+        return (caminho(pai, n + 1) + " > " if pai and pai in vistas and n < 6 else "") + nome
+    caminhos = {cid: caminho(cid) for cid in vistas}
+    con.execute("DELETE FROM categorias_site")
+    con.executemany("INSERT INTO categorias_site(id, nome) VALUES(?,?)", list(caminhos.items()))
     por_sku = por_ean = criados = variacoes = 0
     for p in produtos:
         nome = _texto(p.get("name"))
@@ -437,6 +463,11 @@ def sync_nuvemshop(con, progresso=None):
                 criados += 1
             else:
                 pid = r["id"]
+            cids = [str(c.get("id")) for c in (p.get("categories") or [])]
+            if cids:
+                fundo = max(cids, key=lambda i: caminhos.get(i, "").count(">"))
+                con.execute("UPDATE produtos SET categoria_id=?, categoria_nome=? WHERE id=?",
+                            (fundo, caminhos.get(fundo, ""), pid))
             src = src_por_id.get(v.get("image_id")) or src_primeira
             if src:
                 con.execute("UPDATE produtos SET foto_url=? WHERE id=?", (src, pid))
@@ -990,9 +1021,7 @@ def desfazer_publicar(arquivo, quem, progresso):
 MAX_CADASTRAR = 30
 
 
-def categorias_nuvemshop():
-    """Categorias da loja, com o caminho (Pai > Filha). Só leitura."""
-    cfg = _exigir_nuvemshop()
+def categorias_nuvemshop_cruas(cfg):
     todas, pagina = [], 1
     while True:
         lote = _nuvem(cfg, "GET", f"/categories?per_page=200&page={pagina}")
@@ -1002,14 +1031,12 @@ def categorias_nuvemshop():
         if len(lote) < 200:
             break
         pagina += 1
-    por_id = {c["id"]: c for c in todas}
+    return todas
 
-    def caminho(c, n=0):
-        pai = por_id.get(c.get("parent")) if c.get("parent") and n < 6 else None
-        nome = _texto(c.get("name"))
-        return (caminho(pai, n + 1) + " > " if pai else "") + nome
-    saida = [{"id": str(c["id"]), "nome": caminho(c)} for c in todas]
-    return sorted(saida, key=lambda x: x["nome"].lower())
+
+def categorias_lista(con):
+    return [{"id": r["id"], "nome": r["nome"]} for r in con.execute(
+        "SELECT id, nome FROM categorias_site ORDER BY nome COLLATE NOCASE")]
 
 
 def _novos_candidatos(con):
@@ -1062,7 +1089,7 @@ def previa_cadastrar(con, cats=None):
     itens = []
     for r in _novos_candidatos(con):
         ean = "".join(c for c in (r["ean"] or "") if c.isdigit())
-        cid = mapa.get(r["grupo"] or "") or _adivinhar_categoria(r["grupo"], cats)
+        cid = r["categoria_id"] or mapa.get(r["grupo"] or "") or _adivinhar_categoria(r["grupo"], cats)
         faltas = []
         if not r["preco"] or r["preco"] <= 0:
             faltas.append("sem preço")
@@ -1135,6 +1162,10 @@ def aplicar_cadastrar(itens_in, quem, progresso):
                 r = _nuvem(cfg, "POST", "/products", corpo)
                 if not r.get("id"):
                     raise RuntimeError("a loja não devolveu o número do produto")
+                if i["categoria_id"]:
+                    con.execute("UPDATE produtos SET categoria_id=?, categoria_nome=(SELECT nome FROM categorias_site "
+                                "WHERE id=?) WHERE id=?", (i["categoria_id"], i["categoria_id"], i["pid"]))
+                    con.commit()
                 if "sku" in variante:
                     con.execute("UPDATE produtos SET sku=? WHERE id=?", (variante["sku"], i["pid"]))
                     con.commit()
@@ -1240,7 +1271,12 @@ def _where(q, filtro, grupo):
     for termo in (q or "").split():
         conds.append("(p.nome LIKE ? OR p.ean LIKE ? OR p.sku LIKE ? OR p.gz_codigo = ?)")
         args += [f"%{termo}%", f"%{termo}%", f"%{termo}%", termo]
-    if grupo:
+    if grupo == "cat:__sem":
+        conds.append("p.categoria_id IS NULL")
+    elif grupo.startswith("cat:"):
+        conds.append("p.categoria_id = ?")
+        args.append(grupo[4:])
+    elif grupo:
         conds.append("p.grupo = ?")
         args.append(grupo)
     return " AND ".join(conds), args
@@ -1295,6 +1331,11 @@ def resumo(con):
          "grupos_n": [{"grupo": x[0], "n": x[1]} for x in con.execute(
              "SELECT grupo, COUNT(*) FROM produtos WHERE grupo<>'' GROUP BY grupo "
              "ORDER BY COUNT(*) DESC, grupo")],
+         "categorias_n": ([{"key": "cat:" + x[0], "nome": x[1], "n": x[2]} for x in con.execute(
+             "SELECT c.id, c.nome, COUNT(p.id) FROM categorias_site c LEFT JOIN produtos p ON p.categoria_id=c.id "
+             "GROUP BY c.id ORDER BY c.nome COLLATE NOCASE")] +
+             [{"key": "cat:__sem", "nome": "Sem categoria", "n": um("SELECT COUNT(*) FROM produtos WHERE categoria_id IS NULL")}]
+             ) if um("SELECT COUNT(*) FROM categorias_site") else [],
          "meta": {x["chave"]: x["valor"] for x in con.execute("SELECT * FROM meta")},
          "fotos_tiradas": um("SELECT COUNT(*) FROM fotos"),
          "importacoes": {"vendas": um("SELECT COUNT(*) FROM importacoes WHERE tipo='vendas'"),
@@ -1345,6 +1386,44 @@ def alterar(con, pid, dados):
                     (pid, agora(), "estoque",
                      "" if p["estoque"] is None else str(p["estoque"]),
                      "" if novo is None else str(novo), quem))
+    mudar = {}
+    if "nome" in dados:
+        nome = " ".join(str(dados["nome"] or "").split())
+        if not 2 <= len(nome) <= 150:
+            raise ValueError("O nome precisa ter de 2 a 150 letras.")
+        mudar["nome"] = nome
+    for campo in ("preco", "custo"):
+        if campo in dados:
+            v = None if str(dados[campo] if dados[campo] is not None else "").strip() == "" else num(str(dados[campo]).replace(",", "."))
+            if v is not None and not 0 <= v <= 100000:
+                raise ValueError("Valor fora do normal.")
+            mudar[campo] = v
+    if "ean" in dados:
+        ean = "".join(c for c in str(dados["ean"] or "") if c.isdigit())
+        if ean and not 6 <= len(ean) <= 14:
+            raise ValueError("Código de barras inválido (6 a 14 números).")
+        if ean:
+            outro = con.execute("SELECT nome FROM produtos WHERE ean_norm=? AND id<>? LIMIT 1", (norm_ean(ean), pid)).fetchone()
+            if outro:
+                raise ValueError(f"Este código já é de: {outro['nome']}.")
+        mudar["ean"] = ean
+    if "categoria_id" in dados:
+        cid = str(dados["categoria_id"] or "")
+        cat = con.execute("SELECT id, nome FROM categorias_site WHERE id=?", (cid,)).fetchone() if cid else None
+        if cid and not cat:
+            raise ValueError("Categoria desconhecida. Leia a Nuvemshop de novo.")
+        mudar["categoria_id"] = cat["id"] if cat else None
+        mudar["categoria_nome"] = cat["nome"] if cat else None
+    for campo, novo in mudar.items():
+        antigo = p[campo]
+        if (antigo or None) == (novo or None):
+            continue
+        con.execute(f"UPDATE produtos SET {campo}=?, atualizado_em=? WHERE id=?", (novo, agora(), pid))
+        if campo == "ean":
+            con.execute("UPDATE produtos SET ean_norm=? WHERE id=?", (norm_ean(novo), pid))
+        if campo != "categoria_nome":
+            con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                        (pid, agora(), campo, "" if antigo is None else str(antigo), "" if novo is None else str(novo), quem))
     if "obs" in dados:
         obs = (dados["obs"] or "").strip()
         if obs != (p["obs"] or ""):
@@ -1358,6 +1437,32 @@ def alterar(con, pid, dados):
 
 
 # ------------------------------------------------- vendas, notas e estoque estimado
+
+def enviar_produto_site(con, pid, quem):
+    """Manda nome, categoria e preço deste produto para a Nuvemshop (um produto só)."""
+    cfg = _exigir_nuvemshop()
+    p = con.execute("SELECT * FROM produtos WHERE id=?", (pid,)).fetchone()
+    if not p:
+        raise ValueError("Produto não encontrado.")
+    ks = con.execute("SELECT id_externo, id_variacao FROM canais WHERE produto_id=? AND canal='nuvemshop'", (pid,)).fetchall()
+    if not ks:
+        raise ValueError("Este produto ainda não está no site. Use “Cadastrar no site”.")
+    prod_site = ks[0]["id_externo"]
+    n = con.execute("SELECT COUNT(*) FROM canais WHERE canal='nuvemshop' AND id_externo=?", (prod_site,)).fetchone()[0]
+    if len(ks) > 1 or n > 1:
+        raise ValueError("Este produto tem várias variações no site. Edite direto na Nuvemshop.")
+    corpo = {"name": {"pt": p["nome"]}}
+    if p["categoria_id"]:
+        corpo["categories"] = [int(p["categoria_id"])]
+    _nuvem(cfg, "PUT", f"/products/{prod_site}", corpo)
+    if p["preco"]:
+        _nuvem(cfg, "PUT", f"/products/{prod_site}/variants/{ks[0]['id_variacao']}", {"price": f"{p['preco']:.2f}"})
+    con.execute("UPDATE canais SET nome=?, preco=? WHERE produto_id=? AND canal='nuvemshop'", (p["nome"], p["preco"], pid))
+    con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                (pid, agora(), "dados no site", "", f"nome, categoria e preço enviados ({p['nome']})", quem or "painel"))
+    con.commit()
+    return detalhe(con, pid)
+
 
 def _sem_acento(t):
     t = unicodedata.normalize("NFD", str(t or ""))
@@ -1793,13 +1898,17 @@ def criar_produto_manual(con, d, quem=None):
             raise ValueError("Quantidade fora do normal.")
     quem = (quem or d.get("quem") or "").strip()[:40] or "painel"
     grupo = " ".join(str(d.get("grupo") or "").split())[:60].upper()   # os grupos do Gestor Z são em maiúsculas
+    cat = con.execute("SELECT id, nome FROM categorias_site WHERE id=?", (str(d.get("categoria_id") or ""),)).fetchone()
+    if cat and not grupo:
+        grupo = cat["nome"].split(" > ")[-1].upper()[:60]
     unidade = (str(d.get("unidade") or "UN").strip().upper() or "UN")[:6]
     obs = str(d.get("obs") or "").strip()[:300]
     cur = con.execute(
         "INSERT INTO produtos(ean,ean_norm,nome,grupo,unidade,custo,preco,ativo,origem,estoque,conferido_em,"
-        "obs,atualizado_em) VALUES(?,?,?,?,?,?,?,1,'manual',?,?,?,?)",
+        "obs,atualizado_em,categoria_id,categoria_nome) VALUES(?,?,?,?,?,?,?,1,'manual',?,?,?,?,?,?)",
         (ean, norm_ean(ean), nome, grupo or None, unidade, custo, preco, estoque,
-         agora() if estoque is not None else None, obs or None, agora()))
+         agora() if estoque is not None else None, obs or None, agora(),
+         cat["id"] if cat else None, cat["nome"] if cat else None))
     pid = cur.lastrowid
     con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
                 (pid, agora(), "cadastro", "", "cadastrado à mão na conferência", quem))
@@ -1961,7 +2070,7 @@ def exportar_csv(con, q, filtro, grupo):
     where, args = _where(q, filtro, grupo)
     saida = io.StringIO()
     w = csv.writer(saida, delimiter=";")
-    w.writerow(["sku", "codigo_gestorz", "codigo_de_barras", "produto", "grupo", "preco",
+    w.writerow(["sku", "codigo_gestorz", "codigo_de_barras", "produto", "grupo", "categoria_site", "preco",
                 "estoque_oficial", "estoque_estimado", "conferido_em", "nuvemshop", "ifood", "99food", "situacao", "obs"])
     linhas = con.execute(f"SELECT p.* FROM produtos p WHERE {where} "
                          "ORDER BY p.nome COLLATE NOCASE", args).fetchall()
@@ -1971,7 +2080,7 @@ def exportar_csv(con, q, filtro, grupo):
         por = {c: "; ".join(f"{x['status']} ({x['estoque']})" if x["estoque"] else x["status"]
                             for x in cs if x["canal"] == c) for c in CANAIS}
         w.writerow([l["sku"] or "", l["gz_codigo"] or "", l["ean"] or "", l["nome"],
-                    l["grupo"] or "", "" if l["preco"] is None else f"{l['preco']:.2f}".replace(".", ","),
+                    l["grupo"] or "", l["categoria_nome"] or "", "" if l["preco"] is None else f"{l['preco']:.2f}".replace(".", ","),
                     "" if l["estoque"] is None else l["estoque"],
                     "" if l["estimado"] is None else f"{l['estimado']:g}".replace(".", ","),
                     l["conferido_em"] or "",
@@ -2116,24 +2225,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(listar_importacoes(con))
             if u.path == "/api/nuvemshop/previa":
                 return self._json(previa_nuvemshop(con, qs.get("modo", "zerar")))
-            if u.path == "/api/nuvemshop/categorias":
-                try:
-                    cats = categorias_nuvemshop()
-                except RuntimeError as e:
-                    cats = None
-                    erro = str(e)
-                r = mapa_categorias(con, cats)
-                if cats is None:
-                    r["erro"] = erro
-                return self._json(r)
+            if u.path == "/api/categorias":
+                return self._json({"itens": categorias_lista(con)})
             if u.path == "/api/nuvemshop/cadastrar/previa":
-                try:
-                    cats = categorias_nuvemshop()
-                    erro = ""
-                except RuntimeError as e:
-                    cats, erro = [], str(e)
+                cats = categorias_lista(con)
                 r = previa_cadastrar(con, cats)
-                r["erro_categorias"] = erro
+                r["erro_categorias"] = "" if cats else "As categorias da loja ainda não foram lidas. Clique em “Atualizar dados” > “Ler a Nuvemshop agora”."
                 return self._json(r)
             if u.path == "/api/nuvemshop/cadastrar/backups":
                 return self._json({"itens": listar_backups_cadastrar()})
@@ -2219,6 +2316,9 @@ class Handler(BaseHTTPRequestHandler):
             if u.path.startswith("/api/produto/"):
                 dados = json.loads(self._corpo() or b"{}")
                 return self._json(alterar(con, int(u.path.rsplit("/", 1)[1]), dados))
+            if u.path.startswith("/api/nuvemshop/produto/"):
+                d = json.loads(self._corpo() or b"{}")
+                return self._json(enviar_produto_site(con, int(u.path.rsplit("/", 1)[1]), (d.get("quem") or "painel")[:40]))
             if u.path == "/api/config/nuvemshop":
                 d = json.loads(self._corpo() or b"{}")
                 return self._json(conectar_nuvemshop(d.get("token"), d.get("loja")))
@@ -2298,6 +2398,29 @@ class Handler(BaseHTTPRequestHandler):
             con.close()
 
 
+def backup_banco():
+    """Uma cópia do banco por dia na pasta backups (guarda as 14 mais recentes)."""
+    try:
+        os.makedirs(backups_dir(), exist_ok=True)
+        destino = os.path.join(backups_dir(), f"banco_{datetime.now():%Y%m%d}.db")
+        if not os.path.exists(destino) and os.path.exists(DB_PATH):
+            origem, copia = sqlite3.connect(DB_PATH), sqlite3.connect(destino)
+            origem.backup(copia)
+            copia.close()
+            origem.close()
+        antigos = sorted(n for n in os.listdir(backups_dir()) if n.startswith("banco_") and n.endswith(".db"))
+        for n in antigos[:-14]:
+            os.remove(os.path.join(backups_dir(), n))
+    except Exception:  # noqa: BLE001 - backup nunca derruba o painel
+        pass
+
+
+def _rotina_backup():
+    while True:
+        backup_banco()
+        time.sleep(6 * 3600)
+
+
 def manter_acordado():
     """No Windows, impede o computador de suspender enquanto o painel está aberto."""
     if os.name != "nt":
@@ -2311,6 +2434,7 @@ def manter_acordado():
 
 def servir(abrir=True):
     conectar().close()
+    threading.Thread(target=_rotina_backup, daemon=True).start()
     manter_acordado()
     if HOST not in ("127.0.0.1", "localhost") and not tem_senha():
         print("Para abrir o painel para outros aparelhos é obrigatório definir uma senha "
