@@ -159,6 +159,13 @@ CREATE TABLE IF NOT EXISTS de_para (
     PRIMARY KEY (cnpj, cod_fornecedor)
 );
 
+-- grupo do Gestor Z -> categoria da loja (Nuvemshop)
+CREATE TABLE IF NOT EXISTS categoria_map (
+    grupo TEXT PRIMARY KEY,
+    categoria_id TEXT NOT NULL,
+    categoria_nome TEXT
+);
+
 -- códigos bipados na prateleira que não existem no cadastro
 CREATE TABLE IF NOT EXISTS leituras_sem_cadastro (
     id INTEGER PRIMARY KEY,
@@ -974,6 +981,201 @@ def desfazer_publicar(arquivo, quem, progresso):
     finally:
         con.close()
     return {"gravados": feitos, "pulados": 0, "falharam": falharam[:10], "backup": None}
+
+
+# ------------------------------------------- cadastrar produtos novos na Nuvemshop
+
+MAX_CADASTRAR = 30
+
+
+def categorias_nuvemshop():
+    """Categorias da loja, com o caminho (Pai > Filha). Só leitura."""
+    cfg = _exigir_nuvemshop()
+    todas, pagina = [], 1
+    while True:
+        lote = _nuvem(cfg, "GET", f"/categories?per_page=200&page={pagina}")
+        if not isinstance(lote, list) or not lote:
+            break
+        todas.extend(lote)
+        if len(lote) < 200:
+            break
+        pagina += 1
+    por_id = {c["id"]: c for c in todas}
+
+    def caminho(c, n=0):
+        pai = por_id.get(c.get("parent")) if c.get("parent") and n < 6 else None
+        nome = _texto(c.get("name"))
+        return (caminho(pai, n + 1) + " > " if pai else "") + nome
+    saida = [{"id": str(c["id"]), "nome": caminho(c)} for c in todas]
+    return sorted(saida, key=lambda x: x["nome"].lower())
+
+
+def _novos_candidatos(con):
+    return con.execute(
+        "SELECT p.* FROM produtos p WHERE p.origem='manual' AND NOT EXISTS "
+        "(SELECT 1 FROM canais k WHERE k.produto_id=p.id AND k.canal='nuvemshop') "
+        "ORDER BY p.nome").fetchall()
+
+
+def mapa_categorias(con, cats=None):
+    mapa = {r["grupo"]: {"id": r["categoria_id"], "nome": r["categoria_nome"]}
+            for r in con.execute("SELECT * FROM categoria_map")}
+    grupos = collections.Counter((r["grupo"] or "") for r in _novos_candidatos(con))
+    return {"mapa": mapa, "grupos": [{"grupo": g, "n": n} for g, n in sorted(grupos.items())],
+            "categorias": cats}
+
+
+def salvar_mapa(con, grupo, cat_id, cat_nome):
+    grupo = (grupo or "").strip()
+    if not grupo:
+        raise ValueError("Grupo inválido.")
+    if not cat_id:
+        con.execute("DELETE FROM categoria_map WHERE grupo=?", (grupo,))
+    else:
+        con.execute("INSERT OR REPLACE INTO categoria_map VALUES(?,?,?)",
+                    (grupo, str(cat_id), (cat_nome or "")[:150]))
+    con.commit()
+    return {"ok": True}
+
+
+def previa_cadastrar(con):
+    """Produtos cadastrados à mão que ainda não existem no site. Não altera nada."""
+    mapa = {r["grupo"]: r for r in con.execute("SELECT * FROM categoria_map")}
+    itens, faltas = [], collections.defaultdict(list)
+    for r in _novos_candidatos(con):
+        ean = "".join(c for c in (r["ean"] or "") if c.isdigit())
+        if not r["preco"] or r["preco"] <= 0:
+            faltas["sem_preco"].append(r["nome"])
+        elif r["estoque"] is None:
+            faltas["sem_contagem"].append(r["nome"])
+        elif (r["grupo"] or "") not in mapa:
+            faltas["sem_categoria"].append(r["nome"])
+        elif not 6 <= len(ean) <= 14:
+            faltas["sem_codigo"].append(r["nome"])
+        else:
+            cat = mapa[r["grupo"] or ""]
+            itens.append({"pid": r["id"], "nome": r["nome"], "ean": ean, "preco": r["preco"],
+                          "estoque": r["estoque"], "grupo": r["grupo"], "categoria": cat["categoria_nome"],
+                          "categoria_id": cat["categoria_id"],
+                          "foto": f"/api/foto/{r['id']}" if os.path.exists(os.path.join(fotos_dir(), f"{r['id']}.jpg")) else None})
+    return {"para_criar": len(itens), "limite": MAX_CADASTRAR, "itens": itens,
+            "faltas": {k: {"n": len(v), "nomes": v[:8]} for k, v in faltas.items()}}
+
+
+def _salvar_backup_cadastrar(linhas):
+    os.makedirs(backups_dir(), exist_ok=True)
+    nome = f"cadastrar_{datetime.now():%Y%m%d_%H%M%S}.csv"
+    with open(os.path.join(backups_dir(), nome), "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["produto_site", "nome", "ean"])
+        w.writerows(linhas)
+    return nome
+
+
+def listar_backups_cadastrar():
+    if not os.path.isdir(backups_dir()):
+        return []
+    saida = []
+    for nome in sorted(os.listdir(backups_dir()), reverse=True):
+        if nome.startswith("cadastrar_") and nome.endswith(".csv") and not nome.endswith(".desfeito.csv"):
+            caminho = os.path.join(backups_dir(), nome)
+            with open(caminho, encoding="utf-8-sig") as f:
+                qtd = max(0, sum(1 for _ in f) - 1)
+            saida.append({"arquivo": nome, "itens": qtd, "quando": datetime.fromtimestamp(
+                os.path.getmtime(caminho)).strftime("%Y-%m-%d %H:%M")})
+    return saida
+
+
+def aplicar_cadastrar(pids, quem, progresso):
+    cfg = _exigir_nuvemshop()
+    quer = {int(p) for p in pids}
+    if not quer:
+        raise RuntimeError("Nada para cadastrar.")
+    if len(quer) > MAX_CADASTRAR:
+        raise RuntimeError(f"Por segurança, cadastre no máximo {MAX_CADASTRAR} por vez.")
+    con = conectar()
+    try:
+        progresso("Lendo a loja para não duplicar nenhum produto…")
+        sync_nuvemshop(con)                     # quem já existe no site (mesmo código de barras) sai do plano
+        plano = {i["pid"]: i for i in previa_cadastrar(con)["itens"]}
+        escolhidos = [plano[p] for p in quer if p in plano]
+        pulados = len(quer) - len(escolhidos)
+        criados, falharam = [], []
+        for n, i in enumerate(sorted(escolhidos, key=lambda x: x["nome"]), 1):
+            progresso(f"Cadastrando {n} de {len(escolhidos)}: {i['nome'][:40]}")
+            try:
+                r = _nuvem(cfg, "POST", "/products", {
+                    "name": {"pt": i["nome"]}, "published": False,
+                    "categories": [int(i["categoria_id"])],
+                    "variants": [{"price": f"{i['preco']:.2f}", "stock_management": True,
+                                  "stock": int(i["estoque"]), "barcode": i["ean"]}]})
+                if not r.get("id"):
+                    raise RuntimeError("a loja não devolveu o número do produto")
+                criados.append(i | {"prod_site": r["id"]})
+            except Exception as e:  # noqa: BLE001
+                falharam.append(f"{i['nome']}: {e}")
+            time.sleep(0.6)
+        backup = _salvar_backup_cadastrar([[i["prod_site"], i["nome"], i["ean"]] for i in criados]) if criados else None
+        for i in criados:                       # foto, se houver
+            arq = os.path.join(fotos_dir(), f"{i['pid']}.jpg")
+            if os.path.exists(arq):
+                try:
+                    with open(arq, "rb") as f:
+                        b64 = base64.b64encode(f.read()).decode()
+                    _nuvem(cfg, "POST", f"/products/{i['prod_site']}/images",
+                           {"filename": f"produto-{i['pid']}.jpg", "position": 1, "attachment": b64})
+                except Exception as e:  # noqa: BLE001
+                    falharam.append(f"{i['nome']}: criado, mas a foto não subiu ({e})")
+                time.sleep(0.6)
+        progresso("Conferindo na loja o que foi criado…")
+        sync_nuvemshop(con)
+        ok = 0
+        for i in criados:
+            if con.execute("SELECT 1 FROM canais WHERE produto_id=? AND canal='nuvemshop'", (i["pid"],)).fetchone():
+                ok += 1
+                con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                            (i["pid"], agora(), "cadastro no site", "", "criado oculto na Nuvemshop", quem or "painel"))
+            else:
+                falharam.append(f"{i['nome']}: criado, mas a leitura da loja não o achou")
+        con.commit()
+        return {"gravados": ok, "pulados": pulados, "falharam": falharam[:10], "backup": backup}
+    finally:
+        con.close()
+
+
+def desfazer_cadastrar(arquivo, quem, progresso):
+    """Apaga da loja só os produtos que esse envio criou, e só se ainda estiverem ocultos."""
+    cfg = _exigir_nuvemshop()
+    if arquivo not in {b["arquivo"] for b in listar_backups_cadastrar()}:
+        raise RuntimeError("Backup não encontrado.")
+    with open(os.path.join(backups_dir(), arquivo), encoding="utf-8-sig", newline="") as f:
+        linhas = list(csv.DictReader(f))
+    feitos, pulados, falharam = 0, 0, []
+    for n, l in enumerate(linhas, 1):
+        progresso(f"Apagando {n} de {len(linhas)}…")
+        try:
+            atual = _nuvem(cfg, "GET", f"/products/{int(l['produto_site'])}")
+            if atual.get("published"):
+                pulados += 1
+                falharam.append(f"{l['nome']}: já está publicado; oculte antes de apagar")
+            else:
+                _nuvem(cfg, "DELETE", f"/products/{int(l['produto_site'])}")
+                feitos += 1
+        except RuntimeError as e:
+            if " 404" in str(e):
+                pulados += 1
+            else:
+                falharam.append(f"{l['nome']}: {e}")
+        time.sleep(0.6)
+    if not falharam:
+        os.replace(os.path.join(backups_dir(), arquivo), os.path.join(backups_dir(), arquivo[:-4] + ".desfeito.csv"))
+    con = conectar()
+    try:
+        progresso("Relendo a loja…")
+        sync_nuvemshop(con)
+    finally:
+        con.close()
+    return {"gravados": feitos, "pulados": pulados, "falharam": falharam[:10], "backup": None}
 
 
 # ------------------------------------------------------------------- consultas
@@ -1887,6 +2089,20 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(listar_importacoes(con))
             if u.path == "/api/nuvemshop/previa":
                 return self._json(previa_nuvemshop(con, qs.get("modo", "zerar")))
+            if u.path == "/api/nuvemshop/categorias":
+                try:
+                    cats = categorias_nuvemshop()
+                except RuntimeError as e:
+                    cats = None
+                    erro = str(e)
+                r = mapa_categorias(con, cats)
+                if cats is None:
+                    r["erro"] = erro
+                return self._json(r)
+            if u.path == "/api/nuvemshop/cadastrar/previa":
+                return self._json(previa_cadastrar(con))
+            if u.path == "/api/nuvemshop/cadastrar/backups":
+                return self._json({"itens": listar_backups_cadastrar()})
             if u.path == "/api/nuvemshop/publicar/previa":
                 return self._json(previa_publicar(con, qs.get("dia", "")))
             if u.path == "/api/nuvemshop/publicar/backups":
@@ -1975,6 +2191,17 @@ class Handler(BaseHTTPRequestHandler):
             if u.path == "/api/nuvemshop/aplicar":
                 d = json.loads(self._corpo() or b"{}")
                 _tarefa(aplicar_nuvemshop, d.get("modo", "zerar"), d.get("vids") or [], (d.get("quem") or "painel")[:40])
+                return self._json({"ok": True})
+            if u.path == "/api/nuvemshop/categorias/mapa":
+                d = json.loads(self._corpo() or b"{}")
+                return self._json(salvar_mapa(con, d.get("grupo"), d.get("categoria_id"), d.get("categoria_nome")))
+            if u.path == "/api/nuvemshop/cadastrar/aplicar":
+                d = json.loads(self._corpo() or b"{}")
+                _tarefa(aplicar_cadastrar, d.get("pids") or [], (d.get("quem") or "painel")[:40])
+                return self._json({"ok": True})
+            if u.path == "/api/nuvemshop/cadastrar/desfazer":
+                d = json.loads(self._corpo() or b"{}")
+                _tarefa(desfazer_cadastrar, str(d.get("arquivo") or ""), (d.get("quem") or "painel")[:40])
                 return self._json({"ok": True})
             if u.path == "/api/nuvemshop/publicar/aplicar":
                 d = json.loads(self._corpo() or b"{}")

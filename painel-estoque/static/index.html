@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- tela-build: 7.3 -->
+<!-- tela-build: 7.4 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -254,6 +254,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
     <button id="b-sync" class="pri">Enviar para as lojas</button>
     <button id="b-mov">Notas e vendas</button>
     <button id="b-foto">Enviar fotos</button>
+    <button id="b-cad">Cadastrar no site</button>
     <button id="b-pub">Publicar no site</button>
     <button id="b-imp">Atualizar dados</button>
     <a class="btn" id="b-exp" href="#">Baixar lista (CSV)</a>
@@ -304,6 +305,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
       <div class="bloco">
         <h2>Ferramentas</h2>
         <button class="btn-lista" id="b-sync2"><span class="ic">🚚</span>Enviar estoque para a Nuvemshop</button>
+        <button class="btn-lista" id="b-cad2"><span class="ic">🆕</span>Cadastrar produtos novos no site</button>
         <button class="btn-lista" id="b-pub2"><span class="ic">🟢</span>Publicar produtos no site</button>
         <button class="btn-lista" id="b-foto2"><span class="ic">📷</span>Enviar fotos para a Nuvemshop</button>
         <button class="btn-lista" id="b-mov2"><span class="ic">🧾</span>Notas e vendas (estoque estimado)</button>
@@ -348,6 +350,11 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 <dialog id="dsync">
   <div class="topo"><h3>Enviar estoque para a Nuvemshop</h3><button id="s-x">Fechar</button></div>
   <div class="corpo imp" id="s-corpo"></div>
+</dialog>
+
+<dialog id="dcad">
+  <div class="topo"><h3>Cadastrar produtos novos no site</h3><button id="c-x">Fechar</button></div>
+  <div class="corpo imp" id="c-corpo"></div>
 </dialog>
 
 <dialog id="dpub">
@@ -654,7 +661,7 @@ $("#s-x").onclick = () => $("#dsync").close();
 
 /* ------------------------------------------------ enviar estoque para a Nuvemshop */
 let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
-const BUILD = "7.3";
+const BUILD = "7.4";
 const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
 async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
 async function desenharSync(){
@@ -774,6 +781,84 @@ $("#i-nuvem").onclick = async () => {
     }
   }, 1500);
 };
+/* ------------------------------------------------ cadastrar produtos novos no site */
+const ca = {sel:new Set(), ultimo:""};
+$("#b-cad").onclick = () => abrirCadastrar(); $("#b-cad2").onclick = () => abrirCadastrar();
+$("#c-x").onclick = () => { $("#dcad").close(); carregarResumo(); carregar(); };
+async function abrirCadastrar(){
+  $("#dcad").showModal(); const c = $("#c-corpo");
+  const r = await api("/api/resumo");
+  if(!r.nuvemshop_configurada){ c.innerHTML = `<section><b>Conecte a Nuvemshop primeiro</b><p>Use o botão “Enviar para as lojas”.</p></section>`; return; }
+  c.innerHTML = "<p>Lendo as categorias da loja…</p>";
+  let m, p, bk;
+  try{ [m, p, bk] = await Promise.all([api("/api/nuvemshop/categorias"), api("/api/nuvemshop/cadastrar/previa"), api("/api/nuvemshop/cadastrar/backups")]); }
+  catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
+  const it = p.itens, lim = p.limite, f = p.faltas;
+  ca.sel = new Set(it.slice(0, 1).map(i => i.pid));
+  const aviso = (t, k) => f[k] ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(f[k].n)} ficam de fora: ${t}<br><small>${f[k].nomes.map(esc).join(" · ")}${f[k].n > 8 ? " · …" : ""}</small></p>` : "";
+  c.innerHTML = `<section><b>1. Categorias da loja</b>
+    ${m.erro ? `<div class="erro-msg">${esc(m.erro)}<br>Se for permissão, libere “Categorias” no aplicativo da Nuvemshop e tente de novo.</div>` : ""}
+    <p>Ligue cada grupo do Gestor Z (dos produtos novos) a uma categoria da loja. Isso fica guardado e só precisa ser feito uma vez por grupo.</p>
+    ${m.grupos.length ? m.grupos.map(g => `<div class="linha" style="display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap"><span style="min-width:150px"><b>${esc(g.grupo || "(sem grupo)")}</b> <small>${g.n} produto${g.n === 1 ? "" : "s"}</small></span>
+      <select data-g="${esc(g.grupo)}" ${m.categorias ? "" : "disabled"}><option value="">— escolher categoria —</option>${(m.categorias || []).map(k => `<option value="${esc(k.id)}" ${m.mapa[g.grupo] && m.mapa[g.grupo].id === k.id ? "selected" : ""}>${esc(k.nome)}</option>`).join("")}</select></div>`).join("") : "<p>Nenhum produto novo esperando cadastro.</p>"}</section>
+    <section><b>2. Prévia: nada foi criado ainda</b>
+    <p><b>${num(p.para_criar)}</b> podem ser criados agora. Eles nascem <b>ocultos</b>, com nome, preço, código de barras, estoque contado, categoria e foto. Para aparecer na loja, use “Publicar no site” depois.</p>
+    ${aviso("sem preço. Ajuste o preço do produto no painel.", "sem_preco")}${aviso("sem estoque contado.", "sem_contagem")}${aviso("grupo ainda sem categoria (passo 1).", "sem_categoria")}${aviso("código de barras inválido.", "sem_codigo")}
+    ${it.length ? `<p class="dica-sel"><b>Comece com 1 produto</b> (já vem marcado) e confira no admin da loja. Máximo ${lim} por vez.</p>
+    <div class="sel-barra"><button id="c-um">Só o primeiro</button><button id="c-todos">Marcar até ${lim}</button><button id="c-nenhum">Desmarcar</button><span id="c-cont"></span></div>
+    <div class="lista-prev" id="c-lista">${it.map(i => `<label class="pv"><input type="checkbox" data-p="${i.pid}" ${ca.sel.has(i.pid) ? "checked" : ""}>${i.foto ? `<img src="${i.foto}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px">` : '<span class="pill p-idle">sem foto</span>'}<span><b>${esc(i.nome)}</b><br><small>${brl(i.preco)} · estoque ${i.estoque} · ${esc(i.categoria || "")}</small></span></label>`).join("")}</div>
+    <button class="pri" id="c-criar"></button>` : ""}</section>
+    <div id="c-andamento" role="status"></div>
+    <section><b>Desfazer um cadastro</b><p>Só apaga da loja produtos que continuam ocultos.</p>${bk.itens.length ? bk.itens.slice(0, 5).map(b => `<div class="bk"><span>${data(b.quando)} · ${b.itens} produtos</span><button data-cbk="${esc(b.arquivo)}">Apagar esses produtos da loja</button></div>`).join("") : "<p>Nenhum cadastro para desfazer.</p>"}</section>`;
+  if(ca.ultimo) $("#c-andamento").innerHTML = ca.ultimo;
+  c.querySelectorAll("select[data-g]").forEach(sl => sl.onchange = async () => {
+    const o = sl.options[sl.selectedIndex];
+    await api("/api/nuvemshop/categorias/mapa", {method:"POST", body:JSON.stringify({grupo:sl.dataset.g, categoria_id:sl.value, categoria_nome:sl.value ? o.textContent : ""})});
+    abrirCadastrar();
+  });
+  c.querySelectorAll("[data-cbk]").forEach(b => b.onclick = () => desfazerCadastrar(b.dataset.cbk));
+  if(!it.length) return;
+  const atualizar = () => {
+    const n = ca.sel.size, g = $("#c-criar");
+    $("#c-cont").textContent = `${n} marcado${n === 1 ? "" : "s"}`;
+    g.textContent = `Criar ${n} produto${n === 1 ? "" : "s"} na loja (ocultos)`; g.disabled = n === 0 || n > lim;
+    c.querySelectorAll("#c-lista input").forEach(x => x.checked = ca.sel.has(+x.dataset.p));
+  };
+  $("#c-lista").addEventListener("change", e => { const x = e.target.closest("input[data-p]"); if(!x) return; x.checked ? ca.sel.add(+x.dataset.p) : ca.sel.delete(+x.dataset.p); atualizar(); });
+  $("#c-um").onclick = () => { ca.sel = new Set(it.slice(0, 1).map(i => i.pid)); atualizar(); };
+  $("#c-todos").onclick = () => { ca.sel = new Set(it.slice(0, lim).map(i => i.pid)); atualizar(); };
+  $("#c-nenhum").onclick = () => { ca.sel.clear(); atualizar(); };
+  $("#c-criar").onclick = async () => {
+    const n = ca.sel.size;
+    if(!confirm(`Vou criar ${n} produto${n === 1 ? "" : "s"} novo${n === 1 ? "" : "s"} na Nuvemshop, ocultos (os clientes não veem). Dá para apagar depois. Confirmar?`)) return;
+    ca.ultimo = ""; $("#c-criar").disabled = true;
+    try{
+      await api("/api/nuvemshop/cadastrar/aplicar", {method:"POST", body:JSON.stringify({pids:[...ca.sel], quem:quemContando()})});
+      acompanharCadastrar("criado");
+    }catch(e){ $("#c-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+  };
+  atualizar();
+}
+async function desfazerCadastrar(arquivo){
+  if(!confirm("Vou APAGAR da loja os produtos que esse cadastro criou (só os que continuam ocultos). Confirmar?")) return;
+  ca.ultimo = "";
+  try{
+    await api("/api/nuvemshop/cadastrar/desfazer", {method:"POST", body:JSON.stringify({arquivo, quem:quemContando()})});
+    acompanharCadastrar("apagado");
+  }catch(e){ $("#c-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+}
+function acompanharCadastrar(verbo){
+  const iv = setInterval(async () => {
+    const s = await api("/api/tarefa");
+    if(s.rodando){ $("#c-andamento").innerHTML = `<div class="ok-msg">${esc(s.msg)}</div>`; return; }
+    clearInterval(iv);
+    if(s.erro){ $("#c-andamento").innerHTML = `<div class="erro-msg">Não deu certo: ${esc(s.erro)}</div>`; return; }
+    const r = s.resultado || {};
+    ca.ultimo = `<div class="${r.falharam && r.falharam.length ? "erro-msg" : "ok-msg"}"><b>Pronto.</b> ${num(r.gravados)} produto${r.gravados === 1 ? "" : "s"} ${verbo}${r.gravados === 1 ? "" : "s"}${r.pulados ? " · " + num(r.pulados) + " pulado(s)" : ""}.${r.backup ? "<br>Backup: " + esc(r.backup) : ""}${r.falharam && r.falharam.length ? "<br>Atenção: " + esc(r.falharam.join("; ")) : ""}</div>`;
+    abrirCadastrar();
+  }, 1500);
+}
+
 /* ------------------------------------------------ publicar produtos no site */
 const pu = {sel:new Set(), ultimo:"", dia:""};
 $("#b-pub").onclick = () => abrirPublicar(); $("#b-pub2").onclick = () => abrirPublicar();
