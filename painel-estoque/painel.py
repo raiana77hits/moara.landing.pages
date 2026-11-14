@@ -1064,12 +1064,21 @@ def categorias_lista(con):
 # ------------------------------------------- organizar categorias (sugestão automática)
 
 def _tokens_cat(t):
-    return {w for w in _tokens(t) if not w.isdigit() and not re.fullmatch(r"\d+[A-Z]{1,3}", w)}
+    """Palavras do nome na ordem, sem repetir e sem números/medidas (500ML, C/12...)."""
+    vistos, saida = set(), []
+    for w in re.findall(r"[A-Z0-9]{2,}", _sem_acento(t).upper()):
+        if w in _STOP or w.isdigit() or re.fullmatch(r"\d+[A-Z]{1,3}", w) or w in vistos:
+            continue
+        vistos.add(w)
+        saida.append(w)
+    return saida
 
 
 def sugerir_categorias(con):
     """Aprende com os produtos que já têm categoria da loja (nome e grupo) e sugere a categoria
-    dos que não têm. Não altera nada. Devolve (sugestões, quantos produtos serviram de exemplo)."""
+    dos que não têm. A primeira palavra do nome (o tipo do produto) pesa mais que cor, marca e
+    tamanho, e a confiança só é alta quando a categoria combina com a maior parte do nome.
+    Não altera nada. Devolve (sugestões, quantos produtos serviram de exemplo)."""
     nomes_cat = {r["id"]: r["nome"] for r in con.execute("SELECT id, nome FROM categorias_site")}
     treino = con.execute("SELECT nome, grupo, categoria_id FROM produtos WHERE categoria_id IS NOT NULL").fetchall()
     tok_cat, tok_tot, grupo_cat = collections.defaultdict(collections.Counter), collections.Counter(), collections.defaultdict(collections.Counter)
@@ -1085,10 +1094,11 @@ def sugerir_categorias(con):
         return saida, 0
     for p in con.execute("SELECT id, nome, grupo, ean FROM produtos WHERE categoria_id IS NULL AND ativo=1 "
                          "ORDER BY nome COLLATE NOCASE"):
+        toks = _tokens_cat(p["nome"])
         pontos = collections.Counter()
-        for t in _tokens_cat(p["nome"]):
+        for i, t in enumerate(toks):
             if tok_tot[t] >= 2:
-                peso = math.log(1 + n_treino / tok_tot[t])
+                peso = math.log(1 + n_treino / tok_tot[t]) * (2.5 if i == 0 else 1.0)
                 for cat, n in tok_cat[t].items():
                     pontos[cat] += peso * n / tok_tot[t]
         gc = grupo_cat.get(p["grupo"] or "")
@@ -1100,14 +1110,18 @@ def sugerir_categorias(con):
             continue
         top = pontos.most_common(3)
         melhor, segundo = top[0][1], (top[1][1] if len(top) > 1 else 0)
-        if melhor >= 2.5 and melhor >= 1.7 * segundo:
+        cat = top[0][0]
+        cobertura = sum(1 for t in toks if tok_cat[t][cat] > 0) / max(1, len(toks))
+        tipo_sabido = bool(toks) and tok_tot[toks[0]] >= 2
+        tipo_apoia = bool(toks) and tok_cat[toks[0]][cat] > 0
+        if melhor >= 2.5 and melhor >= 1.7 * segundo and cobertura >= 0.5 and tipo_apoia:
             conf = "alta"
-        elif melhor >= 1.2 and melhor >= 1.25 * segundo:
+        elif melhor >= 1.2 and melhor >= 1.25 * segundo and cobertura >= 0.34 and (tipo_apoia or not tipo_sabido):
             conf = "media"
         else:
             conf = "baixa"
         saida.append({"pid": p["id"], "nome": p["nome"], "grupo": p["grupo"], "confianca": conf,
-                      "categoria_id": top[0][0], "categoria": nomes_cat.get(top[0][0], ""),
+                      "categoria_id": cat, "categoria": nomes_cat.get(cat, ""),
                       "outras": [{"id": c, "nome": nomes_cat.get(c, "")} for c, _ in top[1:]]})
     return saida, n_treino
 

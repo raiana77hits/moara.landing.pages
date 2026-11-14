@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- tela-build: 8.2 -->
+<!-- tela-build: 8.3 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -725,7 +725,7 @@ $("#s-x").onclick = () => $("#dsync").close();
 
 /* ------------------------------------------------ enviar estoque para a Nuvemshop */
 let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
-const BUILD = "8.2";
+const BUILD = "8.3";
 const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
 async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
 async function desenharSync(){
@@ -868,7 +868,8 @@ async function desenharOrg(){
     ${og.conf === "alta" && ct.alta ? `<p><button class="pri" id="o-todas">Aplicar as ${num(ct.alta)} de confiança alta</button></p>` : ""}
     <input type="search" id="o-q" class="busca-lista" placeholder="Buscar produto" value="${esc(og.q)}">
     <div id="o-lista">${r.itens.length ? r.itens.map(i => `<div class="ent" data-pid="${i.pid}"><div class="d">${esc(i.nome)}</div><div class="m">${esc(i.grupo || "sem grupo")}</div>
-      <select data-pid="${i.pid}">${opcoes(i.categoria_id)}</select></div>`).join("") : "<p>Nada neste nível.</p>"}</div>
+      ${og.conf === "baixa" ? `<div class="m">Palpite fraco: ${esc(i.categoria)}. Escolha a categoria certa para aplicar.</div>` : ""}
+      <select data-pid="${i.pid}">${opcoes(og.conf === "baixa" ? "" : i.categoria_id)}</select></div>`).join("") : "<p>Nada neste nível.</p>"}</div>
     <div class="linha" style="display:flex;gap:8px;align-items:center;margin-top:8px"><button id="o-ant" ${og.pagina <= 1 ? "disabled" : ""}>←</button><span>Página ${og.pagina} de ${Math.max(1, Math.ceil(r.total / r.por_pagina))}</span><button id="o-prox" ${og.pagina * r.por_pagina >= r.total ? "disabled" : ""}>→</button>
       ${r.itens.length ? '<button class="pri" id="o-pag">Aplicar esta página</button>' : ""}</div><div id="o-msg" role="status"></div></section>`;
   $("#o-niveis").onclick = e => { const b = e.target.closest("button[data-n]"); if(b){ og.conf = b.dataset.n; og.pagina = 1; desenharOrg(); } };
