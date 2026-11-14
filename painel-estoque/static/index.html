@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- tela-build: 8.1 -->
+<!-- tela-build: 8.2 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -265,6 +265,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
     <details class="menu-loja" id="menu-loja"><summary class="btn pri">Loja online ▾</summary><div class="menu-itens">
       <button id="b-sync">Enviar estoque</button><button id="b-foto">Enviar fotos</button>
       <button id="b-cad">Cadastrar produtos novos</button><button id="b-pub">Publicar produtos</button></div></details>
+    <button id="b-org">Organizar categorias</button>
     <button id="b-mov">Notas e vendas</button>
     <button id="b-imp">Atualizar dados</button>
     <a class="btn" id="b-exp" href="#">Baixar lista (CSV)</a>
@@ -318,6 +319,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
         <button class="btn-lista" id="b-cad2"><span class="ic">🆕</span>Cadastrar produtos novos no site</button>
         <button class="btn-lista" id="b-pub2"><span class="ic">🟢</span>Publicar produtos no site</button>
         <button class="btn-lista" id="b-foto2"><span class="ic">📷</span>Enviar fotos para a Nuvemshop</button>
+        <button class="btn-lista" id="b-org2"><span class="ic">🗂️</span>Organizar categorias dos produtos</button>
         <button class="btn-lista" id="b-mov2"><span class="ic">🧾</span>Notas e vendas (estoque estimado)</button>
         <button class="btn-lista" id="b-imp2"><span class="ic">🔄</span>Atualizar dados</button>
         <a class="btn-lista" id="b-exp2" href="#"><span class="ic">📄</span>Baixar lista (CSV)</a>
@@ -365,6 +367,11 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 <dialog id="dcad">
   <div class="topo"><h3>Cadastrar produtos novos no site</h3><button id="c-x">Fechar</button></div>
   <div class="corpo imp" id="c-corpo"></div>
+</dialog>
+
+<dialog id="dorg">
+  <div class="topo"><h3>Organizar categorias</h3><button id="o-x">Fechar</button></div>
+  <div class="corpo imp" id="o-corpo"></div>
 </dialog>
 
 <dialog id="dpub">
@@ -718,7 +725,7 @@ $("#s-x").onclick = () => $("#dsync").close();
 
 /* ------------------------------------------------ enviar estoque para a Nuvemshop */
 let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
-const BUILD = "8.1";
+const BUILD = "8.2";
 const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
 async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
 async function desenharSync(){
@@ -838,6 +845,40 @@ $("#i-nuvem").onclick = async () => {
     }
   }, 1500);
 };
+/* ------------------------------------------------ organizar categorias */
+const og = {conf:"alta", q:"", pagina:1, sel:new Map()};
+$("#b-org").onclick = () => abrirOrg(); $("#b-org2").onclick = () => abrirOrg();
+$("#o-x").onclick = () => { $("#dorg").close(); carregarResumo(); carregar(); };
+async function abrirOrg(){
+  $("#dorg").showModal(); await desenharOrg();
+}
+async function desenharOrg(){
+  const c = $("#o-corpo");
+  let cats = [], r;
+  try{ cats = (await api("/api/categorias")).itens; r = await api("/api/categorias/sugestoes?" + new URLSearchParams({confianca:og.conf, q:og.q, pagina:og.pagina})); }
+  catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
+  if(!cats.length || !r.treino){
+    c.innerHTML = `<section><b>Primeiro leia a loja</b><p>Para sugerir categorias o painel precisa conhecer as categorias da loja e os produtos que já têm categoria lá. Clique em <b>Atualizar dados</b> &gt; <b>Ler a Nuvemshop agora</b> (e depois, na tela inicial, <b>Ler categorias da loja</b>), e volte aqui.</p></section>`; return;
+  }
+  const ct = r.contagem, nivel = (k, nome) => `<button data-n="${k}" class="${og.conf === k ? "on" : ""}">${nome} (${num(ct[k] || 0)})</button>`;
+  const opcoes = id => `<option value="">— pular —</option>` + cats.map(k => `<option value="${esc(k.id)}" ${k.id === id ? "selected" : ""}>${esc(k.nome)}</option>`).join("");
+  c.innerHTML = `<section><b>Sugestões de categoria</b>
+    <p>O painel aprendeu com <b>${num(r.treino)}</b> produtos que já têm categoria na loja e sugeriu a categoria dos que não têm. <b>Nada vai para a loja</b>: a categoria fica no painel e é usada no cadastro de novos produtos. ${r.sem_sugestao ? num(r.sem_sugestao) + " produtos ficaram sem sugestão (nomes sem parecido)." : ""}</p>
+    <div class="abas" id="o-niveis">${nivel("alta", "Confiança alta")}${nivel("media", "Média")}${nivel("baixa", "Baixa")}</div>
+    ${og.conf === "alta" && ct.alta ? `<p><button class="pri" id="o-todas">Aplicar as ${num(ct.alta)} de confiança alta</button></p>` : ""}
+    <input type="search" id="o-q" class="busca-lista" placeholder="Buscar produto" value="${esc(og.q)}">
+    <div id="o-lista">${r.itens.length ? r.itens.map(i => `<div class="ent" data-pid="${i.pid}"><div class="d">${esc(i.nome)}</div><div class="m">${esc(i.grupo || "sem grupo")}</div>
+      <select data-pid="${i.pid}">${opcoes(i.categoria_id)}</select></div>`).join("") : "<p>Nada neste nível.</p>"}</div>
+    <div class="linha" style="display:flex;gap:8px;align-items:center;margin-top:8px"><button id="o-ant" ${og.pagina <= 1 ? "disabled" : ""}>←</button><span>Página ${og.pagina} de ${Math.max(1, Math.ceil(r.total / r.por_pagina))}</span><button id="o-prox" ${og.pagina * r.por_pagina >= r.total ? "disabled" : ""}>→</button>
+      ${r.itens.length ? '<button class="pri" id="o-pag">Aplicar esta página</button>' : ""}</div><div id="o-msg" role="status"></div></section>`;
+  $("#o-niveis").onclick = e => { const b = e.target.closest("button[data-n]"); if(b){ og.conf = b.dataset.n; og.pagina = 1; desenharOrg(); } };
+  let t3; $("#o-q").oninput = e => { clearTimeout(t3); t3 = setTimeout(() => { og.q = e.target.value; og.pagina = 1; desenharOrg(); }, 350); };
+  $("#o-ant").onclick = () => { og.pagina--; desenharOrg(); }; $("#o-prox").onclick = () => { og.pagina++; desenharOrg(); };
+  const feito = r => { $("#o-msg").className = "ok-msg"; $("#o-msg").textContent = num(r.aplicadas) + " produtos organizados."; carregarResumo(); setTimeout(desenharOrg, 900); };
+  if($("#o-todas")) $("#o-todas").onclick = async () => { if(!confirm(`Aplicar a categoria sugerida nos ${num(ct.alta)} produtos de confiança alta? É só no painel e dá para ajustar um a um depois.`)) return; $("#o-todas").disabled = true; feito(await api("/api/categorias/aplicar", {method:"POST", body:JSON.stringify({confianca:"alta", quem:quemContando()})})); };
+  if($("#o-pag")) $("#o-pag").onclick = async () => { const itens = [...document.querySelectorAll("#o-lista select")].map(s => ({pid:+s.dataset.pid, categoria_id:s.value})).filter(x => x.categoria_id); feito(await api("/api/categorias/aplicar", {method:"POST", body:JSON.stringify({itens, quem:quemContando()})})); };
+}
+
 /* ------------------------------------------------ busca dentro das listas dos diálogos */
 const visiveis = lista => [...document.querySelectorAll(lista + " .pv:not([hidden]) input[data-p]")].map(x => +x.dataset.p);
 document.addEventListener("input", e => {

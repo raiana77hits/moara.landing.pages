@@ -24,6 +24,7 @@ import hashlib
 import hmac
 import io
 import json
+import math
 import os
 import re
 import secrets
@@ -1058,6 +1059,92 @@ def categorias_nuvemshop_cruas(cfg):
 def categorias_lista(con):
     return [{"id": r["id"], "nome": r["nome"]} for r in con.execute(
         "SELECT id, nome FROM categorias_site ORDER BY nome COLLATE NOCASE")]
+
+
+# ------------------------------------------- organizar categorias (sugestão automática)
+
+def _tokens_cat(t):
+    return {w for w in _tokens(t) if not w.isdigit() and not re.fullmatch(r"\d+[A-Z]{1,3}", w)}
+
+
+def sugerir_categorias(con):
+    """Aprende com os produtos que já têm categoria da loja (nome e grupo) e sugere a categoria
+    dos que não têm. Não altera nada. Devolve (sugestões, quantos produtos serviram de exemplo)."""
+    nomes_cat = {r["id"]: r["nome"] for r in con.execute("SELECT id, nome FROM categorias_site")}
+    treino = con.execute("SELECT nome, grupo, categoria_id FROM produtos WHERE categoria_id IS NOT NULL").fetchall()
+    tok_cat, tok_tot, grupo_cat = collections.defaultdict(collections.Counter), collections.Counter(), collections.defaultdict(collections.Counter)
+    for r in treino:
+        for t in _tokens_cat(r["nome"]):
+            tok_cat[t][r["categoria_id"]] += 1
+            tok_tot[t] += 1
+        if r["grupo"]:
+            grupo_cat[r["grupo"]][r["categoria_id"]] += 1
+    n_treino = len(treino)
+    saida = []
+    if not n_treino:
+        return saida, 0
+    for p in con.execute("SELECT id, nome, grupo, ean FROM produtos WHERE categoria_id IS NULL AND ativo=1 "
+                         "ORDER BY nome COLLATE NOCASE"):
+        pontos = collections.Counter()
+        for t in _tokens_cat(p["nome"]):
+            if tok_tot[t] >= 2:
+                peso = math.log(1 + n_treino / tok_tot[t])
+                for cat, n in tok_cat[t].items():
+                    pontos[cat] += peso * n / tok_tot[t]
+        gc = grupo_cat.get(p["grupo"] or "")
+        if gc and sum(gc.values()) >= 3:
+            total = sum(gc.values())
+            for cat, n in gc.items():
+                pontos[cat] += 1.5 * n / total
+        if not pontos:
+            continue
+        top = pontos.most_common(3)
+        melhor, segundo = top[0][1], (top[1][1] if len(top) > 1 else 0)
+        if melhor >= 2.5 and melhor >= 1.7 * segundo:
+            conf = "alta"
+        elif melhor >= 1.2 and melhor >= 1.25 * segundo:
+            conf = "media"
+        else:
+            conf = "baixa"
+        saida.append({"pid": p["id"], "nome": p["nome"], "grupo": p["grupo"], "confianca": conf,
+                      "categoria_id": top[0][0], "categoria": nomes_cat.get(top[0][0], ""),
+                      "outras": [{"id": c, "nome": nomes_cat.get(c, "")} for c, _ in top[1:]]})
+    return saida, n_treino
+
+
+def listar_sugestoes(con, conf="alta", q="", pagina=1, por_pagina=40):
+    todas, n_treino = sugerir_categorias(con)
+    contagem = collections.Counter(x["confianca"] for x in todas)
+    termos = (q or "").lower().split()
+    itens = [x for x in todas if (conf == "todas" or x["confianca"] == conf)
+             and all(t in x["nome"].lower() for t in termos)]
+    sem_sug = con.execute("SELECT COUNT(*) FROM produtos WHERE categoria_id IS NULL AND ativo=1").fetchone()[0] - len(todas)
+    return {"treino": n_treino, "contagem": dict(contagem), "sem_sugestao": max(0, sem_sug), "total": len(itens),
+            "pagina": pagina, "por_pagina": por_pagina,
+            "itens": itens[(pagina - 1) * por_pagina: pagina * por_pagina]}
+
+
+def aplicar_sugestoes(con, itens, quem, conf=""):
+    """Grava a categoria nos produtos (só no painel). Com conf, aplica todas daquele nível."""
+    if conf:
+        itens = [{"pid": x["pid"], "categoria_id": x["categoria_id"]}
+                 for x in sugerir_categorias(con)[0] if x["confianca"] == conf]
+    cats = {r["id"]: r["nome"] for r in con.execute("SELECT id, nome FROM categorias_site")}
+    n = 0
+    for i in itens[:5000]:
+        pid, cid = int(i["pid"]), str(i.get("categoria_id") or "")
+        if cid not in cats:
+            continue
+        r = con.execute("SELECT categoria_id FROM produtos WHERE id=?", (pid,)).fetchone()
+        if not r or r[0] == cid:
+            continue
+        con.execute("UPDATE produtos SET categoria_id=?, categoria_nome=?, atualizado_em=? WHERE id=?",
+                    (cid, cats[cid], agora(), pid))
+        con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                    (pid, agora(), "categoria", r[0] or "", cats[cid], (quem or "painel") + " (sugestão)"))
+        n += 1
+    con.commit()
+    return {"ok": True, "aplicadas": n}
 
 
 def _novos_candidatos(con):
@@ -2251,6 +2338,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(listar_importacoes(con))
             if u.path == "/api/nuvemshop/previa":
                 return self._json(previa_nuvemshop(con, qs.get("modo", "zerar")))
+            if u.path == "/api/categorias/sugestoes":
+                return self._json(listar_sugestoes(con, qs.get("confianca", "alta"), qs.get("q", ""),
+                                                   max(1, int(qs.get("pagina", 1)))))
             if u.path == "/api/categorias":
                 return self._json({"itens": categorias_lista(con)})
             if u.path == "/api/nuvemshop/cadastrar/previa":
@@ -2353,6 +2443,10 @@ class Handler(BaseHTTPRequestHandler):
                 d = json.loads(self._corpo() or b"{}")
                 _tarefa(aplicar_nuvemshop, d.get("modo", "zerar"), d.get("vids") or [], (d.get("quem") or "painel")[:40])
                 return self._json({"ok": True})
+            if u.path == "/api/categorias/aplicar":
+                d = json.loads(self._corpo() or b"{}")
+                return self._json(aplicar_sugestoes(con, d.get("itens") or [], (d.get("quem") or "painel")[:40],
+                                                    d.get("confianca") or ""))
             if u.path == "/api/nuvemshop/categorias/ler":
                 return self._json(ler_categorias(con))
             if u.path == "/api/nuvemshop/categorias/mapa":
