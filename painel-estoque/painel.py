@@ -16,6 +16,7 @@ config.json) e PAINEL_HOST=0.0.0.0. Sem senha o painel só responde neste comput
 
 Este programa NÃO altera nada na Nuvemshop, no iFood, na 99Food nem no Gestor Z.
 """
+import base64
 import collections
 import csv
 import difflib
@@ -392,6 +393,7 @@ def sync_nuvemshop(con, progresso=None):
         time.sleep(1.5)
 
     con.execute("DELETE FROM canais WHERE canal='nuvemshop'")
+    con.execute("UPDATE produtos SET foto_url=NULL")       # a foto do site é relida a cada leitura
     por_sku = por_ean = criados = variacoes = 0
     for p in produtos:
         nome = _texto(p.get("name"))
@@ -467,7 +469,8 @@ def _nuvem(cfg, metodo, caminho, corpo=None):
             "Content-Type": "application/json"})
         try:
             with urllib.request.urlopen(req, timeout=60) as resp:
-                return json.load(resp)
+                bruto = resp.read()
+                return json.loads(bruto) if bruto.strip() else {}
         except urllib.error.HTTPError as e:
             detalhe = e.read().decode("utf-8", "replace")[:300]
             if e.code == 429 or e.code >= 500:
@@ -699,6 +702,143 @@ def desfazer_nuvemshop(arquivo, quem, progresso):
         return {"gravados": feitos, "pulados": pulados, "falharam": falharam[:10], "backup": backup}
     finally:
         con.close()
+
+
+# ------------------------------------------------ envio de fotos para a Nuvemshop
+
+MAX_FOTOS_ENVIO = 40
+
+
+def previa_fotos(con):
+    """Fotos tiradas na prateleira que podem subir: só para produto que está no site e
+    ainda não tem foto lá. Não altera nada."""
+    por_site = collections.Counter()
+    linhas = con.execute(
+        "SELECT p.id pid, p.nome, p.sku, p.foto_url, k.id_externo prod_site, k.status "
+        "FROM fotos f JOIN produtos p ON p.id=f.produto_id JOIN canais k ON k.produto_id=p.id "
+        "AND k.canal='nuvemshop' GROUP BY p.id ORDER BY p.nome").fetchall()
+    for r in linhas:
+        por_site[r["prod_site"]] += 1
+    itens, ja_tem, ambiguas, sem_arquivo = [], 0, [], 0
+    for r in linhas:
+        if r["foto_url"]:
+            ja_tem += 1
+        elif por_site[r["prod_site"]] > 1:
+            ambiguas.append(r["nome"])
+        elif not os.path.exists(os.path.join(fotos_dir(), f"{r['pid']}.jpg")):
+            sem_arquivo += 1
+        else:
+            itens.append({"pid": r["pid"], "nome": r["nome"], "sku": r["sku"],
+                          "prod_site": int(r["prod_site"]), "publicado": r["status"] == "Publicado",
+                          "foto": f"/api/foto/{r['pid']}"})
+    total = con.execute("SELECT COUNT(*) FROM fotos").fetchone()[0]
+    fora_site = con.execute(
+        "SELECT COUNT(*) FROM fotos f WHERE NOT EXISTS (SELECT 1 FROM canais k WHERE "
+        "k.produto_id=f.produto_id AND k.canal='nuvemshop')").fetchone()[0]
+    return {"fotos_tiradas": total, "para_enviar": len(itens), "ja_tem_foto_no_site": ja_tem,
+            "fora_do_site": fora_site, "ambiguas": len(ambiguas), "revisar": sorted(ambiguas)[:10],
+            "limite": MAX_FOTOS_ENVIO, "itens": itens}
+
+
+def _salvar_backup_fotos(linhas):
+    os.makedirs(backups_dir(), exist_ok=True)
+    nome = f"fotosnuvem_{datetime.now():%Y%m%d_%H%M%S}.csv"
+    with open(os.path.join(backups_dir(), nome), "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["produto_site", "imagem_site", "sku", "nome"])
+        w.writerows(linhas)
+    return nome
+
+
+def listar_backups_fotos():
+    if not os.path.isdir(backups_dir()):
+        return []
+    saida = []
+    for nome in sorted(os.listdir(backups_dir()), reverse=True):
+        if nome.startswith("fotosnuvem_") and nome.endswith(".csv") and not nome.endswith(".desfeito.csv"):
+            caminho = os.path.join(backups_dir(), nome)
+            with open(caminho, encoding="utf-8-sig") as f:
+                qtd = max(0, sum(1 for _ in f) - 1)
+            saida.append({"arquivo": nome, "itens": qtd, "quando": datetime.fromtimestamp(
+                os.path.getmtime(caminho)).strftime("%Y-%m-%d %H:%M")})
+    return saida
+
+
+def aplicar_fotos(pids, quem, progresso):
+    cfg = _exigir_nuvemshop()
+    quer = {int(p) for p in pids}
+    if not quer:
+        raise RuntimeError("Nada para enviar.")
+    if len(quer) > MAX_FOTOS_ENVIO:
+        raise RuntimeError(f"Por segurança, envie no máximo {MAX_FOTOS_ENVIO} fotos por vez.")
+    con = conectar()
+    try:
+        progresso("Lendo a loja para conferir quais produtos ainda estão sem foto…")
+        sync_nuvemshop(con)
+        plano = {i["pid"]: i for i in previa_fotos(con)["itens"]}
+        escolhidos = [plano[p] for p in quer if p in plano]
+        pulados = len(quer) - len(escolhidos)         # já ganharam foto ou mudaram desde a prévia
+        enviados, falharam = [], []
+        for n, i in enumerate(sorted(escolhidos, key=lambda x: x["nome"]), 1):
+            progresso(f"Enviando foto {n} de {len(escolhidos)}: {i['nome'][:40]}")
+            try:
+                with open(os.path.join(fotos_dir(), f"{i['pid']}.jpg"), "rb") as f:
+                    b64 = base64.b64encode(f.read()).decode()
+                r = _nuvem(cfg, "POST", f"/products/{i['prod_site']}/images", {
+                    "filename": f"{(i['sku'] or 'produto-' + str(i['pid']))}.jpg",
+                    "position": 1, "attachment": b64})
+                if not r.get("id"):
+                    raise RuntimeError("a loja não devolveu o número da imagem")
+                enviados.append(i | {"imagem": r["id"]})
+            except Exception as e:  # noqa: BLE001
+                falharam.append(f"{i['nome']}: {e}")
+            time.sleep(0.6)
+        backup = _salvar_backup_fotos([[i["prod_site"], i["imagem"], i["sku"] or "", i["nome"]]
+                                       for i in enviados]) if enviados else None
+        progresso("Conferindo na loja o que foi enviado…")
+        sync_nuvemshop(con)
+        ok = 0
+        for i in enviados:
+            if con.execute("SELECT foto_url FROM produtos WHERE id=?", (i["pid"],)).fetchone()[0]:
+                ok += 1
+                con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) "
+                            "VALUES(?,?,?,?,?,?)", (i["pid"], agora(), "foto no site", "",
+                                                    "foto enviada para a Nuvemshop", quem or "painel"))
+            else:
+                falharam.append(f"{i['nome']}: a loja ainda não mostra a foto (confira no site)")
+        con.commit()
+        return {"gravados": ok, "pulados": pulados, "falharam": falharam[:10], "backup": backup}
+    finally:
+        con.close()
+
+
+def desfazer_fotos(arquivo, quem, progresso):
+    cfg = _exigir_nuvemshop()
+    if arquivo not in {b["arquivo"] for b in listar_backups_fotos()}:
+        raise RuntimeError("Backup não encontrado.")
+    with open(os.path.join(backups_dir(), arquivo), encoding="utf-8-sig", newline="") as f:
+        linhas = list(csv.DictReader(f))
+    feitos, falharam, pulados = 0, [], 0
+    for n, l in enumerate(linhas, 1):
+        progresso(f"Removendo foto {n} de {len(linhas)}…")
+        try:
+            _nuvem(cfg, "DELETE", f"/products/{int(l['produto_site'])}/images/{int(l['imagem_site'])}")
+            feitos += 1
+        except RuntimeError as e:
+            if " 404" in str(e):
+                pulados += 1                      # já não está mais lá
+            else:
+                falharam.append(f"{l['nome']}: {e}")
+        time.sleep(0.6)
+    if not falharam:
+        os.replace(os.path.join(backups_dir(), arquivo), os.path.join(backups_dir(), arquivo[:-4] + ".desfeito.csv"))
+    con = conectar()
+    try:
+        progresso("Relendo a loja…")
+        sync_nuvemshop(con)
+    finally:
+        con.close()
+    return {"gravados": feitos, "pulados": pulados, "falharam": falharam[:10], "backup": None}
 
 
 # ------------------------------------------------------------------- consultas
@@ -1612,6 +1752,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(listar_importacoes(con))
             if u.path == "/api/nuvemshop/previa":
                 return self._json(previa_nuvemshop(con, qs.get("modo", "zerar")))
+            if u.path == "/api/nuvemshop/fotos/previa":
+                return self._json(previa_fotos(con))
+            if u.path == "/api/nuvemshop/fotos/backups":
+                return self._json({"itens": listar_backups_fotos()})
             if u.path == "/api/nuvemshop/backups":
                 return self._json({"itens": listar_backups()})
             if u.path.startswith("/api/foto/"):
@@ -1692,6 +1836,14 @@ class Handler(BaseHTTPRequestHandler):
             if u.path == "/api/nuvemshop/aplicar":
                 d = json.loads(self._corpo() or b"{}")
                 _tarefa(aplicar_nuvemshop, d.get("modo", "zerar"), d.get("vids") or [], (d.get("quem") or "painel")[:40])
+                return self._json({"ok": True})
+            if u.path == "/api/nuvemshop/fotos/aplicar":
+                d = json.loads(self._corpo() or b"{}")
+                _tarefa(aplicar_fotos, d.get("pids") or [], (d.get("quem") or "painel")[:40])
+                return self._json({"ok": True})
+            if u.path == "/api/nuvemshop/fotos/desfazer":
+                d = json.loads(self._corpo() or b"{}")
+                _tarefa(desfazer_fotos, str(d.get("arquivo") or ""), (d.get("quem") or "painel")[:40])
                 return self._json({"ok": True})
             if u.path == "/api/nuvemshop/desfazer":
                 d = json.loads(self._corpo() or b"{}")

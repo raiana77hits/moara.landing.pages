@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- tela-build: 7.1 -->
+<!-- tela-build: 7.2 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -253,6 +253,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
     <a class="btn pri" href="/conferir">Conferir prateleira</a>
     <button id="b-sync" class="pri">Enviar para as lojas</button>
     <button id="b-mov">Notas e vendas</button>
+    <button id="b-foto">Enviar fotos</button>
     <button id="b-imp">Atualizar dados</button>
     <a class="btn" id="b-exp" href="#">Baixar lista (CSV)</a>
   </div>
@@ -302,6 +303,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
       <div class="bloco">
         <h2>Ferramentas</h2>
         <button class="btn-lista" id="b-sync2"><span class="ic">🚚</span>Enviar estoque para a Nuvemshop</button>
+        <button class="btn-lista" id="b-foto2"><span class="ic">📷</span>Enviar fotos para a Nuvemshop</button>
         <button class="btn-lista" id="b-mov2"><span class="ic">🧾</span>Notas e vendas (estoque estimado)</button>
         <button class="btn-lista" id="b-imp2"><span class="ic">🔄</span>Atualizar dados</button>
         <a class="btn-lista" id="b-exp2" href="#"><span class="ic">📄</span>Baixar lista (CSV)</a>
@@ -344,6 +346,11 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 <dialog id="dsync">
   <div class="topo"><h3>Enviar estoque para a Nuvemshop</h3><button id="s-x">Fechar</button></div>
   <div class="corpo imp" id="s-corpo"></div>
+</dialog>
+
+<dialog id="dfoto">
+  <div class="topo"><h3>Enviar fotos para a Nuvemshop</h3><button id="f-x">Fechar</button></div>
+  <div class="corpo imp" id="f-corpo"></div>
 </dialog>
 
 <dialog id="dmov">
@@ -640,7 +647,7 @@ $("#s-x").onclick = () => $("#dsync").close();
 
 /* ------------------------------------------------ enviar estoque para a Nuvemshop */
 let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
-const BUILD = "7.1";
+const BUILD = "7.2";
 const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
 async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
 async function desenharSync(){
@@ -760,6 +767,74 @@ $("#i-nuvem").onclick = async () => {
     }
   }, 1500);
 };
+/* ------------------------------------------------ enviar fotos para a Nuvemshop */
+const fo = {sel:new Set(), ultimo:""};
+$("#b-foto").onclick = () => abrirFotos(); $("#b-foto2").onclick = () => abrirFotos();
+$("#f-x").onclick = () => { $("#dfoto").close(); carregarResumo(); carregar(); };
+async function abrirFotos(){
+  $("#dfoto").showModal(); const c = $("#f-corpo");
+  c.innerHTML = "<p>Calculando…</p>";
+  const r = await api("/api/resumo");
+  if(!r.nuvemshop_configurada){ c.innerHTML = `<section><b>Conecte a Nuvemshop primeiro</b><p>Use o botão “Enviar para as lojas” para colar o token.</p></section>`; return; }
+  let p, bk;
+  try{ [p, bk] = await Promise.all([api("/api/nuvemshop/fotos/previa"), api("/api/nuvemshop/fotos/backups")]); }
+  catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
+  const it = p.itens, lim = p.limite;
+  fo.sel = new Set(it.slice(0, 1).map(i => i.pid));
+  c.innerHTML = `<section><b>Prévia: nada foi enviado ainda</b>
+      <p>${num(p.fotos_tiradas)} fotos tiradas na prateleira · <b>${num(p.para_enviar)}</b> podem subir agora · ${num(p.ja_tem_foto_no_site)} já têm foto no site (não mexo) · ${num(p.fora_do_site)} são de produtos que ainda não estão no site</p>
+      ${p.ambiguas ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.ambiguas)} ficaram de fora: mais de um produto do painel aponta para o mesmo produto do site.<br><small>${p.revisar.map(esc).join(" · ")}</small></p>` : ""}
+      <p>A foto vai como <b>primeira imagem</b> do produto no site. O leitor de “Ler a Nuvemshop” só mostra a foto do site depois de reler.</p>
+      ${it.length ? `<p class="dica-sel"><b>Comece com 1 foto</b> (já vem marcada), confira no admin da loja e depois marque o resto.</p>
+      <div class="sel-barra"><button id="f-um">Só a primeira</button><button id="f-todos">Marcar até ${lim}</button><button id="f-nenhum">Desmarcar</button><span id="f-cont"></span></div>
+      <div class="lista-prev" id="f-lista">${it.map(i => `<label class="pv"><input type="checkbox" data-p="${i.pid}" ${fo.sel.has(i.pid) ? "checked" : ""}><img src="${i.foto}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px"><span><b>${esc(i.nome)}</b>${i.publicado ? "" : ' <span class="pill p-idle">oculto</span>'}<br><small>${esc(i.sku || "sem SKU")}</small></span></label>`).join("")}</div>
+      <button class="pri" id="f-enviar"></button>` : "<p>Nenhuma foto para enviar agora.</p>"}</section>
+    <div id="f-andamento" role="status"></div>
+    <section><b>Desfazer um envio de fotos</b>${bk.itens.length ? bk.itens.slice(0, 5).map(b => `<div class="bk"><span>${data(b.quando)} · ${b.itens} fotos</span><button data-fbk="${esc(b.arquivo)}">Remover essas fotos do site</button></div>`).join("") : "<p>Nenhum envio para desfazer.</p>"}</section>`;
+  if(fo.ultimo) $("#f-andamento").innerHTML = fo.ultimo;
+  c.querySelectorAll("[data-fbk]").forEach(b => b.onclick = () => desfazerFotos(b.dataset.fbk));
+  if(!it.length) return;
+  const atualizar = () => {
+    const n = fo.sel.size, g = $("#f-enviar");
+    $("#f-cont").textContent = `${n} marcada${n === 1 ? "" : "s"}`;
+    g.textContent = `Enviar ${n} foto${n === 1 ? "" : "s"} para a loja`; g.disabled = n === 0 || n > lim;
+    c.querySelectorAll("#f-lista input").forEach(x => x.checked = fo.sel.has(+x.dataset.p));
+  };
+  $("#f-lista").addEventListener("change", e => { const x = e.target.closest("input[data-p]"); if(!x) return; x.checked ? fo.sel.add(+x.dataset.p) : fo.sel.delete(+x.dataset.p); atualizar(); });
+  $("#f-um").onclick = () => { fo.sel = new Set(it.slice(0, 1).map(i => i.pid)); atualizar(); };
+  $("#f-todos").onclick = () => { fo.sel = new Set(it.slice(0, lim).map(i => i.pid)); atualizar(); };
+  $("#f-nenhum").onclick = () => { fo.sel.clear(); atualizar(); };
+  $("#f-enviar").onclick = async () => {
+    const n = fo.sel.size;
+    if(!confirm(`Vou enviar ${n} foto${n === 1 ? "" : "s"} para a Nuvemshop, como primeira imagem de ${n === 1 ? "1 produto" : n + " produtos"} que ainda não têm foto lá. Dá para desfazer depois. Confirmar?`)) return;
+    fo.ultimo = ""; $("#f-enviar").disabled = true;
+    try{
+      await api("/api/nuvemshop/fotos/aplicar", {method:"POST", body:JSON.stringify({pids:[...fo.sel], quem:quemContando()})});
+      acompanharFotos("enviada");
+    }catch(e){ $("#f-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+  };
+  atualizar();
+}
+async function desfazerFotos(arquivo){
+  if(!confirm("Vou remover da loja as fotos que este envio colocou. Confirmar?")) return;
+  fo.ultimo = "";
+  try{
+    await api("/api/nuvemshop/fotos/desfazer", {method:"POST", body:JSON.stringify({arquivo, quem:quemContando()})});
+    acompanharFotos("removida");
+  }catch(e){ $("#f-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+}
+function acompanharFotos(verbo){
+  const iv = setInterval(async () => {
+    const s = await api("/api/tarefa");
+    if(s.rodando){ $("#f-andamento").innerHTML = `<div class="ok-msg">${esc(s.msg)}</div>`; return; }
+    clearInterval(iv);
+    if(s.erro){ $("#f-andamento").innerHTML = `<div class="erro-msg">Não deu certo: ${esc(s.erro)}</div>`; return; }
+    const r = s.resultado || {};
+    fo.ultimo = `<div class="${r.falharam && r.falharam.length ? "erro-msg" : "ok-msg"}"><b>Pronto.</b> ${num(r.gravados)} foto${r.gravados === 1 ? "" : "s"} ${verbo}${r.gravados === 1 ? "" : "s"}${r.pulados ? " · " + num(r.pulados) + " pulada(s) (já tinham foto ou mudaram)" : ""}.${r.backup ? "<br>Backup: " + esc(r.backup) : ""}${r.falharam && r.falharam.length ? "<br>Não deu certo: " + esc(r.falharam.join("; ")) : ""}</div>`;
+    abrirFotos();
+  }, 1500);
+}
+
 /* ------------------------------------------------ notas e vendas (estoque estimado) */
 const mov = {aba:"importar", estado:"pendente", q:"", pagina:1, contados:true, sel:new Set()};
 const ABAS = [["importar","Importar"],["entradas","Itens das notas"],["historico","Importações"]];
