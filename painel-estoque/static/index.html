@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- tela-build: 7.2 -->
+<!-- tela-build: 7.3 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -254,6 +254,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
     <button id="b-sync" class="pri">Enviar para as lojas</button>
     <button id="b-mov">Notas e vendas</button>
     <button id="b-foto">Enviar fotos</button>
+    <button id="b-pub">Publicar no site</button>
     <button id="b-imp">Atualizar dados</button>
     <a class="btn" id="b-exp" href="#">Baixar lista (CSV)</a>
   </div>
@@ -303,6 +304,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
       <div class="bloco">
         <h2>Ferramentas</h2>
         <button class="btn-lista" id="b-sync2"><span class="ic">🚚</span>Enviar estoque para a Nuvemshop</button>
+        <button class="btn-lista" id="b-pub2"><span class="ic">🟢</span>Publicar produtos no site</button>
         <button class="btn-lista" id="b-foto2"><span class="ic">📷</span>Enviar fotos para a Nuvemshop</button>
         <button class="btn-lista" id="b-mov2"><span class="ic">🧾</span>Notas e vendas (estoque estimado)</button>
         <button class="btn-lista" id="b-imp2"><span class="ic">🔄</span>Atualizar dados</button>
@@ -346,6 +348,11 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 <dialog id="dsync">
   <div class="topo"><h3>Enviar estoque para a Nuvemshop</h3><button id="s-x">Fechar</button></div>
   <div class="corpo imp" id="s-corpo"></div>
+</dialog>
+
+<dialog id="dpub">
+  <div class="topo"><h3>Publicar produtos no site</h3><button id="p-x">Fechar</button></div>
+  <div class="corpo imp" id="p-corpo"></div>
 </dialog>
 
 <dialog id="dfoto">
@@ -647,7 +654,7 @@ $("#s-x").onclick = () => $("#dsync").close();
 
 /* ------------------------------------------------ enviar estoque para a Nuvemshop */
 let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
-const BUILD = "7.2";
+const BUILD = "7.3";
 const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
 async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
 async function desenharSync(){
@@ -767,6 +774,81 @@ $("#i-nuvem").onclick = async () => {
     }
   }, 1500);
 };
+/* ------------------------------------------------ publicar produtos no site */
+const pu = {sel:new Set(), ultimo:"", dia:""};
+$("#b-pub").onclick = () => abrirPublicar(); $("#b-pub2").onclick = () => abrirPublicar();
+$("#p-x").onclick = () => { $("#dpub").close(); carregarResumo(); carregar(); };
+const dm = d => d ? d.slice(8, 10) + "/" + d.slice(5, 7) : "";
+async function abrirPublicar(dia){
+  $("#dpub").showModal(); const c = $("#p-corpo");
+  const r = await api("/api/resumo");
+  if(!r.nuvemshop_configurada){ c.innerHTML = `<section><b>Conecte a Nuvemshop primeiro</b><p>Use o botão “Enviar para as lojas”.</p></section>`; return; }
+  let p, bk;
+  try{
+    p = await api("/api/nuvemshop/publicar/previa?dia=" + encodeURIComponent(dia || pu.dia || ""));
+    if(!p.dia && p.dias.length){ p = await api("/api/nuvemshop/publicar/previa?dia=" + p.dias[0].dia); }
+    bk = await api("/api/nuvemshop/publicar/backups");
+  }catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
+  pu.dia = p.dia; const it = p.itens, lim = p.limite;
+  pu.sel = new Set(it.slice(0, lim).map(i => i.pid));
+  const rv = p.revisar, lista = (t, a) => a.length ? `<br><small>${a.map(esc).join(" · ")}${a.length >= 8 ? " · …" : ""}</small>` : "";
+  c.innerHTML = `<section><b>Prévia: nada foi publicado ainda</b>
+    <p>Um produto oculto só aparece para o cliente depois de publicado. Escolha o dia em que foi contado:</p>
+    <select id="p-dia">${p.dias.length ? p.dias.map(d => `<option value="${d.dia}" ${d.dia === p.dia ? "selected" : ""}>Contados em ${dm(d.dia)} · ${d.n} oculto${d.n === 1 ? "" : "s"} no site</option>`).join("") : "<option>Nenhum produto oculto e contado</option>"}</select>
+    ${p.dia ? `<p><b>${num(p.para_publicar)}</b> podem ser publicados (têm estoque contado e foto no site).</p>
+    ${p.sem_estoque ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.sem_estoque)} ficam de fora: contagem zero.${lista("", rv.sem_estoque)}</p>` : ""}
+    ${p.sem_foto ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.sem_foto)} ficam de fora: sem foto no site. Use “Enviar fotos” primeiro.${lista("", rv.sem_foto)}</p>` : ""}
+    ${p.varias_variacoes ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.varias_variacoes)} ficam de fora: têm várias variações. Publique direto na Nuvemshop.${lista("", rv.varias)}</p>` : ""}` : ""}
+    ${it.length ? `<p class="dica-sel"><b>Para o primeiro teste, desmarque tudo e deixe só 1 ou 2.</b> Máximo ${lim} por vez.</p>
+    <div class="sel-barra"><button id="p-todos">Marcar todos</button><button id="p-nenhum">Desmarcar todos</button><span id="p-cont"></span></div>
+    <div class="lista-prev" id="p-lista">${it.map(i => `<label class="pv"><input type="checkbox" data-p="${i.pid}" ${pu.sel.has(i.pid) ? "checked" : ""}><img src="${esc(i.foto)}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px"><span><b>${esc(i.nome)}</b><br><small>estoque ${i.estoque} · ${brl(i.preco) || "sem preço"}</small></span></label>`).join("")}</div>
+    <button class="pri" id="p-pub"></button>` : ""}</section>
+    <div id="p-andamento" role="status"></div>
+    <section><b>Desfazer uma publicação</b>${bk.itens.length ? bk.itens.slice(0, 5).map(b => `<div class="bk"><span>${data(b.quando)} · ${b.itens} produtos</span><button data-pbk="${esc(b.arquivo)}">Ocultar de novo</button></div>`).join("") : "<p>Nenhuma publicação para desfazer.</p>"}</section>`;
+  if(pu.ultimo) $("#p-andamento").innerHTML = pu.ultimo;
+  $("#p-dia").onchange = e => abrirPublicar(e.target.value);
+  c.querySelectorAll("[data-pbk]").forEach(b => b.onclick = () => desfazerPublicar(b.dataset.pbk));
+  if(!it.length) return;
+  const atualizar = () => {
+    const n = pu.sel.size, g = $("#p-pub");
+    $("#p-cont").textContent = `${n} marcado${n === 1 ? "" : "s"}`;
+    g.textContent = `Publicar ${n} produto${n === 1 ? "" : "s"} no site`; g.disabled = n === 0 || n > lim;
+    c.querySelectorAll("#p-lista input").forEach(x => x.checked = pu.sel.has(+x.dataset.p));
+  };
+  $("#p-lista").addEventListener("change", e => { const x = e.target.closest("input[data-p]"); if(!x) return; x.checked ? pu.sel.add(+x.dataset.p) : pu.sel.delete(+x.dataset.p); atualizar(); });
+  $("#p-todos").onclick = () => { pu.sel = new Set(it.slice(0, lim).map(i => i.pid)); atualizar(); };
+  $("#p-nenhum").onclick = () => { pu.sel.clear(); atualizar(); };
+  $("#p-pub").onclick = async () => {
+    const n = pu.sel.size;
+    if(!confirm(`Vou publicar ${n} produto${n === 1 ? "" : "s"} no site. Depois disso os clientes passam a ver ${n === 1 ? "esse produto" : "esses produtos"} na loja. Dá para ocultar de novo. Confirmar?`)) return;
+    pu.ultimo = ""; $("#p-pub").disabled = true;
+    try{
+      await api("/api/nuvemshop/publicar/aplicar", {method:"POST", body:JSON.stringify({dia:pu.dia, pids:[...pu.sel], quem:quemContando()})});
+      acompanharPublicar("publicado");
+    }catch(e){ $("#p-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+  };
+  atualizar();
+}
+async function desfazerPublicar(arquivo){
+  if(!confirm("Vou ocultar de novo no site os produtos que essa publicação abriu. Confirmar?")) return;
+  pu.ultimo = "";
+  try{
+    await api("/api/nuvemshop/publicar/desfazer", {method:"POST", body:JSON.stringify({arquivo, quem:quemContando()})});
+    acompanharPublicar("ocultado");
+  }catch(e){ $("#p-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+}
+function acompanharPublicar(verbo){
+  const iv = setInterval(async () => {
+    const s = await api("/api/tarefa");
+    if(s.rodando){ $("#p-andamento").innerHTML = `<div class="ok-msg">${esc(s.msg)}</div>`; return; }
+    clearInterval(iv);
+    if(s.erro){ $("#p-andamento").innerHTML = `<div class="erro-msg">Não deu certo: ${esc(s.erro)}</div>`; return; }
+    const r = s.resultado || {};
+    pu.ultimo = `<div class="${r.falharam && r.falharam.length ? "erro-msg" : "ok-msg"}"><b>Pronto.</b> ${num(r.gravados)} produto${r.gravados === 1 ? "" : "s"} ${verbo}${r.gravados === 1 ? "" : "s"}${r.pulados ? " · " + num(r.pulados) + " pulado(s) (mudaram desde a prévia)" : ""}.${r.backup ? "<br>Backup: " + esc(r.backup) : ""}${r.falharam && r.falharam.length ? "<br>Não deu certo: " + esc(r.falharam.join("; ")) : ""}</div>`;
+    abrirPublicar(pu.dia);
+  }, 1500);
+}
+
 /* ------------------------------------------------ enviar fotos para a Nuvemshop */
 const fo = {sel:new Set(), ultimo:""};
 $("#b-foto").onclick = () => abrirFotos(); $("#b-foto2").onclick = () => abrirFotos();

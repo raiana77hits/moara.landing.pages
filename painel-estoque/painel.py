@@ -841,6 +841,141 @@ def desfazer_fotos(arquivo, quem, progresso):
     return {"gravados": feitos, "pulados": pulados, "falharam": falharam[:10], "backup": None}
 
 
+# ------------------------------------------------ publicar produtos na Nuvemshop
+
+MAX_PUBLICAR = 60
+
+
+def previa_publicar(con, dia=""):
+    """Produtos ocultos no site que foram contados em um dia. Não altera nada."""
+    base = ("FROM produtos p JOIN canais k ON k.produto_id=p.id AND k.canal='nuvemshop' "
+            "WHERE p.estoque IS NOT NULL AND k.status='Oculto'")
+    dias = [{"dia": r[0], "n": r[1]} for r in con.execute(
+        "SELECT substr(p.conferido_em,1,10) d, COUNT(DISTINCT k.id_externo) " + base +
+        " GROUP BY d ORDER BY d DESC LIMIT 14")]
+    nvar = {r[0]: r[1] for r in con.execute(
+        "SELECT id_externo, COUNT(*) FROM canais WHERE canal='nuvemshop' GROUP BY id_externo")}
+    itens, sem_estoque, sem_foto, varias = [], [], [], []
+    vistos = set()
+    if dia:
+        for r in con.execute(
+                "SELECT p.id pid, p.nome, p.sku, p.estoque, p.preco, p.foto_url, k.id_externo prod_site " + base +
+                " AND substr(p.conferido_em,1,10)=? ORDER BY p.nome", (dia,)):
+            if r["prod_site"] in vistos:
+                continue
+            vistos.add(r["prod_site"])
+            if nvar.get(r["prod_site"], 1) > 1:
+                varias.append(r["nome"])
+            elif r["estoque"] == 0:
+                sem_estoque.append(r["nome"])
+            elif not r["foto_url"]:
+                sem_foto.append(r["nome"])
+            else:
+                itens.append({"pid": r["pid"], "nome": r["nome"], "sku": r["sku"], "estoque": r["estoque"],
+                              "preco": r["preco"], "prod_site": int(r["prod_site"]),
+                              "foto": r["foto_url"]})
+    return {"dia": dia, "dias": dias, "para_publicar": len(itens), "sem_estoque": len(sem_estoque),
+            "sem_foto": len(sem_foto), "varias_variacoes": len(varias),
+            "revisar": {"sem_estoque": sem_estoque[:8], "sem_foto": sem_foto[:8], "varias": varias[:8]},
+            "limite": MAX_PUBLICAR, "itens": itens}
+
+
+def _salvar_backup_publicar(linhas):
+    os.makedirs(backups_dir(), exist_ok=True)
+    nome = f"publicar_{datetime.now():%Y%m%d_%H%M%S}.csv"
+    with open(os.path.join(backups_dir(), nome), "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["produto_site", "sku", "nome"])
+        w.writerows(linhas)
+    return nome
+
+
+def listar_backups_publicar():
+    if not os.path.isdir(backups_dir()):
+        return []
+    saida = []
+    for nome in sorted(os.listdir(backups_dir()), reverse=True):
+        if nome.startswith("publicar_") and nome.endswith(".csv") and not nome.endswith(".desfeito.csv"):
+            caminho = os.path.join(backups_dir(), nome)
+            with open(caminho, encoding="utf-8-sig") as f:
+                qtd = max(0, sum(1 for _ in f) - 1)
+            saida.append({"arquivo": nome, "itens": qtd, "quando": datetime.fromtimestamp(
+                os.path.getmtime(caminho)).strftime("%Y-%m-%d %H:%M")})
+    return saida
+
+
+def _status_site(con, prod_site):
+    r = con.execute("SELECT status FROM canais WHERE canal='nuvemshop' AND id_externo=? LIMIT 1",
+                    (str(prod_site),)).fetchone()
+    return r[0] if r else None
+
+
+def aplicar_publicar(dia, pids, quem, progresso):
+    cfg = _exigir_nuvemshop()
+    quer = {int(p) for p in pids}
+    if not quer:
+        raise RuntimeError("Nada para publicar.")
+    if len(quer) > MAX_PUBLICAR:
+        raise RuntimeError(f"Por segurança, publique no máximo {MAX_PUBLICAR} por vez.")
+    con = conectar()
+    try:
+        progresso("Lendo a loja para conferir o estado atual…")
+        sync_nuvemshop(con)
+        plano = {i["pid"]: i for i in previa_publicar(con, dia)["itens"]}
+        escolhidos = [plano[p] for p in quer if p in plano]
+        pulados = len(quer) - len(escolhidos)
+        feitos, falharam = [], []
+        for n, i in enumerate(sorted(escolhidos, key=lambda x: x["nome"]), 1):
+            progresso(f"Publicando {n} de {len(escolhidos)}: {i['nome'][:40]}")
+            try:
+                _nuvem(cfg, "PUT", f"/products/{i['prod_site']}", {"published": True})
+                feitos.append(i)
+            except Exception as e:  # noqa: BLE001
+                falharam.append(f"{i['nome']}: {e}")
+            time.sleep(0.6)
+        backup = _salvar_backup_publicar([[i["prod_site"], i["sku"] or "", i["nome"]] for i in feitos]) if feitos else None
+        progresso("Conferindo na loja o que foi publicado…")
+        sync_nuvemshop(con)
+        ok = 0
+        for i in feitos:
+            if _status_site(con, i["prod_site"]) == "Publicado":
+                ok += 1
+                con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                            (i["pid"], agora(), "publicado no site", "oculto", "publicado", quem or "painel"))
+            else:
+                falharam.append(f"{i['nome']}: a loja não mostra como publicado")
+        con.commit()
+        return {"gravados": ok, "pulados": pulados, "falharam": falharam[:10], "backup": backup}
+    finally:
+        con.close()
+
+
+def desfazer_publicar(arquivo, quem, progresso):
+    cfg = _exigir_nuvemshop()
+    if arquivo not in {b["arquivo"] for b in listar_backups_publicar()}:
+        raise RuntimeError("Backup não encontrado.")
+    with open(os.path.join(backups_dir(), arquivo), encoding="utf-8-sig", newline="") as f:
+        linhas = list(csv.DictReader(f))
+    feitos, falharam = 0, []
+    for n, l in enumerate(linhas, 1):
+        progresso(f"Ocultando {n} de {len(linhas)}…")
+        try:
+            _nuvem(cfg, "PUT", f"/products/{int(l['produto_site'])}", {"published": False})
+            feitos += 1
+        except RuntimeError as e:
+            falharam.append(f"{l['nome']}: {e}")
+        time.sleep(0.6)
+    if not falharam:
+        os.replace(os.path.join(backups_dir(), arquivo), os.path.join(backups_dir(), arquivo[:-4] + ".desfeito.csv"))
+    con = conectar()
+    try:
+        progresso("Relendo a loja…")
+        sync_nuvemshop(con)
+    finally:
+        con.close()
+    return {"gravados": feitos, "pulados": 0, "falharam": falharam[:10], "backup": None}
+
+
 # ------------------------------------------------------------------- consultas
 
 FILTROS = {
@@ -1752,6 +1887,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(listar_importacoes(con))
             if u.path == "/api/nuvemshop/previa":
                 return self._json(previa_nuvemshop(con, qs.get("modo", "zerar")))
+            if u.path == "/api/nuvemshop/publicar/previa":
+                return self._json(previa_publicar(con, qs.get("dia", "")))
+            if u.path == "/api/nuvemshop/publicar/backups":
+                return self._json({"itens": listar_backups_publicar()})
             if u.path == "/api/nuvemshop/fotos/previa":
                 return self._json(previa_fotos(con))
             if u.path == "/api/nuvemshop/fotos/backups":
@@ -1836,6 +1975,14 @@ class Handler(BaseHTTPRequestHandler):
             if u.path == "/api/nuvemshop/aplicar":
                 d = json.loads(self._corpo() or b"{}")
                 _tarefa(aplicar_nuvemshop, d.get("modo", "zerar"), d.get("vids") or [], (d.get("quem") or "painel")[:40])
+                return self._json({"ok": True})
+            if u.path == "/api/nuvemshop/publicar/aplicar":
+                d = json.loads(self._corpo() or b"{}")
+                _tarefa(aplicar_publicar, str(d.get("dia") or ""), d.get("pids") or [], (d.get("quem") or "painel")[:40])
+                return self._json({"ok": True})
+            if u.path == "/api/nuvemshop/publicar/desfazer":
+                d = json.loads(self._corpo() or b"{}")
+                _tarefa(desfazer_publicar, str(d.get("arquivo") or ""), (d.get("quem") or "painel")[:40])
                 return self._json({"ok": True})
             if u.path == "/api/nuvemshop/fotos/aplicar":
                 d = json.loads(self._corpo() or b"{}")
