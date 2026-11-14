@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- tela-build: 7.4 -->
+<!-- tela-build: 7.5 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -661,7 +661,7 @@ $("#s-x").onclick = () => $("#dsync").close();
 
 /* ------------------------------------------------ enviar estoque para a Nuvemshop */
 let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
-const BUILD = "7.4";
+const BUILD = "7.5";
 const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
 async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
 async function desenharSync(){
@@ -789,51 +789,53 @@ async function abrirCadastrar(){
   $("#dcad").showModal(); const c = $("#c-corpo");
   const r = await api("/api/resumo");
   if(!r.nuvemshop_configurada){ c.innerHTML = `<section><b>Conecte a Nuvemshop primeiro</b><p>Use o botão “Enviar para as lojas”.</p></section>`; return; }
-  c.innerHTML = "<p>Lendo as categorias da loja…</p>";
-  let m, p, bk;
-  try{ [m, p, bk] = await Promise.all([api("/api/nuvemshop/categorias"), api("/api/nuvemshop/cadastrar/previa"), api("/api/nuvemshop/cadastrar/backups")]); }
+  c.innerHTML = "<p>Lendo os produtos novos e as categorias da loja…</p>";
+  let p, bk;
+  try{ [p, bk] = await Promise.all([api("/api/nuvemshop/cadastrar/previa"), api("/api/nuvemshop/cadastrar/backups")]); }
   catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
-  const it = p.itens, lim = p.limite, f = p.faltas;
-  ca.sel = new Set(it.slice(0, 1).map(i => i.pid));
-  const aviso = (t, k) => f[k] ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(f[k].n)} ficam de fora: ${t}<br><small>${f[k].nomes.map(esc).join(" · ")}${f[k].n > 8 ? " · …" : ""}</small></p>` : "";
-  c.innerHTML = `<section><b>1. Categorias da loja</b>
-    ${m.erro ? `<div class="erro-msg">${esc(m.erro)}<br>Se for permissão, libere “Categorias” no aplicativo da Nuvemshop e tente de novo.</div>` : ""}
-    <p>Ligue cada grupo do Gestor Z (dos produtos novos) a uma categoria da loja. Isso fica guardado e só precisa ser feito uma vez por grupo.</p>
-    ${m.grupos.length ? m.grupos.map(g => `<div class="linha" style="display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap"><span style="min-width:150px"><b>${esc(g.grupo || "(sem grupo)")}</b> <small>${g.n} produto${g.n === 1 ? "" : "s"}</small></span>
-      <select data-g="${esc(g.grupo)}" ${m.categorias ? "" : "disabled"}><option value="">— escolher categoria —</option>${(m.categorias || []).map(k => `<option value="${esc(k.id)}" ${m.mapa[g.grupo] && m.mapa[g.grupo].id === k.id ? "selected" : ""}>${esc(k.nome)}</option>`).join("")}</select></div>`).join("") : "<p>Nenhum produto novo esperando cadastro.</p>"}</section>
-    <section><b>2. Prévia: nada foi criado ainda</b>
-    <p><b>${num(p.para_criar)}</b> podem ser criados agora. Eles nascem <b>ocultos</b>, com nome, preço, código de barras, estoque contado, categoria e foto. Para aparecer na loja, use “Publicar no site” depois.</p>
-    ${aviso("sem preço. Ajuste o preço do produto no painel.", "sem_preco")}${aviso("sem estoque contado.", "sem_contagem")}${aviso("grupo ainda sem categoria (passo 1).", "sem_categoria")}${aviso("código de barras inválido.", "sem_codigo")}
-    ${it.length ? `<p class="dica-sel"><b>Comece com 1 produto</b> (já vem marcado) e confira no admin da loja. Máximo ${lim} por vez.</p>
-    <div class="sel-barra"><button id="c-um">Só o primeiro</button><button id="c-todos">Marcar até ${lim}</button><button id="c-nenhum">Desmarcar</button><span id="c-cont"></span></div>
-    <div class="lista-prev" id="c-lista">${it.map(i => `<label class="pv"><input type="checkbox" data-p="${i.pid}" ${ca.sel.has(i.pid) ? "checked" : ""}>${i.foto ? `<img src="${i.foto}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px">` : '<span class="pill p-idle">sem foto</span>'}<span><b>${esc(i.nome)}</b><br><small>${brl(i.preco)} · estoque ${i.estoque} · ${esc(i.categoria || "")}</small></span></label>`).join("")}</div>
-    <button class="pri" id="c-criar"></button>` : ""}</section>
+  const it = p.itens, lim = p.limite, cats = p.categorias || [];
+  ca.cat = {}; it.forEach(i => ca.cat[i.pid] = i.categoria_id || "");
+  ca.sel = new Set(it.slice(0, lim).map(i => i.pid));
+  const opcoes = id => `<option value="">— sem categoria —</option>` + cats.map(k => `<option value="${esc(k.id)}" ${k.id === id ? "selected" : ""}>${esc(k.nome)}</option>`).join("");
+  c.innerHTML = `<section><b>Produtos novos para cadastrar no site</b>
+    <p>Estes são os produtos que cadastramos no painel e ainda não existem na Nuvemshop. Eles são criados <b>ocultos</b> (o cliente não vê), do jeito que estão. Depois a gente confere e publica.</p>
+    ${p.erro_categorias ? `<div class="erro-msg">Não consegui ler as categorias da loja: ${esc(p.erro_categorias)}<br>Os produtos serão criados sem categoria. Se for permissão, libere “Categorias” no aplicativo da Nuvemshop.</div>` : ""}
+    ${it.length ? `<div class="sel-barra"><button id="c-todos">Marcar todos</button><button id="c-nenhum">Desmarcar todos</button><span id="c-cont"></span></div>
+    <div class="lista-prev" id="c-lista" style="max-height:55vh">${it.map(i => `<div class="pv" style="flex-direction:column;align-items:stretch;gap:6px;border-bottom:1px solid var(--line);padding:10px 4px">
+      <label style="display:flex;gap:10px;align-items:center"><input type="checkbox" data-p="${i.pid}" ${ca.sel.has(i.pid) ? "checked" : ""}>${i.foto ? `<img src="${i.foto}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px">` : '<span class="pill p-idle">sem foto</span>'}<span><b>${esc(i.nome)}</b><br><small>${i.preco ? brl(i.preco) : "sem preço"} · estoque ${i.estoque ?? "—"} · ${esc(i.ean || "sem código")}</small></span></label>
+      <select data-c="${i.pid}" data-g="${esc(i.grupo || "")}" ${cats.length ? "" : "disabled"}>${opcoes(i.categoria_id || "")}</select>
+      ${i.faltas.length ? `<small style="color:var(--warn)">Falta: ${i.faltas.join(", ")}</small>` : ""}</div>`).join("")}</div>
+    <p style="color:var(--muted);font-size:13px">Dica: ao trocar a categoria de um produto, os outros do mesmo grupo  que ainda estão sem categoria passam a usar a mesma.</p>
+    <button class="pri" id="c-criar"></button>` : "<p>Nenhum produto novo esperando cadastro.</p>"}</section>
     <div id="c-andamento" role="status"></div>
     <section><b>Desfazer um cadastro</b><p>Só apaga da loja produtos que continuam ocultos.</p>${bk.itens.length ? bk.itens.slice(0, 5).map(b => `<div class="bk"><span>${data(b.quando)} · ${b.itens} produtos</span><button data-cbk="${esc(b.arquivo)}">Apagar esses produtos da loja</button></div>`).join("") : "<p>Nenhum cadastro para desfazer.</p>"}</section>`;
   if(ca.ultimo) $("#c-andamento").innerHTML = ca.ultimo;
-  c.querySelectorAll("select[data-g]").forEach(sl => sl.onchange = async () => {
-    const o = sl.options[sl.selectedIndex];
-    await api("/api/nuvemshop/categorias/mapa", {method:"POST", body:JSON.stringify({grupo:sl.dataset.g, categoria_id:sl.value, categoria_nome:sl.value ? o.textContent : ""})});
-    abrirCadastrar();
-  });
   c.querySelectorAll("[data-cbk]").forEach(b => b.onclick = () => desfazerCadastrar(b.dataset.cbk));
   if(!it.length) return;
   const atualizar = () => {
     const n = ca.sel.size, g = $("#c-criar");
     $("#c-cont").textContent = `${n} marcado${n === 1 ? "" : "s"}`;
     g.textContent = `Criar ${n} produto${n === 1 ? "" : "s"} na loja (ocultos)`; g.disabled = n === 0 || n > lim;
-    c.querySelectorAll("#c-lista input").forEach(x => x.checked = ca.sel.has(+x.dataset.p));
   };
-  $("#c-lista").addEventListener("change", e => { const x = e.target.closest("input[data-p]"); if(!x) return; x.checked ? ca.sel.add(+x.dataset.p) : ca.sel.delete(+x.dataset.p); atualizar(); });
-  $("#c-um").onclick = () => { ca.sel = new Set(it.slice(0, 1).map(i => i.pid)); atualizar(); };
-  $("#c-todos").onclick = () => { ca.sel = new Set(it.slice(0, lim).map(i => i.pid)); atualizar(); };
-  $("#c-nenhum").onclick = () => { ca.sel.clear(); atualizar(); };
+  $("#c-lista").addEventListener("change", async e => {
+    const x = e.target.closest("input[data-p]");
+    if(x){ x.checked ? ca.sel.add(+x.dataset.p) : ca.sel.delete(+x.dataset.p); atualizar(); return; }
+    const sl = e.target.closest("select[data-c]"); if(!sl) return;
+    ca.cat[sl.dataset.c] = sl.value;
+    if(sl.dataset.g){                              // o mesmo grupo passa a valer para os outros sem categoria
+      const o = sl.options[sl.selectedIndex];
+      await api("/api/nuvemshop/categorias/mapa", {method:"POST", body:JSON.stringify({grupo:sl.dataset.g, categoria_id:sl.value, categoria_nome:sl.value ? o.textContent : ""})});
+      c.querySelectorAll(`select[data-g="${CSS.escape(sl.dataset.g)}"]`).forEach(o2 => { if(o2 !== sl && !ca.cat[o2.dataset.c]){ o2.value = sl.value; ca.cat[o2.dataset.c] = sl.value; } });
+    }
+  });
+  $("#c-todos").onclick = () => { ca.sel = new Set(it.slice(0, lim).map(i => i.pid)); c.querySelectorAll("#c-lista input[data-p]").forEach(x => x.checked = ca.sel.has(+x.dataset.p)); atualizar(); };
+  $("#c-nenhum").onclick = () => { ca.sel.clear(); c.querySelectorAll("#c-lista input[data-p]").forEach(x => x.checked = false); atualizar(); };
   $("#c-criar").onclick = async () => {
     const n = ca.sel.size;
     if(!confirm(`Vou criar ${n} produto${n === 1 ? "" : "s"} novo${n === 1 ? "" : "s"} na Nuvemshop, ocultos (os clientes não veem). Dá para apagar depois. Confirmar?`)) return;
     ca.ultimo = ""; $("#c-criar").disabled = true;
     try{
-      await api("/api/nuvemshop/cadastrar/aplicar", {method:"POST", body:JSON.stringify({pids:[...ca.sel], quem:quemContando()})});
+      await api("/api/nuvemshop/cadastrar/aplicar", {method:"POST", body:JSON.stringify({itens:[...ca.sel].map(pid => ({pid, categoria_id:ca.cat[pid] || ""})), quem:quemContando()})});
       acompanharCadastrar("criado");
     }catch(e){ $("#c-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
   };
@@ -881,6 +883,7 @@ async function abrirPublicar(dia){
     <p>Um produto oculto só aparece para o cliente depois de publicado. Escolha o dia em que foi contado:</p>
     <select id="p-dia">${p.dias.length ? p.dias.map(d => `<option value="${d.dia}" ${d.dia === p.dia ? "selected" : ""}>Contados em ${dm(d.dia)} · ${d.n} oculto${d.n === 1 ? "" : "s"} no site</option>`).join("") : "<option>Nenhum produto oculto e contado</option>"}</select>
     ${p.dia ? `<p><b>${num(p.para_publicar)}</b> podem ser publicados (têm estoque contado e foto no site).</p>
+    ${p.sem_preco ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.sem_preco)} ficam de fora: sem preço. Ajuste o preço antes de publicar.${lista("", rv.sem_preco)}</p>` : ""}
     ${p.sem_estoque ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.sem_estoque)} ficam de fora: contagem zero.${lista("", rv.sem_estoque)}</p>` : ""}
     ${p.sem_foto ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.sem_foto)} ficam de fora: sem foto no site. Use “Enviar fotos” primeiro.${lista("", rv.sem_foto)}</p>` : ""}
     ${p.varias_variacoes ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.varias_variacoes)} ficam de fora: têm várias variações. Publique direto na Nuvemshop.${lista("", rv.varias)}</p>` : ""}` : ""}
