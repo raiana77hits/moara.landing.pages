@@ -388,7 +388,7 @@ $("#f-cod").addEventListener("submit", e => { e.preventDefault(); buscar($("#cod
 async function ultimas(){
   try{
     const r = await api("/api/conferidos");
-    if(r.servidor !== "6") status("⚠️ O painel no computador está desatualizado. Feche a janela preta do painel e abra o iniciar.bat de novo.", "aviso");
+    if(r.servidor !== "7") status("⚠️ O painel no computador está desatualizado. Feche a janela preta do painel e abra o iniciar.bat de novo.", "aviso");
     $("#tot").textContent = "· " + r.total + (r.total === 1 ? " produto já conferido" : " produtos já conferidos");
     $("#ultimas").innerHTML = r.itens.length ? r.itens.map(h =>
       `<li><b>${esc(h.para || "—")}</b><span>${esc(h.nome)}</span><small>${hora(h.quando)}${h.origem && h.origem !== "painel" ? " · " + esc(h.origem) : ""}</small></li>`).join("")

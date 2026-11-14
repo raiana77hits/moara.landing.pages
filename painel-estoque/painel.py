@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# versao-do-painel: 6
+# versao-do-painel: 7
 """Painel de Estoque - cadastro central (Casa de Embalagens Cangaíba).
 
 Roda só neste computador (127.0.0.1). Usa apenas a biblioteca padrão do Python.
@@ -16,16 +16,20 @@ config.json) e PAINEL_HOST=0.0.0.0. Sem senha o painel só responde neste comput
 
 Este programa NÃO altera nada na Nuvemshop, no iFood, na 99Food nem no Gestor Z.
 """
+import collections
 import csv
+import difflib
 import hashlib
 import hmac
 import io
 import json
 import os
+import re
 import secrets
 import sqlite3
 import sys
 import threading
+import unicodedata
 import time
 import urllib.error
 import urllib.request
@@ -42,7 +46,7 @@ STATIC = os.path.join(BASE, "static")
 PORTA = int(os.environ.get("PAINEL_PORTA") or os.environ.get("PORT") or "8765")
 HOST = os.environ.get("PAINEL_HOST", "127.0.0.1")
 SESSAO_DIAS = 30
-VERSAO_SERVIDOR = "6"      # a tela compara com este número para detectar janela antiga aberta
+VERSAO_SERVIDOR = "7"      # a tela compara com este número para detectar janela antiga aberta
 
 CANAIS = ("nuvemshop", "ifood", "99food")
 
@@ -69,7 +73,9 @@ CREATE TABLE IF NOT EXISTS produtos (
     ultima_compra TEXT,
     obs TEXT,
     foto_url TEXT,           -- foto do produto no site (Nuvemshop)
-    atualizado_em TEXT
+    atualizado_em TEXT,
+    estimado REAL,           -- estoque estimado = contagem + entradas - vendas (calculado)
+    est_aviso TEXT           -- 'peso' = vende por KG, não estimamos
 );
 CREATE INDEX IF NOT EXISTS ix_prod_sku ON produtos(sku);
 CREATE INDEX IF NOT EXISTS ix_prod_gz ON produtos(gz_codigo);
@@ -110,6 +116,48 @@ CREATE TABLE IF NOT EXISTS fotos (
     quem TEXT
 );
 
+-- importações de vendas e de notas (para conferir e poder remover)
+CREATE TABLE IF NOT EXISTS importacoes (
+    id INTEGER PRIMARY KEY,
+    tipo TEXT NOT NULL,      -- vendas | notas
+    inicio TEXT, fim TEXT,
+    arquivo TEXT,
+    linhas INTEGER, novas INTEGER,
+    quando TEXT NOT NULL, quem TEXT
+);
+
+-- vendas do caixa (Gestor Z), um período por importação
+CREATE TABLE IF NOT EXISTS vendas_gz (
+    id INTEGER PRIMARY KEY,
+    imp_id INTEGER NOT NULL,
+    inicio TEXT NOT NULL, fim TEXT NOT NULL,
+    gz_codigo TEXT NOT NULL,
+    nome TEXT, qtd REAL, unidade TEXT, valor REAL
+);
+CREATE INDEX IF NOT EXISTS ix_vgz_cod ON vendas_gz(gz_codigo);
+CREATE INDEX IF NOT EXISTS ix_vgz_imp ON vendas_gz(imp_id);
+
+-- itens das notas fiscais de entrada (fornecedores)
+CREATE TABLE IF NOT EXISTS notas_itens (
+    id INTEGER PRIMARY KEY,
+    chave TEXT UNIQUE NOT NULL,
+    imp_id INTEGER,
+    emissao TEXT, fornecedor TEXT, cnpj TEXT, nota TEXT, serie TEXT,
+    cod_fornecedor TEXT, descricao TEXT, un TEXT, quantidade REAL,
+    cfop TEXT, ncm TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_ni_item ON notas_itens(cnpj, cod_fornecedor);
+
+-- ligação item do fornecedor -> produto, com unidades por caixa/pacote
+CREATE TABLE IF NOT EXISTS de_para (
+    cnpj TEXT NOT NULL, cod_fornecedor TEXT NOT NULL,
+    produto_id INTEGER,
+    fator REAL,
+    estado TEXT NOT NULL,    -- confirmado | ignorar
+    quem TEXT, quando TEXT,
+    PRIMARY KEY (cnpj, cod_fornecedor)
+);
+
 -- códigos bipados na prateleira que não existem no cadastro
 CREATE TABLE IF NOT EXISTS leituras_sem_cadastro (
     id INTEGER PRIMARY KEY,
@@ -137,6 +185,9 @@ def conectar():
     colunas = {r["name"] for r in con.execute("PRAGMA table_info(produtos)")}
     if "foto_url" not in colunas:          # banco criado por uma versão anterior
         con.execute("ALTER TABLE produtos ADD COLUMN foto_url TEXT")
+    for col, tipo in (("estimado", "REAL"), ("est_aviso", "TEXT")):
+        if col not in colunas:
+            con.execute(f"ALTER TABLE produtos ADD COLUMN {col} {tipo}")
         con.commit()
     return con
 
@@ -272,6 +323,7 @@ def importar_painel(con, origem):
                     (pid, canal, status, estoque, vend, agora()))
     set_meta(con, "painel_importado_em", agora())
     con.commit()
+    recalcular(con)
     return {"lidos": len(linhas), "casados": casados, "criados": criados}
 
 
@@ -668,6 +720,9 @@ FILTROS = {
     "foto_tirada": "EXISTS (SELECT 1 FROM fotos f WHERE f.produto_id=p.id)",
     "cadastro_manual": "p.origem = 'manual'",
 }
+FILTROS["est_negativo"] = "p.estimado IS NOT NULL AND p.estimado < 0"
+FILTROS["est_baixo"] = "p.estimado IS NOT NULL AND p.estimado >= 0 AND p.estimado <= 3"
+FILTROS["tem_estimado"] = "p.estimado IS NOT NULL"
 for _c in CANAIS:
     FILTROS["no_" + _c] = f"EXISTS (SELECT 1 FROM canais c WHERE c.produto_id=p.id AND c.canal='{_c}')"
     FILTROS["fora_" + _c] = (f"NOT EXISTS (SELECT 1 FROM canais c WHERE c.produto_id=p.id "
@@ -738,6 +793,14 @@ def resumo(con):
              "ORDER BY COUNT(*) DESC, grupo")],
          "meta": {x["chave"]: x["valor"] for x in con.execute("SELECT * FROM meta")},
          "fotos_tiradas": um("SELECT COUNT(*) FROM fotos"),
+         "importacoes": {"vendas": um("SELECT COUNT(*) FROM importacoes WHERE tipo='vendas'"),
+                         "notas": um("SELECT COUNT(*) FROM importacoes WHERE tipo='notas'"),
+                         "entradas_pendentes": um(
+                             "SELECT COUNT(*) FROM (SELECT 1 FROM notas_itens n LEFT JOIN de_para d "
+                             "ON d.cnpj=n.cnpj AND d.cod_fornecedor=n.cod_fornecedor "
+                             "WHERE d.estado IS NULL GROUP BY n.cnpj, n.cod_fornecedor)"),
+                         "ultima_venda": (con.execute("SELECT MAX(fim) FROM importacoes "
+                                                      "WHERE tipo='vendas'").fetchone()[0])},
          "servidor": VERSAO_SERVIDOR,
          "pasta": BASE,
          "nuvemshop_configurada": bool(carregar_config()["token"])}
@@ -751,6 +814,7 @@ def detalhe(con, pid):
     d = dict(p)
     d["canais"] = _canais_de(con, [pid])[pid]
     _anexar_fotos(con, [d])
+    d["movimento"] = movimento_produto(con, pid)
     d["historico"] = [dict(h) for h in con.execute(
         "SELECT * FROM historico WHERE produto_id=? ORDER BY id DESC LIMIT 50", (pid,))]
     return d
@@ -785,7 +849,345 @@ def alterar(con, pid, dados):
             con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) "
                         "VALUES(?,?,?,?,?,?)", (pid, agora(), "obs", p["obs"] or "", obs, quem))
     con.commit()
+    recalcular(con, [pid])
     return detalhe(con, pid)
+
+
+# ------------------------------------------------- vendas, notas e estoque estimado
+
+def _sem_acento(t):
+    t = unicodedata.normalize("NFD", str(t or ""))
+    return "".join(c for c in t if unicodedata.category(c) != "Mn")
+
+
+def _cab(t):
+    return re.sub(r"[^A-Z0-9]+", " ", _sem_acento(t).upper()).strip()
+
+
+def num_br(t):
+    """Número de planilha brasileira ou americana: 1.234,56 | 1234,56 | 1234.56."""
+    t = str(t or "").strip().replace("R$", "").replace(" ", "")
+    if not t:
+        return 0.0
+    if "," in t and "." in t:
+        if t.rfind(",") > t.rfind("."):
+            t = t.replace(".", "").replace(",", ".")
+        else:
+            t = t.replace(",", "")
+    elif "," in t:
+        t = t.replace(",", ".")
+    return float(t)
+
+
+def _ler_csv(raw):
+    texto = raw.decode("utf-8-sig", errors="replace") if isinstance(raw, bytes) else raw
+    primeira = texto.split("\n", 1)[0]
+    delim = ";" if primeira.count(";") > primeira.count(",") else ","
+    leitor = csv.reader(io.StringIO(texto), delimiter=delim)
+    linhas = [l for l in leitor if any(c.strip() for c in l)]
+    if len(linhas) < 2:
+        raise ValueError("O arquivo está vazio ou sem a linha de títulos.")
+    return [_cab(c) for c in linhas[0]], linhas[1:]
+
+
+def _data(t):
+    t = str(t or "").strip()
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d/%m/%y", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return datetime.strptime(t[:19] if "%H" in fmt else t[:10], fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    raise ValueError(f"Data inválida: {t!r}. Use dia/mês/ano.")
+
+
+def _col(cab, *opcoes, exato=False):
+    for o in opcoes:
+        for i, c in enumerate(cab):
+            if c == o or (not exato and c.startswith(o)):
+                return i
+    return None
+
+
+def importar_vendas(con, raw, inicio, fim, arquivo="", quem="painel"):
+    """Vendas do caixa (Gestor Z) de um período. Períodos não podem se sobrepor,
+    senão a mesma venda seria descontada duas vezes; o mesmo período é substituído."""
+    inicio, fim = _data(inicio), _data(fim)
+    if fim < inicio:
+        raise ValueError("A data final é antes da inicial.")
+    cab, linhas = _ler_csv(raw)
+    ic = _col(cab, "CODIGO INTERNO", "CODIGO", "COD")
+    inm = _col(cab, "NOME DO ITEM", "NOME", "DESCRICAO", "PRODUTO")
+    iq = _col(cab, "QTDE VENDA", "QUANTIDADE VENDA", "QTD VENDA", exato=True)
+    iu = _col(cab, "UND VENDA", "UNIDADE", "UND")
+    iv = _col(cab, "VALOR VENDA TOTAL", "VALOR")
+    if ic is None or iq is None:
+        raise ValueError("Não achei as colunas CÓDIGO INTERNO e QTDE VENDA. "
+                         "É o relatório de vendas por item do Gestor Z?")
+    for r in con.execute("SELECT * FROM importacoes WHERE tipo='vendas'"):
+        if (r["inicio"], r["fim"]) == (inicio, fim):
+            _remover_importacao(con, r["id"])
+        elif not (fim < r["inicio"] or inicio > r["fim"]):
+            raise ValueError(
+                f"Esse período se sobrepõe a vendas já importadas ({r['inicio']} a {r['fim']}). "
+                "Remova a importação antiga na lista abaixo ou use datas que não se cruzem.")
+    cur = con.execute("INSERT INTO importacoes(tipo,inicio,fim,arquivo,quando,quem) "
+                      "VALUES('vendas',?,?,?,?,?)", (inicio, fim, arquivo[:120], agora(), quem))
+    imp = cur.lastrowid
+    n = 0
+    for l in linhas:
+        if len(l) <= max(ic, iq):
+            continue
+        cod = l[ic].strip()
+        if not cod:
+            continue
+        try:
+            qtd = num_br(l[iq])
+            valor = num_br(l[iv]) if iv is not None and len(l) > iv else 0.0
+        except ValueError:
+            continue
+        con.execute("INSERT INTO vendas_gz(imp_id,inicio,fim,gz_codigo,nome,qtd,unidade,valor) "
+                    "VALUES(?,?,?,?,?,?,?,?)",
+                    (imp, inicio, fim, cod, l[inm].strip() if inm is not None else "", qtd,
+                     (l[iu].strip().upper() if iu is not None and len(l) > iu else ""), valor))
+        n += 1
+    con.execute("UPDATE importacoes SET linhas=?, novas=? WHERE id=?", (n, n, imp))
+    con.commit()
+    recalcular(con)
+    return {"ok": True, "linhas": n, "inicio": inicio, "fim": fim}
+
+
+NOTA_COLS = {"emissao": ("EMISSAO", "DATA"), "fornecedor": ("FORNECEDOR", "EMITENTE"),
+             "cnpj": ("CNPJ",), "nota": ("NOTA", "NUMERO"), "serie": ("SERIE",),
+             "cod": ("COD FORNECEDOR", "CODIGO FORNECEDOR", "COD"), "descricao": ("DESCRICAO", "PRODUTO"),
+             "un": ("UN", "UNIDADE"), "quantidade": ("QUANTIDADE", "QTD", "QTDE"),
+             "cfop": ("CFOP",), "ncm": ("NCM",)}
+
+
+def importar_notas(con, raw, arquivo="", quem="painel"):
+    """Itens das notas de entrada. Reimportar o mesmo arquivo não duplica nada."""
+    cab, linhas = _ler_csv(raw)
+    ix = {k: _col(cab, *v, exato=True) for k, v in NOTA_COLS.items()}
+    if None in (ix["emissao"], ix["cnpj"], ix["nota"], ix["cod"], ix["quantidade"]):
+        raise ValueError("Não achei as colunas emissao, cnpj, nota, cod_fornecedor e quantidade. "
+                         "É o arquivo de itens das notas de entrada?")
+    cur = con.execute("INSERT INTO importacoes(tipo,arquivo,quando,quem) VALUES('notas',?,?,?)",
+                      (arquivo[:120], agora(), quem))
+    imp = cur.lastrowid
+    vistos = collections.Counter()
+    novas = total = 0
+    datas = []
+    for l in linhas:
+        g = lambda k: (l[ix[k]].strip() if ix[k] is not None and len(l) > ix[k] else "")
+        try:
+            emissao, qtd = _data(g("emissao")), num_br(g("quantidade"))
+        except ValueError:
+            continue
+        cnpj = re.sub(r"\D", "", g("cnpj")) or g("fornecedor")[:30]
+        base = "|".join([cnpj, g("nota"), g("serie"), g("cod"), g("descricao"), g("un"), repr(qtd)])
+        vistos[base] += 1                       # mesma linha repetida na mesma nota conta de novo
+        chave = hashlib.sha1(f"{base}|{vistos[base]}".encode()).hexdigest()
+        total += 1
+        datas.append(emissao)
+        c = con.execute(
+            "INSERT OR IGNORE INTO notas_itens(chave,imp_id,emissao,fornecedor,cnpj,nota,serie,"
+            "cod_fornecedor,descricao,un,quantidade,cfop,ncm) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (chave, imp, emissao, g("fornecedor"), cnpj, g("nota"), g("serie"), g("cod"),
+             g("descricao"), g("un"), qtd, g("cfop"), g("ncm")))
+        novas += c.rowcount
+    con.execute("UPDATE importacoes SET linhas=?, novas=?, inicio=?, fim=? WHERE id=?",
+                (total, novas, min(datas) if datas else None, max(datas) if datas else None, imp))
+    if novas == 0:                          # nada de novo: não deixa registro vazio na lista
+        con.execute("DELETE FROM importacoes WHERE id=?", (imp,))
+    con.commit()
+    recalcular(con)
+    return {"ok": True, "linhas": total, "novas": novas, "repetidas": total - novas}
+
+
+def _remover_importacao(con, imp_id):
+    con.execute("DELETE FROM vendas_gz WHERE imp_id=?", (imp_id,))
+    con.execute("DELETE FROM notas_itens WHERE imp_id=?", (imp_id,))
+    con.execute("DELETE FROM importacoes WHERE id=?", (imp_id,))
+
+
+def remover_importacao(con, imp_id):
+    _remover_importacao(con, int(imp_id))
+    con.commit()
+    recalcular(con)
+    return {"ok": True}
+
+
+def listar_importacoes(con):
+    return {"itens": [dict(r) for r in con.execute(
+        "SELECT * FROM importacoes ORDER BY id DESC LIMIT 60")]}
+
+
+def _fator_sugerido(un):
+    m = re.search(r"(\d+)", str(un or ""))
+    v = int(m.group(1)) if m else 1
+    return v if v > 0 else 1
+
+
+def recalcular(con, ids=None):
+    """estimado = contagem + entradas (notas depois da contagem x unidades por caixa)
+    - vendas (períodos que começam depois da contagem). Só para quem tem contagem."""
+    where, args = "", []
+    if ids is not None:
+        ids = list(ids)
+        if not ids:
+            return
+        where = " AND p.id IN (%s)" % ",".join("?" * len(ids))
+        args = ids
+    prods = con.execute("SELECT p.id, p.estoque, p.conferido_em, p.gz_codigo FROM produtos p "
+                        "WHERE 1=1" + where, args).fetchall()
+    ent = {}
+    for r in con.execute(
+            "SELECT d.produto_id AS pid, n.emissao AS em, SUM(n.quantidade*d.fator) AS q "
+            "FROM notas_itens n JOIN de_para d ON d.cnpj=n.cnpj AND d.cod_fornecedor=n.cod_fornecedor "
+            "WHERE d.estado='confirmado' AND d.produto_id IS NOT NULL GROUP BY d.produto_id, n.emissao"):
+        ent.setdefault(r["pid"], []).append((r["em"], r["q"] or 0))
+    ven = {}
+    for r in con.execute("SELECT gz_codigo, inicio, unidade, SUM(qtd) AS q FROM vendas_gz "
+                         "GROUP BY gz_codigo, inicio, unidade"):
+        ven.setdefault(r["gz_codigo"], []).append((r["inicio"], r["unidade"], r["q"] or 0))
+    for p in prods:
+        est, aviso = None, None
+        if p["estoque"] is not None and p["conferido_em"]:
+            dia = p["conferido_em"][:10]
+            e = sum(q for em, q in ent.get(p["id"], []) if em > dia)
+            v = 0.0
+            for ini, un, q in ven.get(str(p["gz_codigo"] or ""), []):
+                if ini > dia:
+                    if un == "KG":
+                        aviso = "peso"
+                    v += q
+            if aviso != "peso":
+                est = round(p["estoque"] + e - v, 2)
+        con.execute("UPDATE produtos SET estimado=?, est_aviso=? WHERE id=?", (est, aviso, p["id"]))
+    con.commit()
+
+
+def movimento_produto(con, pid):
+    """O que entrou e saiu desde a contagem, para mostrar na ficha do produto."""
+    p = con.execute("SELECT estoque, conferido_em, gz_codigo FROM produtos WHERE id=?",
+                    (pid,)).fetchone()
+    if not p or p["estoque"] is None or not p["conferido_em"]:
+        return None
+    dia = p["conferido_em"][:10]
+    entradas = [dict(r) for r in con.execute(
+        "SELECT n.emissao, n.fornecedor, n.nota, n.quantidade, n.un, d.fator, "
+        "n.quantidade*d.fator AS unidades FROM notas_itens n JOIN de_para d "
+        "ON d.cnpj=n.cnpj AND d.cod_fornecedor=n.cod_fornecedor "
+        "WHERE d.estado='confirmado' AND d.produto_id=? AND n.emissao>? ORDER BY n.emissao DESC",
+        (pid, dia))]
+    vendas = [dict(r) for r in con.execute(
+        "SELECT inicio, fim, qtd, unidade FROM vendas_gz WHERE gz_codigo=? AND inicio>? "
+        "ORDER BY inicio DESC", (str(p["gz_codigo"] or ""), dia))]
+    return {"contagem_em": dia, "entradas": entradas, "vendas": vendas}
+
+
+_STOP = {"DE", "DA", "DO", "COM", "PARA", "C", "E", "EM", "UN", "CX", "PCT", "KG", "G", "ML", "L"}
+
+
+def _tokens(t):
+    return {w for w in re.findall(r"[A-Z0-9]{2,}", _sem_acento(t).upper()) if w not in _STOP}
+
+
+_INDICE = {"n": -1, "tok": {}, "lista": []}
+
+
+def _indice_produtos(con):
+    n = con.execute("SELECT COUNT(*) FROM produtos").fetchone()[0]
+    if _INDICE["n"] != n:
+        lista = [(r["id"], r["nome"]) for r in con.execute(
+            "SELECT id, nome FROM produtos WHERE ativo=1 OR ativo IS NULL")]
+        tok = collections.defaultdict(list)
+        for pid, nome in lista:
+            for w in _tokens(nome):
+                tok[w].append(pid)
+        _INDICE.update(n=n, tok=tok, lista={pid: nome for pid, nome in lista})
+    return _INDICE
+
+
+def sugerir_produtos(con, descricao, limite=3):
+    ind = _indice_produtos(con)
+    pontos = collections.Counter()
+    for w in _tokens(descricao):
+        ids = ind["tok"].get(w, [])
+        if 0 < len(ids) <= 400:
+            for i in ids:
+                pontos[i] += 1.0 / (1 + len(ids) / 50)
+    ref = _sem_acento(descricao).upper()
+    saida = []
+    for pid, _ in pontos.most_common(25):
+        nome = ind["lista"][pid]
+        r = difflib.SequenceMatcher(None, ref, _sem_acento(nome).upper()).ratio()
+        saida.append((r, pid, nome))
+    saida.sort(reverse=True)
+    return [{"id": pid, "nome": nome, "parecido": round(r, 2)} for r, pid, nome in saida[:limite]]
+
+
+def listar_entradas(con, estado="pendente", q="", pagina=1, por_pagina=25):
+    """Itens das notas agrupados por fornecedor+código, com o vínculo (se houver)."""
+    conds, args = ["1=1"], []
+    for t in (q or "").split():
+        conds.append("(n.descricao LIKE ? OR n.fornecedor LIKE ? OR n.cod_fornecedor LIKE ?)")
+        args += [f"%{t}%"] * 3
+    having = {"pendente": "d.estado IS NULL", "confirmado": "d.estado='confirmado'",
+              "ignorar": "d.estado='ignorar'"}.get(estado, "1=1")
+    base = (" FROM notas_itens n LEFT JOIN de_para d ON d.cnpj=n.cnpj AND "
+            "d.cod_fornecedor=n.cod_fornecedor WHERE " + " AND ".join(conds) +
+            " AND " + having + " GROUP BY n.cnpj, n.cod_fornecedor")
+    total = con.execute("SELECT COUNT(*) FROM (SELECT 1" + base + ")", args).fetchone()[0]
+    linhas = con.execute(
+        "SELECT n.cnpj, n.cod_fornecedor AS cod, MAX(n.descricao) AS descricao, "
+        "MAX(n.fornecedor) AS fornecedor, MAX(n.un) AS un, SUM(n.quantidade) AS quantidade, "
+        "COUNT(DISTINCT n.nota) AS notas, MAX(n.emissao) AS ultima, d.estado, d.fator, "
+        "d.produto_id, (SELECT nome FROM produtos WHERE id=d.produto_id) AS produto" + base +
+        " ORDER BY MAX(n.emissao) DESC, n.descricao LIMIT ? OFFSET ?",
+        args + [por_pagina, (pagina - 1) * por_pagina]).fetchall()
+    itens = []
+    for r in linhas:
+        d = dict(r)
+        d["fator_sugerido"] = _fator_sugerido(d["un"])
+        if d["estado"] is None:
+            d["sugestoes"] = sugerir_produtos(con, d["descricao"])
+        itens.append(d)
+    contagem = {k: con.execute(
+        "SELECT COUNT(*) FROM (SELECT 1 FROM notas_itens n LEFT JOIN de_para d ON d.cnpj=n.cnpj "
+        "AND d.cod_fornecedor=n.cod_fornecedor WHERE " + w + " GROUP BY n.cnpj, n.cod_fornecedor)"
+    ).fetchone()[0] for k, w in (("pendente", "d.estado IS NULL"),
+                                 ("confirmado", "d.estado='confirmado'"),
+                                 ("ignorar", "d.estado='ignorar'"))}
+    return {"total": total, "pagina": pagina, "por_pagina": por_pagina, "itens": itens,
+            "contagem": contagem}
+
+
+def vincular_entrada(con, d, quem="painel"):
+    cnpj, cod = str(d.get("cnpj") or ""), str(d.get("cod") or "")
+    if not cnpj or not cod:
+        raise ValueError("Item sem fornecedor/código.")
+    antigo = con.execute("SELECT produto_id FROM de_para WHERE cnpj=? AND cod_fornecedor=?",
+                         (cnpj, cod)).fetchone()
+    afetados = {antigo["produto_id"]} if antigo and antigo["produto_id"] else set()
+    estado = d.get("estado") or "confirmado"
+    if estado == "remover":
+        con.execute("DELETE FROM de_para WHERE cnpj=? AND cod_fornecedor=?", (cnpj, cod))
+    elif estado == "ignorar":
+        con.execute("INSERT OR REPLACE INTO de_para VALUES(?,?,NULL,NULL,'ignorar',?,?)",
+                    (cnpj, cod, quem, agora()))
+    else:
+        pid = int(d.get("produto_id") or 0)
+        fator = num_br(d.get("fator"))
+        if not con.execute("SELECT 1 FROM produtos WHERE id=?", (pid,)).fetchone():
+            raise ValueError("Escolha o produto.")
+        if not 0 < fator <= 100000:
+            raise ValueError("Informe quantas unidades vêm em cada caixa/pacote (maior que zero).")
+        con.execute("INSERT OR REPLACE INTO de_para VALUES(?,?,?,?,'confirmado',?,?)",
+                    (cnpj, cod, pid, fator, quem, agora()))
+        afetados.add(pid)
+    con.commit()
+    recalcular(con, afetados)
+    return {"ok": True}
 
 
 def _digito_ean13(doze):
@@ -1016,7 +1418,7 @@ def exportar_csv(con, q, filtro, grupo):
     saida = io.StringIO()
     w = csv.writer(saida, delimiter=";")
     w.writerow(["sku", "codigo_gestorz", "codigo_de_barras", "produto", "grupo", "preco",
-                "estoque_oficial", "conferido_em", "nuvemshop", "ifood", "99food", "situacao", "obs"])
+                "estoque_oficial", "estoque_estimado", "conferido_em", "nuvemshop", "ifood", "99food", "situacao", "obs"])
     linhas = con.execute(f"SELECT p.* FROM produtos p WHERE {where} "
                          "ORDER BY p.nome COLLATE NOCASE", args).fetchall()
     canais = _canais_de(con, [l["id"] for l in linhas]) if len(linhas) < 900 else None
@@ -1026,7 +1428,9 @@ def exportar_csv(con, q, filtro, grupo):
                             for x in cs if x["canal"] == c) for c in CANAIS}
         w.writerow([l["sku"] or "", l["gz_codigo"] or "", l["ean"] or "", l["nome"],
                     l["grupo"] or "", "" if l["preco"] is None else f"{l['preco']:.2f}".replace(".", ","),
-                    "" if l["estoque"] is None else l["estoque"], l["conferido_em"] or "",
+                    "" if l["estoque"] is None else l["estoque"],
+                    "" if l["estimado"] is None else f"{l['estimado']:g}".replace(".", ","),
+                    l["conferido_em"] or "",
                     por["nuvemshop"], por["ifood"], por["99food"], l["situacao"] or "", l["obs"] or ""])
     return "﻿" + saida.getvalue()
 
@@ -1160,6 +1564,11 @@ class Handler(BaseHTTPRequestHandler):
             if u.path == "/api/sem-cadastro":
                 return self._json({"itens": [dict(r) for r in con.execute(
                     "SELECT * FROM leituras_sem_cadastro ORDER BY id DESC LIMIT 200")]})
+            if u.path == "/api/entradas":
+                return self._json(listar_entradas(con, qs.get("estado", "pendente"), qs.get("q", ""),
+                                                  max(1, int(qs.get("pagina", 1)))))
+            if u.path == "/api/importacoes":
+                return self._json(listar_importacoes(con))
             if u.path == "/api/nuvemshop/previa":
                 return self._json(previa_nuvemshop(con, qs.get("modo", "zerar")))
             if u.path == "/api/nuvemshop/backups":
@@ -1254,6 +1663,20 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(criar_produto_manual(con, json.loads(self._corpo() or b"{}")))
             if u.path == "/api/sem-cadastro":
                 return self._json(registrar_sem_cadastro(con, json.loads(self._corpo() or b"{}")))
+            if u.path == "/api/importar/vendas":
+                qp = {k: v[0] for k, v in parse_qs(u.query).items()}
+                return self._json(importar_vendas(con, self._corpo(), qp.get("inicio"), qp.get("fim"),
+                                                  unquote(qp.get("arquivo", "")),
+                                                  unquote(self.headers.get("X-Quem") or "painel")[:40]))
+            if u.path == "/api/importar/notas":
+                qp = {k: v[0] for k, v in parse_qs(u.query).items()}
+                return self._json(importar_notas(con, self._corpo(), unquote(qp.get("arquivo", "")),
+                                                 unquote(self.headers.get("X-Quem") or "painel")[:40]))
+            if u.path == "/api/entradas/vinculo":
+                d = json.loads(self._corpo() or b"{}")
+                return self._json(vincular_entrada(con, d, (d.get("quem") or "painel")[:40]))
+            if u.path == "/api/importacoes/remover":
+                return self._json(remover_importacao(con, json.loads(self._corpo() or b"{}").get("id")))
             if u.path == "/api/importar/gestorz":
                 return self._json(importar_gestorz(con, self._corpo()))
             if u.path == "/api/importar/painel":
