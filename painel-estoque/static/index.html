@@ -641,10 +641,16 @@ async function abrir(id){
   };
   if($("#e-site")) $("#e-site").onclick = async () => {
     try{
+      const campos = [];
+      if($("#e-nome").value.trim() !== p.nome) campos.push("nome");
+      if(Number(String($("#e-preco").value).replace(",", ".") || 0) !== Number(p.preco || 0)) campos.push("preco");
+      if(($("#e-cat").value || "") !== (p.categoria_id || "")) campos.push("categoria");
       await salvarEdicao();
-      if(!confirm("Vou mudar o nome, a categoria e o preço deste produto também na Nuvemshop (os clientes veem se ele estiver publicado). Confirmar?")){ $("#e-msg").textContent = "Salvo só no painel."; return; }
+      if(!campos.length){ $("#e-msg").className = "erro-msg"; $("#e-msg").textContent = "Nada mudou em nome, preço ou categoria, então não há o que enviar."; return; }
+      const rot = {nome:"o nome", preco:"o preço", categoria:"a categoria"};
+      if(!confirm("Vou mudar só " + campos.map(c => rot[c]).join(", ") + " deste produto também na Nuvemshop (os clientes veem se ele estiver publicado). Confirmar?")){ $("#e-msg").textContent = "Salvo só no painel."; return; }
       $("#e-msg").textContent = "Enviando para a loja…";
-      await api("/api/nuvemshop/produto/" + id, {method:"POST", body:JSON.stringify({quem:quemContando()})});
+      await api("/api/nuvemshop/produto/" + id, {method:"POST", body:JSON.stringify({campos, quem:quemContando()})});
       carregar(); carregarResumo(); await abrir(id); $("#edit-box").open = true; $("#e-msg").className = "ok-msg"; $("#e-msg").textContent = "Salvo no painel e enviado ao site.";
     }catch(e){ $("#e-msg").className = "erro-msg"; $("#e-msg").textContent = e.message; }
   };

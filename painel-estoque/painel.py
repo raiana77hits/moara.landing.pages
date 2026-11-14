@@ -389,7 +389,7 @@ def _texto(v):
     return v or ""
 
 
-def sync_nuvemshop(con, progresso=None):
+def sync_nuvemshop(con, progresso=None, completo=False):
     """Lê todos os produtos da Nuvemshop (GET). Não escreve nada na loja."""
     cfg = carregar_config()
     if not cfg["token"] or not cfg["loja"]:
@@ -415,18 +415,20 @@ def sync_nuvemshop(con, progresso=None):
     for p in produtos:
         for c in p.get("categories") or []:
             vistas[str(c.get("id"))] = (_texto(c.get("name")), str(c["parent"]) if c.get("parent") else None)
-    try:                                                   # lista completa, se o token deixar
-        for c in categorias_nuvemshop_cruas(cfg):
-            vistas.setdefault(str(c.get("id")), (_texto(c.get("name")), str(c["parent"]) if c.get("parent") else None))
-    except Exception:  # noqa: BLE001 - sem permissão: ficamos só com as que os produtos mostram
-        pass
+    if completo:                                           # lista completa (inclui categorias vazias), se o token deixar
+        try:
+            for c in categorias_nuvemshop_cruas(cfg):
+                vistas.setdefault(str(c.get("id")), (_texto(c.get("name")), str(c["parent"]) if c.get("parent") else None))
+        except Exception:  # noqa: BLE001 - sem permissão: ficamos só com as que os produtos mostram
+            pass
 
     def caminho(cid, n=0):
         nome, pai = vistas.get(cid, ("", None))
         return (caminho(pai, n + 1) + " > " if pai and pai in vistas and n < 6 else "") + nome
     caminhos = {cid: caminho(cid) for cid in vistas}
-    con.execute("DELETE FROM categorias_site")
-    con.executemany("INSERT INTO categorias_site(id, nome) VALUES(?,?)", list(caminhos.items()))
+    if completo:
+        con.execute("DELETE FROM categorias_site")
+    con.executemany("INSERT OR REPLACE INTO categorias_site(id, nome) VALUES(?,?)", list(caminhos.items()))
     por_sku = por_ean = criados = variacoes = 0
     for p in produtos:
         nome = _texto(p.get("name"))
@@ -897,7 +899,7 @@ def previa_publicar(con, dia=""):
     vistos = set()
     if dia:
         for r in con.execute(
-                "SELECT p.id pid, p.nome, p.sku, p.estoque, p.preco, p.foto_url, k.id_externo prod_site " + base +
+                "SELECT p.id pid, p.nome, p.sku, p.estoque, k.preco AS preco, p.foto_url, k.id_externo prod_site " + base +
                 " AND substr(p.conferido_em,1,10)=? ORDER BY p.nome", (dia,)):
             if r["prod_site"] in vistos:
                 continue
@@ -1044,14 +1046,6 @@ def _novos_candidatos(con):
         "SELECT p.* FROM produtos p WHERE p.origem='manual' AND NOT EXISTS "
         "(SELECT 1 FROM canais k WHERE k.produto_id=p.id AND k.canal='nuvemshop') "
         "ORDER BY p.nome").fetchall()
-
-
-def mapa_categorias(con, cats=None):
-    mapa = {r["grupo"]: {"id": r["categoria_id"], "nome": r["categoria_nome"]}
-            for r in con.execute("SELECT * FROM categoria_map")}
-    grupos = collections.Counter((r["grupo"] or "") for r in _novos_candidatos(con))
-    return {"mapa": mapa, "grupos": [{"grupo": g, "n": n} for g, n in sorted(grupos.items())],
-            "categorias": cats}
 
 
 def salvar_mapa(con, grupo, cat_id, cat_nome):
@@ -1402,6 +1396,10 @@ def alterar(con, pid, dados):
         ean = "".join(c for c in str(dados["ean"] or "") if c.isdigit())
         if ean and not 6 <= len(ean) <= 14:
             raise ValueError("Código de barras inválido (6 a 14 números).")
+        if ean != (p["ean"] or "") and not p["sku"] and con.execute(
+                "SELECT 1 FROM canais WHERE produto_id=? AND canal='nuvemshop'", (pid,)).fetchone():
+            raise ValueError("Este produto está no site ligado pelo código de barras. Troque o código "
+                             "na Nuvemshop primeiro e depois use “Ler a Nuvemshop agora”.")
         if ean:
             outro = con.execute("SELECT nome FROM produtos WHERE ean_norm=? AND id<>? LIMIT 1", (norm_ean(ean), pid)).fetchone()
             if outro:
@@ -1438,8 +1436,11 @@ def alterar(con, pid, dados):
 
 # ------------------------------------------------- vendas, notas e estoque estimado
 
-def enviar_produto_site(con, pid, quem):
-    """Manda nome, categoria e preço deste produto para a Nuvemshop (um produto só)."""
+def enviar_produto_site(con, pid, quem, campos=()):
+    """Manda para a Nuvemshop só os campos que você acabou de editar (nome, categoria, preço)."""
+    campos = {c for c in campos if c in ("nome", "categoria", "preco")}
+    if not campos:
+        raise ValueError("Nada para enviar: mude o nome, a categoria ou o preço primeiro.")
     cfg = _exigir_nuvemshop()
     p = con.execute("SELECT * FROM produtos WHERE id=?", (pid,)).fetchone()
     if not p:
@@ -1451,15 +1452,21 @@ def enviar_produto_site(con, pid, quem):
     n = con.execute("SELECT COUNT(*) FROM canais WHERE canal='nuvemshop' AND id_externo=?", (prod_site,)).fetchone()[0]
     if len(ks) > 1 or n > 1:
         raise ValueError("Este produto tem várias variações no site. Edite direto na Nuvemshop.")
-    corpo = {"name": {"pt": p["nome"]}}
-    if p["categoria_id"]:
+    corpo = {}
+    if "nome" in campos:
+        corpo["name"] = {"pt": p["nome"]}
+    if "categoria" in campos and p["categoria_id"]:
         corpo["categories"] = [int(p["categoria_id"])]
-    _nuvem(cfg, "PUT", f"/products/{prod_site}", corpo)
-    if p["preco"]:
+    if corpo:
+        _nuvem(cfg, "PUT", f"/products/{prod_site}", corpo)
+    if "preco" in campos and p["preco"]:
         _nuvem(cfg, "PUT", f"/products/{prod_site}/variants/{ks[0]['id_variacao']}", {"price": f"{p['preco']:.2f}"})
-    con.execute("UPDATE canais SET nome=?, preco=? WHERE produto_id=? AND canal='nuvemshop'", (p["nome"], p["preco"], pid))
+    if "nome" in campos:
+        con.execute("UPDATE canais SET nome=? WHERE produto_id=? AND canal='nuvemshop'", (p["nome"], pid))
+    if "preco" in campos and p["preco"]:
+        con.execute("UPDATE canais SET preco=? WHERE produto_id=? AND canal='nuvemshop'", (p["preco"], pid))
     con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
-                (pid, agora(), "dados no site", "", f"nome, categoria e preço enviados ({p['nome']})", quem or "painel"))
+                (pid, agora(), "dados no site", "", "enviados: " + ", ".join(sorted(campos)), quem or "painel"))
     con.commit()
     return detalhe(con, pid)
 
@@ -1705,7 +1712,7 @@ _INDICE = {"n": -1, "tok": {}, "lista": []}
 
 
 def _indice_produtos(con):
-    n = con.execute("SELECT COUNT(*) FROM produtos").fetchone()[0]
+    n = tuple(con.execute("SELECT COUNT(*), MAX(atualizado_em) FROM produtos").fetchone())
     if _INDICE["n"] != n:
         lista = [(r["id"], r["nome"]) for r in con.execute(
             "SELECT id, nome FROM produtos WHERE ativo=1 OR ativo IS NULL")]
@@ -2115,7 +2122,7 @@ def _rodar_sync():
     try:
         con = conectar()
         try:
-            TAREFA["resultado"] = sync_nuvemshop(con, lambda m: TAREFA.update(msg=m))
+            TAREFA["resultado"] = sync_nuvemshop(con, lambda m: TAREFA.update(msg=m), completo=True)
         finally:
             con.close()
         TAREFA["msg"] = "Concluído"
@@ -2318,7 +2325,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(alterar(con, int(u.path.rsplit("/", 1)[1]), dados))
             if u.path.startswith("/api/nuvemshop/produto/"):
                 d = json.loads(self._corpo() or b"{}")
-                return self._json(enviar_produto_site(con, int(u.path.rsplit("/", 1)[1]), (d.get("quem") or "painel")[:40]))
+                return self._json(enviar_produto_site(con, int(u.path.rsplit("/", 1)[1]), (d.get("quem") or "painel")[:40],
+                                                      d.get("campos") or []))
             if u.path == "/api/config/nuvemshop":
                 d = json.loads(self._corpo() or b"{}")
                 return self._json(conectar_nuvemshop(d.get("token"), d.get("loja")))
@@ -2399,15 +2407,19 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def backup_banco():
-    """Uma cópia do banco por dia na pasta backups (guarda as 14 mais recentes)."""
+    """Cópia do banco na pasta backups: uma por dia, renovada se tiver mais de 6 horas
+    (guarda as 14 mais recentes). Escreve num arquivo temporário e só então troca."""
     try:
         os.makedirs(backups_dir(), exist_ok=True)
         destino = os.path.join(backups_dir(), f"banco_{datetime.now():%Y%m%d}.db")
-        if not os.path.exists(destino) and os.path.exists(DB_PATH):
-            origem, copia = sqlite3.connect(DB_PATH), sqlite3.connect(destino)
+        velho = not os.path.exists(destino) or time.time() - os.path.getmtime(destino) > 6 * 3600
+        if velho and os.path.exists(DB_PATH):
+            tmp = destino + ".tmp"
+            origem, copia = sqlite3.connect(DB_PATH), sqlite3.connect(tmp)
             origem.backup(copia)
             copia.close()
             origem.close()
+            os.replace(tmp, destino)
         antigos = sorted(n for n in os.listdir(backups_dir()) if n.startswith("banco_") and n.endswith(".db"))
         for n in antigos[:-14]:
             os.remove(os.path.join(backups_dir(), n))
