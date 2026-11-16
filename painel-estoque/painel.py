@@ -1893,11 +1893,21 @@ def _xlsx_preencher(modelo, linhas, colunas, extra_dimensao):
     return saida.getvalue()
 
 
+def _preco_99(r):
+    """Preço como número: a 99 recusa o texto 'R$15,57' ao enviar a planilha (Conteúdo inválido em Preço do item)."""
+    if r.get("preco_txt") and r["preco_txt"].startswith("R$"):
+        try:
+            return round(num_br(r["preco_txt"].replace("R$", "")), 2)
+        except ValueError:
+            pass
+    return round(r["preco"], 2) if r.get("preco") is not None else ""
+
+
 def xlsx_99_editar(plano, teste=False):
     itens = plano["editar"][:5] if teste else plano["editar"]
     if len(itens) > MAX_99:
         raise ValueError("A 99 aceita até %d itens por planilha." % MAX_99)
-    linhas = [[r["id"], r["ean"], r["nome"], r["descricao"], r["id_ext"], r["preco_txt"], r["qtd"], r["categoria"],
+    linhas = [[r["id"], r["ean"], r["nome"], r["descricao"], r["id_ext"], _preco_99(r), r["qtd"], r["categoria"],
                r["disp"], r["tags"], r["peso"], r["volume"], r["armaz"], r["embal"]] for r in itens]
     return _xlsx_preencher(MODELO_99_EDITAR, linhas, 14, True)
 
@@ -1906,7 +1916,7 @@ def xlsx_99_adicionar(plano, teste=False):
     itens = plano["lista_novos"][:5] if teste else plano["lista_novos"]
     if len(itens) > MAX_99:
         raise ValueError("A 99 aceita até %d itens por planilha." % MAX_99)
-    linhas = [[n["ean"], n["nome"], "", "", "R$" + f"{n['preco']:.2f}".replace(".", ","), n["qtd"], n["categoria"]] for n in itens]
+    linhas = [[n["ean"], n["nome"], "", "", round(n["preco"], 2), n["qtd"], n["categoria"]] for n in itens]
     return _xlsx_preencher(MODELO_99_ADICIONAR, linhas, 12, True)
 
 

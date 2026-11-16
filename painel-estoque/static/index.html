@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- tela-build: 9.6 -->
+<!-- tela-build: 9.7 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -738,7 +738,7 @@ $("#s-x").onclick = () => $("#dsync").close();
 
 /* ------------------------------------------------ enviar estoque para a Nuvemshop */
 let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
-const BUILD = "9.6";
+const BUILD = "9.7";
 const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
 async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
 async function desenharSync(){
