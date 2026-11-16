@@ -1695,7 +1695,17 @@ def planilha_ifood(con, divisor=0.70):
             "revisar": revisar, "itens": itens}
 
 
-def xlsx_ifood(itens):
+CANAIS_IFOOD = {"app": "App", "shop": "Shop", "white": "White Label"}
+
+
+def _canal_ifood(n, canal):
+    """Texto da coluna Canal como o modelo aceita (nas linhas 9 a 41 a lista do modelo usa 'Ifood')."""
+    if canal == "white":
+        return "White Label"
+    return ("Ifood " if 9 <= n <= 41 else "iFood ") + CANAIS_IFOOD.get(canal, "Shop")
+
+
+def xlsx_ifood(itens, canal="shop"):
     """Preenche o modelo do iFood (até 999 produtos) sem mexer no resto da planilha."""
     if len(itens) > LINHAS_POR_PLANILHA:
         raise ValueError("O modelo do iFood aceita até %d produtos por planilha." % LINHAS_POR_PLANILHA)
@@ -1708,6 +1718,8 @@ def xlsx_ifood(itens):
             xml, k = re.subn(rf'<c r="{col}{n}" s="(\d+)"/>', rf'<c r="{col}{n}" s="\1"><v>{num_(valor)}</v></c>', xml)
             if not k:
                 raise ValueError("O modelo do iFood mudou de formato; envie o modelo atualizado.")
+        xml = re.sub(rf'<c r="J{n}" s="(\d+)"/>',
+                     lambda m: f'<c r="J{n}" s="{m.group(1)}" t="inlineStr"><is><t>{_canal_ifood(n, canal)}</t></is></c>', xml)
         xml = re.sub(rf'<c r="B{n}" s="(\d+)"/>',
                      lambda m: f'<c r="B{n}" s="{m.group(1)}" t="inlineStr"><is><t>{xml_escape(i["nome"])}</t></is></c>', xml)
     saida = io.BytesIO()
@@ -2801,7 +2813,8 @@ class Handler(BaseHTTPRequestHandler):
                     tipo, nome = "text/csv; charset=utf-8", "ifood_revisar.csv"
                 else:
                     parte = max(1, int(qs.get("parte", 1)))
-                    corpo = xlsx_ifood(plano["itens"][(parte - 1) * LINHAS_POR_PLANILHA: parte * LINHAS_POR_PLANILHA])
+                    corpo = xlsx_ifood(plano["itens"][(parte - 1) * LINHAS_POR_PLANILHA: parte * LINHAS_POR_PLANILHA],
+                                       qs.get("canal", "shop") if qs.get("canal", "shop") in ("app", "shop", "white") else "shop")
                     tipo, nome = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", f"ifood_planilha_{parte}.xlsx"
                 self.send_response(200)
                 self.send_header("Content-Type", tipo)
