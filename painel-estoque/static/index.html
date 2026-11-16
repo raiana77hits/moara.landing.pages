@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- tela-build: 9.3 -->
+<!-- tela-build: 9.4 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -738,7 +738,7 @@ $("#s-x").onclick = () => $("#dsync").close();
 
 /* ------------------------------------------------ enviar estoque para a Nuvemshop */
 let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
-const BUILD = "9.3";
+const BUILD = "9.4";
 const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
 async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
 async function desenharSync(){
@@ -884,7 +884,7 @@ async function abrirIfood(){
   let n9 = null; try{ n9 = await api("/api/n99/previa?" + q); }catch(e){ n9 = {erro:e.message}; }
   const sec99 = !n9 || n9.erro ? `<section><b>99Food</b><p>${n9 && /Leia primeiro/.test(n9.erro || "") ? "Ainda não li o catálogo da 99Food." : esc((n9 || {}).erro || "")} No portal da 99: <i>Cardápio da loja</i> &gt; <i>Editar itens em lote</i> &gt; <b>Baixar dados de todos os itens</b>. Envie aqui esse arquivo.</p><input type="file" id="n9-cat" accept=".xlsx"><div id="n9-msg" role="status"></div></section>` : `<section><b>99Food</b>
       <p>Catálogo lido em ${data(n9.catalogo_em)} · ${num(n9.itens_99)} itens, ${num(n9.ativos_com_estoque)} com estoque. <label>Atualizar o catálogo: <input type="file" id="n9-cat" accept=".xlsx"></label></p><div id="n9-msg" role="status"></div>
-      <p>Regra: o iFood manda. Item <b>fora de venda ou em ruptura no iFood</b> fica com estoque 0 na 99. Item conferido no painel usa o mesmo estoque e o mesmo preço (÷ ${esc(ifd.divisor)}).</p>
+      <p>Regra: item conferido no painel usa o mesmo estoque e o mesmo preço do iFood (÷ ${esc(ifd.divisor)}). Item <b>fora de venda ou em ruptura no iFood e sem contagem no painel</b> fica com estoque 0 na 99.</p>
       <p><b>${num(n9.zerar)}</b> a zerar · <b>${num(n9.atualizar)}</b> a atualizar (painel) · ${num(n9.sem_mudar)} sem mudança · <b>${num(n9.conferir)}</b> para você conferir (ativos na 99 que não estão no iFood nem no painel; não mexi neles) · <b>${num(n9.novos)}</b> novos para adicionar${n9.novos_incertos ? " (" + num(n9.novos_incertos) + " com categoria incerta)" : ""}.</p>
       ${n9.amostra.length ? `<div class="rolagem"><table class="mini"><thead><tr><th>Item</th><th>Estoque</th><th>Preço</th><th>Motivo</th></tr></thead><tbody>${n9.amostra.map(i => `<tr><td>${esc(i.nome)}</td><td>${i.qtd}</td><td>${esc(i.preco_txt)}</td><td>${esc(i.motivo)}</td></tr>`).join("")}</tbody></table></div><small>Mostrando as 12 primeiras mudanças.</small>` : ""}
       <p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)"><b>Faça um teste primeiro:</b> baixe a planilha de teste (5 itens), envie no portal da 99 e confira. Só depois baixe a completa.</p>
@@ -900,10 +900,9 @@ async function abrirIfood(){
       <p>Preço no iFood = preço do painel ÷ <input id="if-div" inputmode="decimal" value="${esc(ifd.divisor)}" style="width:70px;padding:6px;border:1px solid var(--line);border-radius:6px"> <button id="if-aplicar">Recalcular</button></p>
       <p>Canal na planilha: <select id="if-canal">${[["shop","iFood Shop"],["app","iFood App"],["white","White Label"]].map(([k, n]) => `<option value="${k}" ${ifd.canal === k ? "selected" : ""}>${n}</option>`).join("")}</select></p></section>
     <section><b>3. O que vai na planilha</b>
-      <p><b>${num(p.total)}</b> produtos (${num(p.no_ifood)} já no iFood · ${num(p.novos_no_ifood)} novos para o iFood) · ${num(p.zerados)} com estoque 0, dos quais ${num(p.ruptura)} por ruptura no iFood.</p>
-      <p style="color:var(--muted);font-size:13px">Estoque = estimado do painel (contagem + notas − vendas). Item em ruptura no iFood vai com 0: é o estoque mais certo. Ativo = 1 quando tem estoque.</p>
-      ${aviso("sem_preco", "sem preço no painel.")}${aviso("sem_contagem", "cadastrado mas sem contagem.")}${aviso("sem_codigo", "sem código de barras válido.")}
-      ${p.revisar.length ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)"><b>${num(p.revisar.length)}</b> itens com conflito: ruptura no iFood, mas o painel tem estoque. Foram enviados com 0. Veja a lista para conferir.</p>` : ""}
+      <p><b>${num(p.total)}</b> produtos (${num(p.no_ifood)} já no iFood · ${num(p.novos_no_ifood)} novos, que o iFood cadastra sozinho) · ${num(p.zerados)} com estoque 0 · <b>${num(p.ruptura)}</b> estão em ruptura no iFood e voltam com o estoque do painel para o iFood destravar.</p>
+      <p style="color:var(--muted);font-size:13px">Estoque = estimado do painel (contagem + notas − vendas). O iFood atualiza preço e estoque de quem já existe e cadastra quem não existe. Ativo = 1 quando tem estoque.</p>
+      ${aviso("ruptura_sem_contagem", "em ruptura no iFood, mas sem contagem no painel. Conte esses itens para eles voltarem a vender.")}${aviso("sem_preco", "sem preço no painel.")}${aviso("sem_contagem", "cadastrado mas sem contagem.")}${aviso("sem_codigo", "sem código de barras válido.")}
       ${p.itens.length ? `<div class="rolagem"><table class="mini"><thead><tr><th>Produto</th><th>Caixa</th><th>iFood</th><th>Estoque</th></tr></thead><tbody>${p.itens.map(i => `<tr><td>${esc(i.nome)}</td><td>${brl(i.caixa)}</td><td>${brl(i.preco)}</td><td>${i.qtd}${i.ruptura ? " (ruptura)" : ""}</td></tr>`).join("")}</tbody></table></div><small>Mostrando os 12 primeiros.</small>` : ""}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
         ${p.total ? Array.from({length:p.arquivos}, (_, k) => `<a class="btn pri" href="/api/ifood/planilha?${q}&parte=${k + 1}">Baixar planilha${p.arquivos > 1 ? " " + (k + 1) + " de " + p.arquivos : ""}</a>`).join("") : ""}

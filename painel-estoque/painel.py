@@ -1656,11 +1656,13 @@ def _ean_ifood(v):
 
 def planilha_ifood(con, divisor=0.70):
     """Produtos conferidos ou cadastrados no painel, prontos para a planilha de importação do iFood.
-    Preço = preço do painel / divisor. Estoque = estimado (ou contagem); ruptura no iFood = 0."""
+    Preço = preço do painel / divisor. Estoque = estimado (ou contagem). O iFood atualiza preço e estoque de
+    quem já existe, cadastra sozinho quem não existe e destrava quem estava em ruptura quando a planilha traz
+    o estoque atual: por isso item em ruptura também vai, com o estoque do painel."""
     if not 0.05 <= divisor <= 1.0:
         raise ValueError("O divisor do preço precisa estar entre 0,05 e 1.")
     catalogo = {r["ean"]: dict(r) for r in con.execute("SELECT * FROM ifood_catalogo")}
-    itens, falta, revisar, vistos = [], collections.defaultdict(list), [], set()
+    itens, falta, vistos = [], collections.defaultdict(list), set()
     for p in con.execute("SELECT * FROM produtos WHERE estoque IS NOT NULL OR origem='manual' ORDER BY nome COLLATE NOCASE"):
         ean = _ean_ifood(p["ean"])
         if not ean:
@@ -1679,20 +1681,20 @@ def planilha_ifood(con, divisor=0.70):
         qtd = max(0, int(math.floor(base)))
         cat = catalogo.get(ean)
         ruptura = bool(cat and "Ruptura" in (cat["bloqueio"] or ""))
-        if ruptura:                       # o iFood tirou o item do estoque por cancelamento: é o estoque mais certo
-            if qtd > 0:
-                revisar.append({"nome": p["nome"], "ean": ean, "motivo": "Ruptura no iFood, mas o painel tem estoque",
-                                "contagem": p["estoque"], "estimado": p["estimado"], "enviado": 0})
-            qtd = 0
         preco = round(p["preco"] / divisor + 1e-9, 2)
         itens.append({"ean": int(ean), "nome": p["nome"], "preco": preco, "qtd": qtd, "ativo": 1 if qtd > 0 else 0,
                       "no_ifood": bool(cat), "ruptura": ruptura, "caixa": p["preco"]})
+    enviados = {str(i["ean"]) for i in itens}
+    for e, cat in catalogo.items():              # em ruptura no iFood e sem contagem: não dá para mandar estoque
+        if "Ruptura" in (cat["bloqueio"] or "") and e not in enviados:
+            falta["ruptura_sem_contagem"].append(cat["nome"] or e)
     novos = sum(1 for i in itens if not i["no_ifood"])
     return {"divisor": divisor, "total": len(itens), "no_ifood": len(itens) - novos, "novos_no_ifood": novos,
-            "zerados": sum(1 for i in itens if i["qtd"] == 0), "ruptura": sum(1 for i in itens if i["ruptura"]),
+            "zerados": sum(1 for i in itens if i["qtd"] == 0),
+            "ruptura": sum(1 for i in itens if i["ruptura"] and i["qtd"] > 0),
             "catalogo_lido": bool(catalogo), "arquivos": max(1, math.ceil(len(itens) / LINHAS_POR_PLANILHA)),
             "faltas": {k: {"n": len(v), "nomes": v[:8]} for k, v in falta.items()},
-            "revisar": revisar, "itens": itens}
+            "revisar": [], "itens": itens}
 
 
 CANAIS_IFOOD = {"app": "App", "shop": "Shop", "white": "White Label"}
@@ -1733,9 +1735,8 @@ def revisar_ifood_csv(plano):
     saida = io.StringIO()
     w = csv.writer(saida, delimiter=";")
     w.writerow(["situacao", "produto", "codigo_de_barras", "contagem_painel", "estimado_painel", "enviado_ao_ifood", "detalhe"])
-    for r in plano["revisar"]:
-        w.writerow(["conferir", r["nome"], r["ean"], r["contagem"], "" if r["estimado"] is None else r["estimado"], r["enviado"], r["motivo"]])
-    for k, rot in (("sem_preco", "sem preço no painel"), ("sem_codigo", "sem código de barras válido"), ("sem_contagem", "sem contagem")):
+    for k, rot in (("ruptura_sem_contagem", "em ruptura no iFood e sem contagem no painel: conte para voltar a vender"),
+                   ("sem_preco", "sem preço no painel"), ("sem_codigo", "sem código de barras válido"), ("sem_contagem", "sem contagem")):
         for nome in plano["faltas"].get(k, {}).get("nomes", []):
             w.writerow(["ficou de fora", nome, "", "", "", "", rot])
     return "\ufeff" + saida.getvalue()
@@ -1832,10 +1833,10 @@ def plano_99(con, divisor=0.70):
         novo_qtd = novo_preco = motivo = None
         if p:
             novo_qtd, novo_preco = float(p["qtd"]), p["preco"]
-            motivo = "estoque e preço do painel" + (" (ruptura no iFood)" if p["ruptura"] else "")
+            motivo = "estoque e preço do painel" + (" (destrava a ruptura do iFood)" if p["ruptura"] else "")
         elif f:
             if (not f["em_venda"] or "Ruptura" in (f["bloqueio"] or "")) and r["qtd"] > 0:
-                novo_qtd, motivo = 0.0, "fora de venda ou em ruptura no iFood"
+                novo_qtd, motivo = 0.0, "fora de venda ou em ruptura no iFood e sem contagem no painel"
         elif r["qtd"] > 0 and r["disp"].lower().startswith("dispon"):
             conferir.append({"nome": r["nome"], "ean": r["ean"], "qtd": r["qtd"], "motivo": "ativo na 99, mas não está no iFood nem no painel"})
         mudou_q = novo_qtd is not None and novo_qtd != r["qtd"]
