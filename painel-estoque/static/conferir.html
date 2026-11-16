@@ -234,7 +234,7 @@ $("#f-foto").addEventListener("change", async e => {
 // ------------------------------------------------- cadastro na hora (código que não existe)
 let gruposCache = null, fotoNova = null, cadastroSalvo = false, codigoCadastro = "";
 async function carregarGrupos(){
-  if(!gruposCache){ try{ gruposCache = (await api("/api/resumo")).grupos; }catch(e){ gruposCache = []; } }
+  if(!gruposCache){ try{ gruposCache = (await api("/api/categorias")).itens; }catch(e){ gruposCache = []; } }
   return gruposCache;
 }
 async function abrirCadastro(codigo){
@@ -244,8 +244,8 @@ async function abrirCadastro(codigo){
     <div class="aviso a-warn">Este código não está no cadastro. Cadastre agora para não perder a contagem. O produto fica só no painel; depois é preciso cadastrar nas lojas.</div>
     <label class="campo">Código de barras<input id="n-ean" value="${esc(codigo)}" readonly></label>
     <label class="campo">Nome do produto *<input id="n-nome" autocomplete="off" autocapitalize="words" enterkeyhint="next" placeholder="Ex.: Sacola plástica 40x50"></label>
-    <label class="campo">Grupo<input id="n-grupo" list="n-grupos" autocomplete="off" placeholder="Escolha ou digite"></label>
-    <datalist id="n-grupos">${grupos.map(g => `<option value="${esc(g)}">`).join("")}</datalist>
+    <label class="campo">Categoria da loja<select id="n-cat"><option value="">— escolher —</option>${grupos.map(g => `<option value="${esc(g.id)}">${esc(g.nome)}</option>`).join("")}</select></label>
+    ${grupos.length ? "" : '<div class="aviso a-warn">As categorias da loja aparecem depois de “Atualizar dados” no painel do computador.</div>'}
     <label class="campo">Preço de venda (R$)<input id="n-preco" inputmode="decimal" autocomplete="off" placeholder="0,00"></label>
     <label class="campo">Quantos tem na prateleira?<input id="n-qtd" type="number" inputmode="numeric" min="0" step="1" placeholder="Deixe vazio se não for contar agora"></label>
     <div id="n-foto-prev"><label class="btn-foto destaque" for="n-foto" style="flex:1">📷 Tirar foto do produto<input type="file" id="n-foto" accept="image/*" capture="environment" hidden></label></div>
@@ -272,7 +272,7 @@ async function salvarCadastro(){
   const nome = $("#n-nome").value.trim();
   if(nome.length < 2){ erroCadastro("Escreva o nome do produto."); $("#n-nome").focus(); return; }
   const btn = $("#n-salvar"); btn.disabled = true; btn.textContent = "Salvando…"; erroCadastro("");
-  const d = {ean: codigoCadastro, nome, grupo: $("#n-grupo").value.trim(), preco: $("#n-preco").value.replace(",", "."),
+  const d = {ean: codigoCadastro, nome, categoria_id: $("#n-cat").value, preco: $("#n-preco").value.replace(",", "."),
              estoque: $("#n-qtd").value, custo: $("#n-custo").value.replace(",", "."), unidade: $("#n-un").value, obs: $("#n-obs").value.trim(), quem};
   try{
     let p = await api("/api/produto-novo", {method:"POST", body:JSON.stringify(d)});
@@ -388,7 +388,7 @@ $("#f-cod").addEventListener("submit", e => { e.preventDefault(); buscar($("#cod
 async function ultimas(){
   try{
     const r = await api("/api/conferidos");
-    if(r.servidor !== "7") status("⚠️ O painel no computador está desatualizado. Feche a janela preta do painel e abra o iniciar.bat de novo.", "aviso");
+    if(r.servidor !== "9") status("⚠️ O painel no computador está desatualizado. Feche a janela preta do painel e abra o iniciar.bat de novo.", "aviso");
     $("#tot").textContent = "· " + r.total + (r.total === 1 ? " produto já conferido" : " produtos já conferidos");
     $("#ultimas").innerHTML = r.itens.length ? r.itens.map(h =>
       `<li><b>${esc(h.para || "—")}</b><span>${esc(h.nome)}</span><small>${hora(h.quando)}${h.origem && h.origem !== "painel" ? " · " + esc(h.origem) : ""}</small></li>`).join("")

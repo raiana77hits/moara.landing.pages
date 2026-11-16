@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- tela-build: 7.1 -->
+<!-- tela-build: 9.7 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -94,6 +94,17 @@ h4{margin:0 0 6px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;c
 .mini th,.mini td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left}
 .mini th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
 textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:16px}
+.pv[hidden]{display:none}
+.busca-lista{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:16px;background:var(--surface);color:var(--ink);margin:6px 0}
+.menu-loja{position:relative}
+.menu-loja summary{list-style:none;cursor:pointer}.menu-loja summary::-webkit-details-marker{display:none}
+.menu-itens{position:absolute;right:0;top:calc(100% + 6px);z-index:20;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:6px;min-width:230px;display:flex;flex-direction:column;gap:2px}
+.menu-itens button{text-align:left;border:0;background:transparent;padding:11px 14px;border-radius:8px;font-size:15px}
+.menu-itens button:hover{background:var(--kraft-soft)}
+.edit-box{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.edit-box summary{cursor:pointer;font-weight:700;color:var(--kraft-escuro)}
+.edit-box label.campo{display:block;margin:8px 0 2px;font-size:13px;color:var(--muted)}
+.edit-box input,.edit-box select{width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:16px;background:var(--surface);color:var(--ink)}
 .abas{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
 .abas button.on{background:var(--kraft);border-color:var(--kraft);color:#fff;font-weight:700}
 .ent{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0;display:flex;flex-direction:column;gap:6px}
@@ -251,7 +262,11 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
   </div>
   <div class="acoes">
     <a class="btn pri" href="/conferir">Conferir prateleira</a>
-    <button id="b-sync" class="pri">Enviar para as lojas</button>
+    <details class="menu-loja" id="menu-loja"><summary class="btn pri">Loja online ▾</summary><div class="menu-itens">
+      <button id="b-sync">Enviar estoque</button><button id="b-foto">Enviar fotos</button>
+      <button id="b-cad">Cadastrar produtos novos</button><button id="b-pub">Publicar produtos</button>
+      <button id="b-ifood">Planilhas dos apps (iFood e 99)</button></div></details>
+    <button id="b-org">Organizar categorias</button>
     <button id="b-mov">Notas e vendas</button>
     <button id="b-imp">Atualizar dados</button>
     <a class="btn" id="b-exp" href="#">Baixar lista (CSV)</a>
@@ -302,6 +317,11 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
       <div class="bloco">
         <h2>Ferramentas</h2>
         <button class="btn-lista" id="b-sync2"><span class="ic">🚚</span>Enviar estoque para a Nuvemshop</button>
+        <button class="btn-lista" id="b-cad2"><span class="ic">🆕</span>Cadastrar produtos novos no site</button>
+        <button class="btn-lista" id="b-ifood2"><span class="ic">🍔</span>Planilhas dos apps (iFood e 99)</button>
+        <button class="btn-lista" id="b-pub2"><span class="ic">🟢</span>Publicar produtos no site</button>
+        <button class="btn-lista" id="b-foto2"><span class="ic">📷</span>Enviar fotos para a Nuvemshop</button>
+        <button class="btn-lista" id="b-org2"><span class="ic">🗂️</span>Organizar categorias dos produtos</button>
         <a class="btn-lista" href="/prioridades"><span class="ic">🚦</span>Prioridades: o que contar e comprar</a>
         <button class="btn-lista" id="b-mov2"><span class="ic">🧾</span>Notas e vendas (estoque estimado)</button>
         <button class="btn-lista" id="b-imp2"><span class="ic">🔄</span>Atualizar dados</button>
@@ -313,11 +333,11 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 
     <!-- PRODUTOS -->
     <section class="tela-produtos" id="tela-produtos">
-      <div class="aviso">O que você muda aqui fica só neste painel. Nada é enviado para a Nuvemshop, o iFood, a 99Food ou o Gestor Z.</div>
+      <div class="aviso">O que você muda aqui fica neste painel. Só vai para a Nuvemshop quando você usa o menu <b>Loja online</b> (sempre com prévia e desfazer). Nada é enviado ao iFood, à 99Food ou ao Gestor Z.</div>
       <div class="busca">
         <div class="busca-linha">
           <input type="search" id="q" placeholder="Buscar por nome, código de barras ou SKU" aria-label="Buscar produto" enterkeyhint="search">
-          <select id="grupo" class="so-desktop" aria-label="Grupo"><option value="">Todos os grupos</option></select>
+          <select id="grupo" class="so-desktop" aria-label="Grupo"><option value="">Todas as categorias</option></select>
           <button id="b-filtros" class="so-mobile">Filtros</button>
         </div>
         <div class="chips so-mobile" id="chips" aria-label="Categorias"></div>
@@ -347,6 +367,31 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
   <div class="corpo imp" id="s-corpo"></div>
 </dialog>
 
+<dialog id="dcad">
+  <div class="topo"><h3>Cadastrar produtos novos no site</h3><button id="c-x">Fechar</button></div>
+  <div class="corpo imp" id="c-corpo"></div>
+</dialog>
+
+<dialog id="dorg">
+  <div class="topo"><h3>Organizar categorias</h3><button id="o-x">Fechar</button></div>
+  <div class="corpo imp" id="o-corpo"></div>
+</dialog>
+
+<dialog id="difood">
+  <div class="topo"><h3>Planilhas dos apps</h3><button id="if-x">Fechar</button></div>
+  <div class="corpo imp" id="if-corpo"></div>
+</dialog>
+
+<dialog id="dpub">
+  <div class="topo"><h3>Publicar produtos no site</h3><button id="p-x">Fechar</button></div>
+  <div class="corpo imp" id="p-corpo"></div>
+</dialog>
+
+<dialog id="dfoto">
+  <div class="topo"><h3>Enviar fotos para a Nuvemshop</h3><button id="f-x">Fechar</button></div>
+  <div class="corpo imp" id="f-corpo"></div>
+</dialog>
+
 <dialog id="dmov">
   <div class="topo"><h3>Notas e vendas</h3><button id="m-x">Fechar</button></div>
   <div class="corpo imp">
@@ -364,6 +409,11 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
       <button class="pri" id="i-nuvem">Ler a Nuvemshop agora</button>
     </section>
     <section>
+      <b>Pedidos do site</b>
+      <p id="i-ped-txt">O painel lê os pedidos novos sozinho a cada 10 minutos, para o estoque estimado descontar as vendas do site.</p>
+      <button id="i-ped">Ler os pedidos agora</button>
+    </section>
+    <section>
       <b>Cadastro do Gestor Z</b>
       <p>Arquivo CSV com as colunas id_produto, codigo, gtin, descricao, venda.</p>
       <input type="file" id="f-gz" accept=".csv">
@@ -378,7 +428,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 </dialog>
 
 <script>
-const VERSAO = "7";
+const VERSAO = "9";
 const $ = s => document.querySelector(s);
 const est = {q:"", filtro:"todos", grupo:"", pagina:1, total:0};
 let RESUMO = null;
@@ -442,11 +492,17 @@ function desenharNav(){
     ? `<button class="chip ativo" id="x-filtro">${esc(NOME_FILTRO[est.filtro])} ✕</button>` : "";
   $("#b-filtros").textContent = est.filtro !== "todos" ? "Filtros ●" : "Filtros";
 }
+async function lerCategorias(botao, depois){
+  const t = botao.textContent; botao.disabled = true; botao.textContent = "Lendo as categorias da loja…";
+  try{ const r = await api("/api/nuvemshop/categorias/ler", {method:"POST", body:"{}"}); await carregarResumo(); await depois(); return r; }
+  catch(e){ botao.disabled = false; botao.textContent = t; alert("Não consegui ler as categorias da loja: " + e.message + "\n\nSe for permissão, abra o aplicativo da Nuvemshop e libere a leitura de “Categorias” (produtos)."); }
+}
+const listaCats = () => (RESUMO.categorias_n && RESUMO.categorias_n.length) ? RESUMO.categorias_n : (RESUMO.grupos_n || []).map(x => ({key:x.grupo, nome:x.grupo, n:x.n}));
+const curto = n => String(n).split(" > ").pop();
 function desenharChips(){
   if(!RESUMO) return;
-  const gn = RESUMO.grupos_n || RESUMO.grupos.map(x => ({grupo:x, n:""}));
   $("#chips").innerHTML = `<button class="chip ${est.grupo ? "" : "on"}" data-g=""><span class="cn">Todos</span><small>${num(RESUMO.total)}</small></button>` +
-    gn.map(x => `<button class="chip ${x.grupo === est.grupo ? "on" : ""}" data-g="${esc(x.grupo)}"><span class="cn">${esc(x.grupo.toLowerCase())}</span><small>${x.n === "" ? "" : num(x.n)}</small></button>`).join("");
+    listaCats().map(x => `<button class="chip ${x.key === est.grupo ? "on" : ""}" data-g="${esc(x.key)}" title="${esc(x.nome)}"><span class="cn">${esc(curto(x.nome))}</span><small>${num(x.n)}</small></button>`).join("");
 }
 const fmtN = v => Number(v).toLocaleString("pt-BR", {maximumFractionDigits:1});
 function textoEst(p){
@@ -467,8 +523,13 @@ function desenharInicio(){
     <div class="big">${num(f["vendendo_" + c])}</div>
     <div class="loja-acoes"><button class="pri" data-f="vendendo_${c}">Ver à venda</button><button data-f="fora_${c}">Não está (${num(f["fora_" + c])})</button></div></div>`).join("");
   $("#t-zip").textContent = "Baixar fotos tiradas (" + num(r.fotos_tiradas) + ")";
-  $("#cats").innerHTML = (r.grupos_n || []).map(x =>
-    `<button class="tile" data-g="${esc(x.grupo)}"><span class="ic">${icone(x.grupo)}</span><span class="l">${esc(cap(x.grupo))}</span><span class="n2">${num(x.n)} produtos</span></button>`).join("");
+  const semSite = !(r.categorias_n && r.categorias_n.length);
+  const aviso = document.getElementById("aviso-cats");
+  if(aviso) aviso.remove();
+  if(semSite) $("#cats").insertAdjacentHTML("beforebegin", `<div id="aviso-cats" class="aviso">Estas são as categorias do Gestor Z. Para usar as <b>categorias da loja</b>: <button id="b-lercats" class="pri" style="margin-left:6px">Ler categorias da loja</button></div>`);
+  if(semSite) document.getElementById("b-lercats").onclick = e => lerCategorias(e.target, async () => { desenharInicio(); desenharChips(); });
+  $("#cats").innerHTML = listaCats().map(x =>
+    `<button class="tile" data-g="${esc(x.key)}"><span class="ic">${icone(curto(x.nome))}</span><span class="l">${esc(cap(curto(x.nome)))}</span><span class="n2">${num(x.n)} ${x.n === 1 ? "produto" : "produtos"}</span></button>`).join("");
 }
 function datasTexto(){
   const m = RESUMO ? RESUMO.meta : {}, p = [];
@@ -482,7 +543,7 @@ async function carregarResumo(){
   RESUMO = r;
   $("#alerta-versao").hidden = r.servidor === VERSAO;
   const g = $("#grupo");
-  g.innerHTML = '<option value="">Todos os grupos</option>' + r.grupos.map(x => `<option>${esc(x)}</option>`).join("");
+  g.innerHTML = '<option value="">Todas as categorias</option>' + listaCats().map(x => `<option value="${esc(x.key)}">${esc(x.nome)} (${num(x.n)})</option>`).join("");
   g.value = est.grupo;
   desenharNav(); desenharChips(); desenharInicio();
   $("#datas").textContent = " · " + datasTexto();
@@ -554,6 +615,7 @@ async function enviarFoto(id, file){
 
 async function abrir(id){
   const p = await api("/api/produto/" + id);
+  let catsLista = []; try{ catsLista = (await api("/api/categorias")).itens; }catch(e){}
   $("#d-nome").textContent = p.nome;
   const nomes = {nuvemshop:"Nuvemshop", ifood:"iFood", "99food":"99Food"};
   const fotoTxt = p.foto_local ? "📷 Trocar a foto tirada" : (p.foto ? "📷 Tirar outra foto" : "📷 Sem foto: tirar foto na prateleira");
@@ -561,16 +623,26 @@ async function abrir(id){
     <div>${p.foto ? `<img class="foto-grande" src="${esc(mini(p.foto, 480))}" alt="">` : ""}
       <label class="btn-foto2 ${p.foto ? "" : "destaque"}" for="f-det" style="margin-top:10px">${fotoTxt}<input type="file" id="f-det" accept="image/*" capture="environment" hidden></label>
       <div id="det-foto-msg" class="sub" role="status"></div></div>
+    <details class="edit-box" id="edit-box"><summary>✏️ Editar produto (nome, preço, categoria)</summary>
+      <label class="campo" for="e-nome">Nome</label><input id="e-nome" value="${esc(p.nome)}" maxlength="150" autocomplete="off">
+      <label class="campo" for="e-preco">Preço de venda (R$)</label><input id="e-preco" inputmode="decimal" value="${p.preco != null ? String(p.preco).replace(".", ",") : ""}" autocomplete="off">
+      <label class="campo" for="e-ean">Código de barras</label><input id="e-ean" inputmode="numeric" value="${esc(p.ean || "")}" autocomplete="off">
+      <label class="campo" for="e-cat">Categoria da loja</label><select id="e-cat"><option value="">— sem categoria —</option>${catsLista.map(k => `<option value="${esc(k.id)}" ${k.id === p.categoria_id ? "selected" : ""}>${esc(k.nome)}</option>`).join("")}</select>
+      ${catsLista.length ? "" : '<button id="e-lercats" style="margin-top:6px">Ler categorias da loja agora</button>'}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="pri" id="e-salvar">Salvar no painel</button>
+      ${p.canais.filter(c => c.canal === "nuvemshop").length === 1 ? '<button id="e-site">Salvar e enviar ao site</button>' : ""}</div>
+      <div id="e-msg" role="status" style="margin-top:6px"></div></details>
     <dl>
       <dt>Código de barras</dt><dd>${esc(p.ean) || "—"}</dd>
       <dt>SKU (Nuvemshop)</dt><dd>${esc(p.sku) || "—"}</dd>
       <dt>Código Gestor Z</dt><dd>${esc(p.gz_codigo) || "—"}</dd>
-      <dt>Grupo</dt><dd>${esc(p.grupo) || "—"}</dd>
+      <dt>Categoria da loja</dt><dd>${esc(p.categoria_nome) || "—"}</dd>
+      <dt>Grupo (Gestor Z)</dt><dd>${esc(p.grupo) || "—"}</dd>
       ${p.origem === "manual" ? "<dt>Origem</dt><dd>Cadastrado à mão no painel (falta cadastrar nas lojas)</dd>" : ""}
       <dt>Preço no caixa</dt><dd>${brl(p.preco) || "—"}</dd>
       <dt>Custo</dt><dd>${p.custo ? brl(p.custo) : "—"}</dd>
       <dt>Estoque oficial</dt><dd><b>${p.estoque ?? "não conferido"}</b>${p.conferido_em ? " · " + data(p.conferido_em) : ""}</dd>
-      <dt>Estoque estimado</dt><dd>${p.estimado != null ? "<b>" + fmtN(p.estimado) + "</b> (contagem + notas − vendas do caixa; margem de erro: ver abaixo)" : (p.est_aviso === "peso" ? "vende por peso: sem estimativa" : "precisa de contagem")}</dd>
+      <dt>Estoque estimado</dt><dd>${p.estimado != null ? "<b>" + fmtN(p.estimado) + "</b> (contagem + notas − vendas do caixa e do site; iFood e 99 ainda não entram)" : (p.est_aviso === "peso" ? "vende por peso: sem estimativa" : "precisa de contagem")}</dd>
       <dt>Saldo no Gestor Z</dt><dd>${esc(p.gz_saldo) || "sem controle"}</dd>
       <dt>Situação estimada</dt><dd>${esc(p.situacao) || "—"}</dd>
       <dt>Ação sugerida</dt><dd>${esc(p.acao) || "—"}</dd>
@@ -582,12 +654,38 @@ async function abrir(id){
     ${p.movimento ? `<div><h4>Desde a contagem (${esc(p.movimento.contagem_em)})</h4>
       <div class="rolagem"><table class="mini"><tbody>${
         p.movimento.entradas.map(e => `<tr><td>${esc(e.emissao)}</td><td>entrou</td><td>+${fmtN(e.unidades)} un (${fmtN(e.quantidade)} × ${fmtN(e.fator)}) · ${esc(e.fornecedor)}</td></tr>`).join("") +
-        p.movimento.vendas.map(v => `<tr><td>${esc(v.inicio)} a ${esc(v.fim)}</td><td>vendeu</td><td>−${fmtN(v.qtd)} ${esc(v.unidade)} no caixa</td></tr>`).join("") ||
+        p.movimento.vendas.map(v => `<tr><td>${esc(v.inicio)} a ${esc(v.fim)}</td><td>vendeu</td><td>−${fmtN(v.qtd)} ${esc(v.unidade)} no caixa</td></tr>`).join("") +
+        (p.movimento.site || []).map(v => `<tr><td>${esc(v.dia)}</td><td>vendeu</td><td>−${fmtN(v.qtd)} no site (pedido ${esc(v.numero)})</td></tr>`).join("") ||
         "<tr><td>Nenhuma nota nem venda importada depois da contagem.</td></tr>"}</tbody></table></div>
-      <p class="m" style="color:var(--muted);font-size:13px">Vendas do site, iFood e 99 ainda não entram na conta.</p></div>` : ""}
+      <p class="m" style="color:var(--muted);font-size:13px">Vendas do iFood e da 99 ainda não entram na conta.</p></div>` : ""}
     <div><h4>Observação</h4><textarea id="d-obs">${esc(p.obs)}</textarea><div style="margin-top:8px"><button class="pri" id="d-salvar">Salvar observação</button></div></div>
     <div><h4>Histórico</h4>${p.historico.length ? `<div class="rolagem"><table class="mini"><tbody>${
       p.historico.map(h => `<tr><td>${data(h.quando)}</td><td>${esc(h.campo)}</td><td>${esc(h.de) || "—"} → ${esc(h.para) || "—"}</td></tr>`).join("")}</tbody></table></div>` : "Nenhuma alteração ainda."}</div>`;
+  const salvarEdicao = async () => {
+    const corpo = {nome:$("#e-nome").value, preco:$("#e-preco").value, ean:$("#e-ean").value, categoria_id:$("#e-cat").value, quem:quemContando()};
+    $("#e-msg").className = ""; $("#e-msg").textContent = "Salvando…";
+    await api("/api/produto/" + id, {method:"POST", body:JSON.stringify(corpo)});
+  };
+  if($("#e-lercats")) $("#e-lercats").onclick = e => lerCategorias(e.target, async () => { await abrir(id); $("#edit-box").open = true; });
+  $("#e-salvar").onclick = async () => {
+    try{ await salvarEdicao(); carregar(); carregarResumo(); await abrir(id); $("#edit-box").open = true; $("#e-msg").className = "ok-msg"; $("#e-msg").textContent = "Salvo no painel."; }
+    catch(e){ $("#e-msg").className = "erro-msg"; $("#e-msg").textContent = e.message; }
+  };
+  if($("#e-site")) $("#e-site").onclick = async () => {
+    try{
+      const campos = [];
+      if($("#e-nome").value.trim() !== p.nome) campos.push("nome");
+      if(Number(String($("#e-preco").value).replace(",", ".") || 0) !== Number(p.preco || 0)) campos.push("preco");
+      if(($("#e-cat").value || "") !== (p.categoria_id || "")) campos.push("categoria");
+      await salvarEdicao();
+      if(!campos.length){ $("#e-msg").className = "erro-msg"; $("#e-msg").textContent = "Nada mudou em nome, preço ou categoria, então não há o que enviar."; return; }
+      const rot = {nome:"o nome", preco:"o preço", categoria:"a categoria"};
+      if(!confirm("Vou mudar só " + campos.map(c => rot[c]).join(", ") + " deste produto também na Nuvemshop (os clientes veem se ele estiver publicado). Confirmar?")){ $("#e-msg").textContent = "Salvo só no painel."; return; }
+      $("#e-msg").textContent = "Enviando para a loja…";
+      await api("/api/nuvemshop/produto/" + id, {method:"POST", body:JSON.stringify({campos, quem:quemContando()})});
+      carregar(); carregarResumo(); await abrir(id); $("#edit-box").open = true; $("#e-msg").className = "ok-msg"; $("#e-msg").textContent = "Salvo no painel e enviado ao site.";
+    }catch(e){ $("#e-msg").className = "erro-msg"; $("#e-msg").textContent = e.message; }
+  };
   $("#f-det").onchange = async e => {
     const f = e.target.files[0]; e.target.value = ""; if(!f) return;
     $("#det-foto-msg").textContent = "Enviando a foto…";
@@ -641,7 +739,7 @@ $("#s-x").onclick = () => $("#dsync").close();
 
 /* ------------------------------------------------ enviar estoque para a Nuvemshop */
 let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
-const BUILD = "7.1";
+const BUILD = "9.7";
 const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
 async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
 async function desenharSync(){
@@ -688,7 +786,7 @@ async function verPrevia(){
       ${p.varias_variacoes ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)"><b>${num(p.varias_variacoes)} produto${p.varias_variacoes === 1 ? "" : "s"} contado${p.varias_variacoes === 1 ? "" : "s"} ficaram de fora</b> porque têm várias variações no site (cores ou tamanhos) e o painel não sabe qual delas a contagem representa. Ajuste esses direto na Nuvemshop.<br><small>${p.revisar.map(esc).join(" · ")}${p.varias_variacoes > p.revisar.length ? " · …" : ""}</small></p>` : ""}
       ${it.length ? `<p class="dica-sel">Marque só o que você quer enviar agora. <b>Para um primeiro teste, marque 3 ou 4 itens.</b></p>
       <div class="sel-barra"><button id="s-todos">Marcar todos</button><button id="s-nenhum">Desmarcar todos</button><span id="s-cont"></span></div>
-      <div class="lista-prev" id="s-lista">${it.slice(0, MAX_LISTA).map(i => `<label class="pv"><input type="checkbox" data-v="${i.var_site}" ${sinc.sel.has(i.var_site) ? "checked" : ""}><span><b>${esc(i.nome)}</b>${i.publicado ? "" : ' <span class="pill p-idle">oculto</span>'}<br><small>site: ${esc(i.de)} → <b>${i.para}</b> · ${esc(i.motivo)}</small></span></label>`).join("")}${it.length > MAX_LISTA ? `<div class="pv"><small>… e mais ${it.length - MAX_LISTA} que não cabem na lista; envie estes primeiros e repita.</small></div>` : ""}</div>
+      <input type="search" class="busca-lista" data-lista="#s-lista" placeholder="Buscar produto nesta lista" aria-label="Buscar nesta lista"><div class="lista-prev" id="s-lista">${it.slice(0, MAX_LISTA).map(i => `<label class="pv"><input type="checkbox" data-v="${i.var_site}" ${sinc.sel.has(i.var_site) ? "checked" : ""}><span><b>${esc(i.nome)}</b>${i.publicado ? "" : ' <span class="pill p-idle">oculto</span>'}<br><small>site: ${esc(i.de)} → <b>${i.para}</b> · ${esc(i.motivo)}</small></span></label>`).join("")}${it.length > MAX_LISTA ? `<div class="pv"><small>… e mais ${it.length - MAX_LISTA} que não cabem na lista; envie estes primeiros e repita.</small></div>` : ""}</div>
       <button class="pri" id="s-gravar"></button><p id="s-aviso-lim"></p>` : "<p>Nada para mudar agora. Conte mais produtos e volte aqui.</p>"}</section>`;
     if(it.length){
       const mostrar = it.slice(0, MAX_LISTA).map(i => i.var_site);
@@ -700,7 +798,7 @@ async function verPrevia(){
         $("#s-aviso-lim").textContent = n > lim ? `Marque no máximo ${lim} por vez (você marcou ${n}).` : "";
       };
       $("#s-lista").addEventListener("change", e => { const c = e.target.closest("input[data-v]"); if(!c) return; c.checked ? sinc.sel.add(+c.dataset.v) : sinc.sel.delete(+c.dataset.v); atualizar(); });
-      $("#s-todos").onclick = () => { mostrar.slice(0, lim).forEach(v => sinc.sel.add(v)); $("#s-lista").querySelectorAll("input[data-v]").forEach(c => c.checked = sinc.sel.has(+c.dataset.v)); atualizar(); };
+      $("#s-todos").onclick = () => { [...$("#s-lista").querySelectorAll(".pv:not([hidden]) input[data-v]")].slice(0, lim).forEach(c => sinc.sel.add(+c.dataset.v)); $("#s-lista").querySelectorAll("input[data-v]").forEach(c => c.checked = sinc.sel.has(+c.dataset.v)); atualizar(); };
       $("#s-nenhum").onclick = () => { sinc.sel.clear(); $("#s-lista").querySelectorAll("input[data-v]").forEach(c => c.checked = false); atualizar(); };
       $("#s-gravar").onclick = () => gravarSync(sinc.sel.size);
       atualizar();
@@ -748,6 +846,17 @@ async function enviar(input, url){
 }
 $("#f-gz").onchange = e => enviar(e.target, "/api/importar/gestorz");
 $("#f-pn").onchange = e => enviar(e.target, "/api/importar/painel");
+$("#i-ped").onclick = async () => {
+  $("#i-ped").disabled = true; $("#msg").textContent = "Lendo os pedidos do site…";
+  try{
+    await api("/api/sync/pedidos", {method:"POST"});
+    const iv = setInterval(async () => {
+      const s = await api("/api/tarefa");
+      $("#msg").textContent = s.erro ? "Não deu certo: " + s.erro : s.msg;
+      if(!s.rodando){ clearInterval(iv); $("#i-ped").disabled = false; if(s.resultado) $("#msg").textContent = `Pronto: ${s.resultado.pedidos} pedidos lidos. O estoque estimado foi recalculado.`; carregarResumo(); carregar(); }
+    }, 1500);
+  }catch(e){ $("#i-ped").disabled = false; $("#msg").textContent = "Não deu certo: " + e.message; }
+};
 $("#i-nuvem").onclick = async () => {
   $("#i-nuvem").disabled = true;
   await api("/api/sync/nuvemshop", {method:"POST"});
@@ -761,6 +870,347 @@ $("#i-nuvem").onclick = async () => {
     }
   }, 1500);
 };
+/* ------------------------------------------------ planilha do iFood */
+const ifd = {divisor:"0,70", canal:"shop", aba:"ifood"};
+$("#b-ifood").onclick = () => abrirIfood(); $("#b-ifood2").onclick = () => abrirIfood();
+$("#if-x").onclick = () => $("#difood").close();
+async function abrirIfood(){
+  $("#difood").showModal(); const c = $("#if-corpo");
+  c.innerHTML = "<p>Calculando…</p>";
+  let p;
+  try{ p = await api("/api/ifood/previa?divisor=" + encodeURIComponent(ifd.divisor)); }
+  catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
+  const f = p.faltas, aviso = (k, t) => f[k] ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(f[k].n)} ficam de fora: ${t}<br><small>${f[k].nomes.map(esc).join(" · ")}${f[k].n > 8 ? " · …" : ""}</small></p>` : "";
+  const q = "divisor=" + encodeURIComponent(ifd.divisor) + "&canal=" + ifd.canal;
+  let n9 = null; try{ n9 = await api("/api/n99/previa?" + q); }catch(e){ n9 = {erro:e.message}; }
+  const ok99 = n9 && !n9.erro;
+  const catalogo99 = `<section><b>1. Catálogo da 99Food</b>
+      <p>${ok99 ? `Catálogo lido em ${data(n9.catalogo_em)} · ${num(n9.itens_99)} itens, ${num(n9.ativos_com_estoque)} com estoque.` : "Ainda não li o catálogo da 99Food."} No portal da 99: <i>Cardápio da loja</i> &gt; <i>Editar itens em lote</i> &gt; link <b>“Baixar dados de todos os itens”</b>. Envie esse arquivo (<i>grocery_shop_item_download….xlsx</i>): é dele que o painel sabe quais itens já existem na 99 e o que está ativo.</p>
+      <input type="file" id="n9-cat" accept=".xlsx"><div id="n9-msg" role="status"></div></section>`;
+  const regra99 = `<section><b>2. Regra de preço</b>
+      <p>Preço na 99Food = preço do painel ÷ <input id="if-div" inputmode="decimal" value="${esc(ifd.divisor)}" style="width:70px;padding:6px;border:1px solid var(--line);border-radius:6px"> <button id="if-aplicar">Recalcular</button></p>
+      <p style="color:var(--muted);font-size:13px">É a mesma regra do iFood: ÷ 0,70 equivale a +42,86% sobre o preço do painel.</p></section>`;
+  const faltas99 = aviso("sem_preco", "sem preço no painel.") + aviso("sem_contagem", "cadastrado mas sem contagem.") + aviso("sem_codigo", "sem código de barras válido.");
+  const resultado99 = !ok99 ? `<section><b>3. O que vai na planilha</b>
+      <p>Do painel: <b>${num(p.total)}</b> produtos conferidos ou cadastrados, com preço e código de barras, prontos para a 99. Envie o catálogo da 99 no passo 1 para ver o que muda e liberar as planilhas de <b>Editar</b> e de <b>Novos</b>.</p>${faltas99}</section>` : `<section><b>3. O que vai na planilha</b>
+      <p style="color:var(--muted);font-size:13px">Item conferido no painel usa o mesmo estoque e o mesmo preço do iFood. Item <b>fora de venda ou em ruptura no iFood e sem contagem no painel</b> fica com estoque 0 na 99 (a 99 não destrava sozinha).</p>
+      <p><b>${num(n9.zerar)}</b> a zerar · <b>${num(n9.atualizar)}</b> a atualizar (painel) · ${num(n9.sem_mudar)} sem mudança · <b>${num(n9.conferir)}</b> para você conferir (ativos na 99 que não estão no iFood nem no painel; não mexi neles) · <b>${num(n9.novos)}</b> novos para adicionar${n9.novos_incertos ? " (" + num(n9.novos_incertos) + " com categoria incerta)" : ""}.</p>
+      ${faltas99}
+      ${n9.amostra.length ? `<div class="rolagem"><table class="mini"><thead><tr><th>Item</th><th>Estoque</th><th>Preço</th><th>Motivo</th></tr></thead><tbody>${n9.amostra.map(i => `<tr><td>${esc(i.nome)}</td><td>${i.qtd}</td><td>${esc(i.preco_txt)}</td><td>${esc(i.motivo)}</td></tr>`).join("")}</tbody></table></div><small>Mostrando as 12 primeiras mudanças.</small>` : ""}
+      <p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)"><b>Faça um teste primeiro:</b> baixe a planilha de teste (5 itens), envie no portal da 99 e confira. Só depois baixe a completa.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a class="btn" href="/api/n99/editar.xlsx?${q}&teste=1">Editar: planilha de teste (5)</a>
+        <a class="btn pri" href="/api/n99/editar.xlsx?${q}">Editar: planilha completa (${num(n9.zerar + n9.atualizar)})</a>
+        ${n9.novos ? `<a class="btn" href="/api/n99/adicionar.xlsx?${q}&teste=1">Novos: teste (5)</a><a class="btn" href="/api/n99/adicionar.xlsx?${q}">Novos: completa (${num(n9.novos)})</a>` : ""}
+        <a class="btn" href="/api/n99/revisar.csv?${q}">Lista para conferir</a></div></section>`;
+  const sec99 = catalogo99 + regra99 + resultado99;
+  const secIf = `<section><b>1. Catálogo do iFood</b>
+      <p>${p.catalogo_lido ? `Catálogo lido em ${data(p.catalogo_em)}.` : "Ainda não li o catálogo do iFood."} Envie a planilha exportada do portal do iFood (a que tem as colunas <i>ean_do_produto</i> e <i>em_venda</i>): é dela que o painel sabe quais itens estão em <b>ruptura</b> e quais já existem lá.</p>
+      <input type="file" id="if-cat" accept=".xlsx"><div id="if-cat-msg" role="status"></div></section>
+    <section><b>2. Regra de preço</b>
+      <p>Preço no iFood = preço do painel ÷ <input id="if-div" inputmode="decimal" value="${esc(ifd.divisor)}" style="width:70px;padding:6px;border:1px solid var(--line);border-radius:6px"> <button id="if-aplicar">Recalcular</button></p>
+      <p>Canal na planilha: <select id="if-canal">${[["shop","iFood Shop"],["app","iFood App"],["white","White Label"]].map(([k, n]) => `<option value="${k}" ${ifd.canal === k ? "selected" : ""}>${n}</option>`).join("")}</select></p></section>
+    <section><b>3. O que vai na planilha</b>
+      <p><b>${num(p.total)}</b> produtos (${num(p.no_ifood)} já no iFood · ${num(p.novos_no_ifood)} novos, que o iFood cadastra sozinho) · ${num(p.zerados)} com estoque 0 · <b>${num(p.ruptura)}</b> estão em ruptura no iFood e voltam com o estoque do painel para o iFood destravar.</p>
+      <p style="color:var(--muted);font-size:13px">Estoque = estimado do painel (contagem + notas − vendas). O iFood atualiza preço e estoque de quem já existe e cadastra quem não existe. Ativo = 1 quando tem estoque.</p>
+      ${aviso("ruptura_sem_contagem", "em ruptura no iFood, mas sem contagem no painel. Conte esses itens para eles voltarem a vender.")}${aviso("sem_preco", "sem preço no painel.")}${aviso("sem_contagem", "cadastrado mas sem contagem.")}${aviso("sem_codigo", "sem código de barras válido.")}
+      ${p.itens.length ? `<div class="rolagem"><table class="mini"><thead><tr><th>Produto</th><th>Caixa</th><th>iFood</th><th>Estoque</th></tr></thead><tbody>${p.itens.map(i => `<tr><td>${esc(i.nome)}</td><td>${brl(i.caixa)}</td><td>${brl(i.preco)}</td><td>${i.qtd}${i.ruptura ? " (ruptura)" : ""}</td></tr>`).join("")}</tbody></table></div><small>Mostrando os 12 primeiros.</small>` : ""}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        ${p.total ? Array.from({length:p.arquivos}, (_, k) => `<a class="btn pri" href="/api/ifood/planilha?${q}&parte=${k + 1}">Baixar planilha${p.arquivos > 1 ? " " + (k + 1) + " de " + p.arquivos : ""}</a>`).join("") : ""}
+        <a class="btn" href="/api/ifood/revisar.csv?${q}">Baixar lista para conferir</a></div>
+      <p style="color:var(--muted);font-size:13px">A coluna <i>Canal</i> vai preenchida com o canal escolhido acima (iFood Shop). Depois de baixar, suba a planilha no portal do iFood (importação por planilha).</p></section>`;
+  const tem99 = n9 && !n9.erro, temIf = p.catalogo_lido;
+  c.innerHTML = `<div class="abas" id="if-abas">
+    <button data-a="ifood" class="${ifd.aba === "ifood" ? "on" : ""}">🍔 iFood ${temIf ? "✓" : "(falta o catálogo)"}</button>
+    <button data-a="99" class="${ifd.aba === "99" ? "on" : ""}">🛵 99Food ${tem99 ? "✓" : "(falta o catálogo)"}</button></div>` + (ifd.aba === "99" ? sec99 : secIf);
+  $("#if-abas").onclick = e => { const b = e.target.closest("button[data-a]"); if(b){ ifd.aba = b.dataset.a; abrirIfood(); } };
+  if($("#n9-cat")) $("#n9-cat").onchange = async e => {
+    const f2 = e.target.files[0]; if(!f2) return; $("#n9-msg").textContent = "Lendo o catálogo da 99Food…";
+    try{ const r = await api("/api/importar/n99-catalogo", {method:"POST", body: await f2.arrayBuffer()}); $("#n9-msg").innerHTML = `<div class="ok-msg">Pronto: ${num(r.itens)} itens, ${num(r.ativos_com_estoque)} ativos com estoque.</div>`; setTimeout(abrirIfood, 1200); }
+    catch(err){ $("#n9-msg").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
+  };
+  if($("#if-canal")) $("#if-canal").onchange = e => { ifd.canal = e.target.value; abrirIfood(); };
+  if($("#if-aplicar")) $("#if-aplicar").onclick = () => { ifd.divisor = $("#if-div").value || "0,70"; abrirIfood(); };
+  if($("#if-cat")) $("#if-cat").onchange = async e => {
+    const f2 = e.target.files[0]; if(!f2) return; $("#if-cat-msg").textContent = "Lendo o catálogo…";
+    try{ const r = await api("/api/importar/ifood-catalogo", {method:"POST", body: await f2.arrayBuffer()}); $("#if-cat-msg").innerHTML = `<div class="ok-msg">Pronto: ${num(r.itens)} itens, ${num(r.em_venda)} em venda, ${num(r.ruptura)} em ruptura.</div>`; setTimeout(abrirIfood, 1200); }
+    catch(err){ $("#if-cat-msg").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
+  };
+}
+
+/* ------------------------------------------------ organizar categorias */
+const og = {conf:"alta", q:"", pagina:1, sel:new Map()};
+$("#b-org").onclick = () => abrirOrg(); $("#b-org2").onclick = () => abrirOrg();
+$("#o-x").onclick = () => { $("#dorg").close(); carregarResumo(); carregar(); };
+async function abrirOrg(){
+  $("#dorg").showModal(); await desenharOrg();
+}
+async function desenharOrg(){
+  const c = $("#o-corpo");
+  let cats = [], r;
+  try{ cats = (await api("/api/categorias")).itens; r = await api("/api/categorias/sugestoes?" + new URLSearchParams({confianca:og.conf, q:og.q, pagina:og.pagina})); }
+  catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
+  if(!cats.length || !r.treino){
+    c.innerHTML = `<section><b>Primeiro leia a loja</b><p>Para sugerir categorias o painel precisa conhecer as categorias da loja e os produtos que já têm categoria lá. Clique em <b>Atualizar dados</b> &gt; <b>Ler a Nuvemshop agora</b> (e depois, na tela inicial, <b>Ler categorias da loja</b>), e volte aqui.</p></section>`; return;
+  }
+  const ct = r.contagem, nivel = (k, nome) => `<button data-n="${k}" class="${og.conf === k ? "on" : ""}">${nome} (${num(ct[k] || 0)})</button>`;
+  const opcoes = id => `<option value="">— pular —</option>` + cats.map(k => `<option value="${esc(k.id)}" ${k.id === id ? "selected" : ""}>${esc(k.nome)}</option>`).join("");
+  c.innerHTML = `<section><b>Sugestões de categoria</b>
+    <p>O painel aprendeu com <b>${num(r.treino)}</b> produtos que já têm categoria na loja e sugeriu a categoria dos que não têm. <b>Nada vai para a loja</b>: a categoria fica no painel e é usada no cadastro de novos produtos. ${r.sem_sugestao ? num(r.sem_sugestao) + " produtos ficaram sem sugestão (nomes sem parecido)." : ""}</p>
+    <div class="abas" id="o-niveis">${nivel("alta", "Confiança alta")}${nivel("media", "Média")}${nivel("baixa", "Baixa")}</div>
+    ${og.conf === "alta" && ct.alta ? `<p><button class="pri" id="o-todas">Aplicar as ${num(ct.alta)} de confiança alta</button></p>` : ""}
+    <input type="search" id="o-q" class="busca-lista" placeholder="Buscar produto" value="${esc(og.q)}">
+    <div id="o-lista">${r.itens.length ? r.itens.map(i => `<div class="ent" data-pid="${i.pid}"><div class="d">${esc(i.nome)}</div><div class="m">${esc(i.grupo || "sem grupo")}</div>
+      ${og.conf === "baixa" ? `<div class="m">Palpite fraco: ${esc(i.categoria)}. Escolha a categoria certa para aplicar.</div>` : ""}
+      <select data-pid="${i.pid}">${opcoes(og.conf === "baixa" ? "" : i.categoria_id)}</select></div>`).join("") : "<p>Nada neste nível.</p>"}</div>
+    <div class="linha" style="display:flex;gap:8px;align-items:center;margin-top:8px"><button id="o-ant" ${og.pagina <= 1 ? "disabled" : ""}>←</button><span>Página ${og.pagina} de ${Math.max(1, Math.ceil(r.total / r.por_pagina))}</span><button id="o-prox" ${og.pagina * r.por_pagina >= r.total ? "disabled" : ""}>→</button>
+      ${r.itens.length ? '<button class="pri" id="o-pag">Aplicar esta página</button>' : ""}</div><div id="o-msg" role="status"></div></section>`;
+  $("#o-niveis").onclick = e => { const b = e.target.closest("button[data-n]"); if(b){ og.conf = b.dataset.n; og.pagina = 1; desenharOrg(); } };
+  let t3; $("#o-q").oninput = e => { clearTimeout(t3); t3 = setTimeout(() => { og.q = e.target.value; og.pagina = 1; desenharOrg(); }, 350); };
+  $("#o-ant").onclick = () => { og.pagina--; desenharOrg(); }; $("#o-prox").onclick = () => { og.pagina++; desenharOrg(); };
+  const feito = r => { $("#o-msg").className = "ok-msg"; $("#o-msg").textContent = num(r.aplicadas) + " produtos organizados."; carregarResumo(); setTimeout(desenharOrg, 900); };
+  if($("#o-todas")) $("#o-todas").onclick = async () => { if(!confirm(`Aplicar a categoria sugerida nos ${num(ct.alta)} produtos de confiança alta? É só no painel e dá para ajustar um a um depois.`)) return; $("#o-todas").disabled = true; feito(await api("/api/categorias/aplicar", {method:"POST", body:JSON.stringify({confianca:"alta", quem:quemContando()})})); };
+  if($("#o-pag")) $("#o-pag").onclick = async () => { const itens = [...document.querySelectorAll("#o-lista select")].map(s => ({pid:+s.dataset.pid, categoria_id:s.value})).filter(x => x.categoria_id); feito(await api("/api/categorias/aplicar", {method:"POST", body:JSON.stringify({itens, quem:quemContando()})})); };
+}
+
+/* ------------------------------------------------ busca dentro das listas dos diálogos */
+const visiveis = lista => [...document.querySelectorAll(lista + " .pv:not([hidden]) input[data-p]")].map(x => +x.dataset.p);
+document.addEventListener("input", e => {
+  const b = e.target.closest(".busca-lista"); if(!b) return;
+  const termos = b.value.toLowerCase().split(/\s+/).filter(Boolean);
+  document.querySelectorAll(b.dataset.lista + " .pv").forEach(r => {
+    const t = r.textContent.toLowerCase(); r.hidden = !termos.every(w => t.includes(w));
+  });
+});
+document.addEventListener("click", e => {          // fecha o menu "Loja online" depois de escolher
+  const m = $("#menu-loja"); if(m && m.open && (e.target.closest(".menu-itens button") || !e.target.closest("#menu-loja"))) m.open = false;
+});
+
+/* ------------------------------------------------ cadastrar produtos novos no site */
+const ca = {sel:new Set(), ultimo:""};
+$("#b-cad").onclick = () => abrirCadastrar(); $("#b-cad2").onclick = () => abrirCadastrar();
+$("#c-x").onclick = () => { $("#dcad").close(); carregarResumo(); carregar(); };
+async function abrirCadastrar(){
+  $("#dcad").showModal(); const c = $("#c-corpo");
+  const r = await api("/api/resumo");
+  if(!r.nuvemshop_configurada){ c.innerHTML = `<section><b>Conecte a Nuvemshop primeiro</b><p>Use o botão “Enviar para as lojas”.</p></section>`; return; }
+  c.innerHTML = "<p>Lendo os produtos novos e as categorias da loja…</p>";
+  let p, bk;
+  try{ [p, bk] = await Promise.all([api("/api/nuvemshop/cadastrar/previa"), api("/api/nuvemshop/cadastrar/backups")]); }
+  catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
+  const it = p.itens, lim = p.limite, cats = p.categorias || [];
+  ca.cat = {}; it.forEach(i => ca.cat[i.pid] = i.categoria_id || "");
+  ca.sel = new Set(it.slice(0, lim).map(i => i.pid));
+  const opcoes = id => `<option value="">— sem categoria —</option>` + cats.map(k => `<option value="${esc(k.id)}" ${k.id === id ? "selected" : ""}>${esc(k.nome)}</option>`).join("");
+  c.innerHTML = `<section><b>Produtos novos para cadastrar no site</b>
+    <p>Estes são os produtos que cadastramos no painel e ainda não existem na Nuvemshop. Eles são criados <b>ocultos</b> (o cliente não vê), do jeito que estão. Depois a gente confere e publica.</p>
+    <div style="margin:6px 0"><button id="c-lercats" class="${cats.length ? "" : "pri"}">${cats.length ? "Atualizar categorias da loja" : "Ler categorias da loja agora"}</button> <small style="color:var(--muted)">${cats.length ? num(cats.length) + " categorias lidas" : "Sem isso os produtos são criados sem categoria."}</small></div>
+    ${it.length ? `<div class="sel-barra"><button id="c-todos">Marcar todos</button><button id="c-nenhum">Desmarcar todos</button><span id="c-cont"></span></div>
+    <input type="search" class="busca-lista" data-lista="#c-lista" placeholder="Buscar produto nesta lista" aria-label="Buscar nesta lista"><div class="lista-prev" id="c-lista" style="max-height:55vh">${it.map(i => `<div class="pv" style="flex-direction:column;align-items:stretch;gap:6px;border-bottom:1px solid var(--line);padding:10px 4px">
+      <label style="display:flex;gap:10px;align-items:center"><input type="checkbox" data-p="${i.pid}" ${ca.sel.has(i.pid) ? "checked" : ""}>${i.foto ? `<img src="${i.foto}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px">` : '<span class="pill p-idle">sem foto</span>'}<span><b>${esc(i.nome)}</b><br><small>${i.preco ? brl(i.preco) : "sem preço"} · estoque ${i.estoque ?? "—"} · ${esc(i.ean || "sem código")}</small></span></label>
+      <select data-c="${i.pid}" data-g="${esc(i.grupo || "")}" ${cats.length ? "" : "disabled"}>${opcoes(i.categoria_id || "")}</select>
+      ${i.faltas.length ? `<small style="color:var(--warn)">Falta: ${i.faltas.join(", ")}</small>` : ""}</div>`).join("")}</div>
+    <p style="color:var(--muted);font-size:13px">Dica: ao trocar a categoria de um produto, os outros do mesmo grupo  que ainda estão sem categoria passam a usar a mesma.</p>
+    <button class="pri" id="c-criar"></button>` : "<p>Nenhum produto novo esperando cadastro.</p>"}</section>
+    <div id="c-andamento" role="status"></div>
+    <section><b>Desfazer um cadastro</b><p>Só apaga da loja produtos que continuam ocultos.</p>${bk.itens.length ? bk.itens.slice(0, 5).map(b => `<div class="bk"><span>${data(b.quando)} · ${b.itens} produtos</span><button data-cbk="${esc(b.arquivo)}">Apagar esses produtos da loja</button></div>`).join("") : "<p>Nenhum cadastro para desfazer.</p>"}</section>`;
+  if(ca.ultimo) $("#c-andamento").innerHTML = ca.ultimo;
+  c.querySelectorAll("[data-cbk]").forEach(b => b.onclick = () => desfazerCadastrar(b.dataset.cbk));
+  $("#c-lercats").onclick = e => lerCategorias(e.target, abrirCadastrar);
+  if(!it.length) return;
+  const atualizar = () => {
+    const n = ca.sel.size, g = $("#c-criar");
+    $("#c-cont").textContent = `${n} marcado${n === 1 ? "" : "s"}`;
+    g.textContent = `Criar ${n} produto${n === 1 ? "" : "s"} na loja (ocultos)`; g.disabled = n === 0 || n > lim;
+  };
+  $("#c-lista").addEventListener("change", async e => {
+    const x = e.target.closest("input[data-p]");
+    if(x){ x.checked ? ca.sel.add(+x.dataset.p) : ca.sel.delete(+x.dataset.p); atualizar(); return; }
+    const sl = e.target.closest("select[data-c]"); if(!sl) return;
+    ca.cat[sl.dataset.c] = sl.value;
+    if(sl.dataset.g){                              // o mesmo grupo passa a valer para os outros sem categoria
+      const o = sl.options[sl.selectedIndex];
+      await api("/api/nuvemshop/categorias/mapa", {method:"POST", body:JSON.stringify({grupo:sl.dataset.g, categoria_id:sl.value, categoria_nome:sl.value ? o.textContent : ""})});
+      c.querySelectorAll(`select[data-g="${CSS.escape(sl.dataset.g)}"]`).forEach(o2 => { if(o2 !== sl && !ca.cat[o2.dataset.c]){ o2.value = sl.value; ca.cat[o2.dataset.c] = sl.value; } });
+    }
+  });
+  $("#c-todos").onclick = () => { ca.sel = new Set(visiveis("#c-lista").slice(0, lim)); c.querySelectorAll("#c-lista input[data-p]").forEach(x => x.checked = ca.sel.has(+x.dataset.p)); atualizar(); };
+  $("#c-nenhum").onclick = () => { ca.sel.clear(); c.querySelectorAll("#c-lista input[data-p]").forEach(x => x.checked = false); atualizar(); };
+  $("#c-criar").onclick = async () => {
+    const n = ca.sel.size;
+    if(!confirm(`Vou criar ${n} produto${n === 1 ? "" : "s"} novo${n === 1 ? "" : "s"} na Nuvemshop, ocultos (os clientes não veem). Dá para apagar depois. Confirmar?`)) return;
+    ca.ultimo = ""; $("#c-criar").disabled = true;
+    try{
+      await api("/api/nuvemshop/cadastrar/aplicar", {method:"POST", body:JSON.stringify({itens:[...ca.sel].map(pid => ({pid, categoria_id:ca.cat[pid] || ""})), quem:quemContando()})});
+      acompanharCadastrar("criado");
+    }catch(e){ $("#c-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+  };
+  atualizar();
+}
+async function desfazerCadastrar(arquivo){
+  if(!confirm("Vou APAGAR da loja os produtos que esse cadastro criou (só os que continuam ocultos). Confirmar?")) return;
+  ca.ultimo = "";
+  try{
+    await api("/api/nuvemshop/cadastrar/desfazer", {method:"POST", body:JSON.stringify({arquivo, quem:quemContando()})});
+    acompanharCadastrar("apagado");
+  }catch(e){ $("#c-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+}
+function acompanharCadastrar(verbo){
+  const iv = setInterval(async () => {
+    const s = await api("/api/tarefa");
+    if(s.rodando){ $("#c-andamento").innerHTML = `<div class="ok-msg">${esc(s.msg)}</div>`; return; }
+    clearInterval(iv);
+    if(s.erro){ $("#c-andamento").innerHTML = `<div class="erro-msg">Não deu certo: ${esc(s.erro)}</div>`; return; }
+    const r = s.resultado || {};
+    ca.ultimo = `<div class="${r.falharam && r.falharam.length ? "erro-msg" : "ok-msg"}"><b>Pronto.</b> ${num(r.gravados)} produto${r.gravados === 1 ? "" : "s"} ${verbo}${r.gravados === 1 ? "" : "s"}${r.pulados ? " · " + num(r.pulados) + " pulado(s)" : ""}.${r.backup ? "<br>Backup: " + esc(r.backup) : ""}${r.falharam && r.falharam.length ? "<br>Atenção: " + esc(r.falharam.join("; ")) : ""}</div>`;
+    abrirCadastrar();
+  }, 1500);
+}
+
+/* ------------------------------------------------ publicar produtos no site */
+const pu = {sel:new Set(), ultimo:"", dia:""};
+$("#b-pub").onclick = () => abrirPublicar(); $("#b-pub2").onclick = () => abrirPublicar();
+$("#p-x").onclick = () => { $("#dpub").close(); carregarResumo(); carregar(); };
+const dm = d => d ? d.slice(8, 10) + "/" + d.slice(5, 7) : "";
+async function abrirPublicar(dia){
+  $("#dpub").showModal(); const c = $("#p-corpo");
+  const r = await api("/api/resumo");
+  if(!r.nuvemshop_configurada){ c.innerHTML = `<section><b>Conecte a Nuvemshop primeiro</b><p>Use o botão “Enviar para as lojas”.</p></section>`; return; }
+  let p, bk;
+  try{
+    p = await api("/api/nuvemshop/publicar/previa?dia=" + encodeURIComponent(dia || pu.dia || ""));
+    if(!p.dia && p.dias.length){ p = await api("/api/nuvemshop/publicar/previa?dia=" + p.dias[0].dia); }
+    bk = await api("/api/nuvemshop/publicar/backups");
+  }catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
+  pu.dia = p.dia; const it = p.itens, lim = p.limite;
+  pu.sel = new Set(it.slice(0, lim).map(i => i.pid));
+  const rv = p.revisar, lista = (t, a) => a.length ? `<br><small>${a.map(esc).join(" · ")}${a.length >= 8 ? " · …" : ""}</small>` : "";
+  c.innerHTML = `<section><b>Prévia: nada foi publicado ainda</b>
+    <p>Um produto oculto só aparece para o cliente depois de publicado. Escolha o dia em que foi contado:</p>
+    <select id="p-dia">${p.dias.length ? p.dias.map(d => `<option value="${d.dia}" ${d.dia === p.dia ? "selected" : ""}>Contados em ${dm(d.dia)} · ${d.n} oculto${d.n === 1 ? "" : "s"} no site</option>`).join("") : "<option>Nenhum produto oculto e contado</option>"}</select>
+    ${p.dia ? `<p><b>${num(p.para_publicar)}</b> podem ser publicados (têm estoque contado e foto no site).</p>
+    ${p.sem_preco ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.sem_preco)} ficam de fora: sem preço. Ajuste o preço antes de publicar.${lista("", rv.sem_preco)}</p>` : ""}
+    ${p.sem_estoque ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.sem_estoque)} ficam de fora: contagem zero.${lista("", rv.sem_estoque)}</p>` : ""}
+    ${p.sem_foto ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.sem_foto)} ficam de fora: sem foto no site. Use “Enviar fotos” primeiro.${lista("", rv.sem_foto)}</p>` : ""}
+    ${p.varias_variacoes ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.varias_variacoes)} ficam de fora: têm várias variações. Publique direto na Nuvemshop.${lista("", rv.varias)}</p>` : ""}` : ""}
+    ${it.length ? `<p class="dica-sel"><b>Para o primeiro teste, desmarque tudo e deixe só 1 ou 2.</b> Máximo ${lim} por vez.</p>
+    <div class="sel-barra"><button id="p-todos">Marcar todos</button><button id="p-nenhum">Desmarcar todos</button><span id="p-cont"></span></div>
+    <input type="search" class="busca-lista" data-lista="#p-lista" placeholder="Buscar produto nesta lista" aria-label="Buscar nesta lista"><div class="lista-prev" id="p-lista">${it.map(i => `<label class="pv"><input type="checkbox" data-p="${i.pid}" ${pu.sel.has(i.pid) ? "checked" : ""}><img src="${esc(i.foto)}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px"><span><b>${esc(i.nome)}</b><br><small>estoque ${i.estoque} · ${brl(i.preco) || "sem preço"}</small></span></label>`).join("")}</div>
+    <button class="pri" id="p-pub"></button>` : ""}</section>
+    <div id="p-andamento" role="status"></div>
+    <section><b>Desfazer uma publicação</b>${bk.itens.length ? bk.itens.slice(0, 5).map(b => `<div class="bk"><span>${data(b.quando)} · ${b.itens} produtos</span><button data-pbk="${esc(b.arquivo)}">Ocultar de novo</button></div>`).join("") : "<p>Nenhuma publicação para desfazer.</p>"}</section>`;
+  if(pu.ultimo) $("#p-andamento").innerHTML = pu.ultimo;
+  $("#p-dia").onchange = e => abrirPublicar(e.target.value);
+  c.querySelectorAll("[data-pbk]").forEach(b => b.onclick = () => desfazerPublicar(b.dataset.pbk));
+  if(!it.length) return;
+  const atualizar = () => {
+    const n = pu.sel.size, g = $("#p-pub");
+    $("#p-cont").textContent = `${n} marcado${n === 1 ? "" : "s"}`;
+    g.textContent = `Publicar ${n} produto${n === 1 ? "" : "s"} no site`; g.disabled = n === 0 || n > lim;
+    c.querySelectorAll("#p-lista input").forEach(x => x.checked = pu.sel.has(+x.dataset.p));
+  };
+  $("#p-lista").addEventListener("change", e => { const x = e.target.closest("input[data-p]"); if(!x) return; x.checked ? pu.sel.add(+x.dataset.p) : pu.sel.delete(+x.dataset.p); atualizar(); });
+  $("#p-todos").onclick = () => { pu.sel = new Set(visiveis("#p-lista").slice(0, lim)); atualizar(); };
+  $("#p-nenhum").onclick = () => { pu.sel.clear(); atualizar(); };
+  $("#p-pub").onclick = async () => {
+    const n = pu.sel.size;
+    if(!confirm(`Vou publicar ${n} produto${n === 1 ? "" : "s"} no site. Depois disso os clientes passam a ver ${n === 1 ? "esse produto" : "esses produtos"} na loja. Dá para ocultar de novo. Confirmar?`)) return;
+    pu.ultimo = ""; $("#p-pub").disabled = true;
+    try{
+      await api("/api/nuvemshop/publicar/aplicar", {method:"POST", body:JSON.stringify({dia:pu.dia, pids:[...pu.sel], quem:quemContando()})});
+      acompanharPublicar("publicado");
+    }catch(e){ $("#p-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+  };
+  atualizar();
+}
+async function desfazerPublicar(arquivo){
+  if(!confirm("Vou ocultar de novo no site os produtos que essa publicação abriu. Confirmar?")) return;
+  pu.ultimo = "";
+  try{
+    await api("/api/nuvemshop/publicar/desfazer", {method:"POST", body:JSON.stringify({arquivo, quem:quemContando()})});
+    acompanharPublicar("ocultado");
+  }catch(e){ $("#p-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+}
+function acompanharPublicar(verbo){
+  const iv = setInterval(async () => {
+    const s = await api("/api/tarefa");
+    if(s.rodando){ $("#p-andamento").innerHTML = `<div class="ok-msg">${esc(s.msg)}</div>`; return; }
+    clearInterval(iv);
+    if(s.erro){ $("#p-andamento").innerHTML = `<div class="erro-msg">Não deu certo: ${esc(s.erro)}</div>`; return; }
+    const r = s.resultado || {};
+    pu.ultimo = `<div class="${r.falharam && r.falharam.length ? "erro-msg" : "ok-msg"}"><b>Pronto.</b> ${num(r.gravados)} produto${r.gravados === 1 ? "" : "s"} ${verbo}${r.gravados === 1 ? "" : "s"}${r.pulados ? " · " + num(r.pulados) + " pulado(s) (mudaram desde a prévia)" : ""}.${r.backup ? "<br>Backup: " + esc(r.backup) : ""}${r.falharam && r.falharam.length ? "<br>Não deu certo: " + esc(r.falharam.join("; ")) : ""}</div>`;
+    abrirPublicar(pu.dia);
+  }, 1500);
+}
+
+/* ------------------------------------------------ enviar fotos para a Nuvemshop */
+const fo = {sel:new Set(), ultimo:""};
+$("#b-foto").onclick = () => abrirFotos(); $("#b-foto2").onclick = () => abrirFotos();
+$("#f-x").onclick = () => { $("#dfoto").close(); carregarResumo(); carregar(); };
+async function abrirFotos(){
+  $("#dfoto").showModal(); const c = $("#f-corpo");
+  c.innerHTML = "<p>Calculando…</p>";
+  const r = await api("/api/resumo");
+  if(!r.nuvemshop_configurada){ c.innerHTML = `<section><b>Conecte a Nuvemshop primeiro</b><p>Use o botão “Enviar para as lojas” para colar o token.</p></section>`; return; }
+  let p, bk;
+  try{ [p, bk] = await Promise.all([api("/api/nuvemshop/fotos/previa"), api("/api/nuvemshop/fotos/backups")]); }
+  catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
+  const it = p.itens, lim = p.limite;
+  fo.sel = new Set(it.slice(0, 1).map(i => i.pid));
+  c.innerHTML = `<section><b>Prévia: nada foi enviado ainda</b>
+      <p>${num(p.fotos_tiradas)} fotos tiradas na prateleira · <b>${num(p.para_enviar)}</b> podem subir agora · ${num(p.ja_tem_foto_no_site)} já têm foto no site (não mexo) · ${num(p.fora_do_site)} são de produtos que ainda não estão no site</p>
+      ${p.ambiguas ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.ambiguas)} ficaram de fora: mais de um produto do painel aponta para o mesmo produto do site.<br><small>${p.revisar.map(esc).join(" · ")}</small></p>` : ""}
+      <p>A foto vai como <b>primeira imagem</b> do produto no site. O leitor de “Ler a Nuvemshop” só mostra a foto do site depois de reler.</p>
+      ${it.length ? `<p class="dica-sel"><b>Comece com 1 foto</b> (já vem marcada), confira no admin da loja e depois marque o resto.</p>
+      <div class="sel-barra"><button id="f-um">Só a primeira</button><button id="f-todos">Marcar até ${lim}</button><button id="f-nenhum">Desmarcar</button><span id="f-cont"></span></div>
+      <input type="search" class="busca-lista" data-lista="#f-lista" placeholder="Buscar produto nesta lista" aria-label="Buscar nesta lista"><div class="lista-prev" id="f-lista">${it.map(i => `<label class="pv"><input type="checkbox" data-p="${i.pid}" ${fo.sel.has(i.pid) ? "checked" : ""}><img src="${i.foto}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px"><span><b>${esc(i.nome)}</b>${i.publicado ? "" : ' <span class="pill p-idle">oculto</span>'}<br><small>${esc(i.sku || "sem SKU")}</small></span></label>`).join("")}</div>
+      <button class="pri" id="f-enviar"></button>` : "<p>Nenhuma foto para enviar agora.</p>"}</section>
+    <div id="f-andamento" role="status"></div>
+    <section><b>Desfazer um envio de fotos</b>${bk.itens.length ? bk.itens.slice(0, 5).map(b => `<div class="bk"><span>${data(b.quando)} · ${b.itens} fotos</span><button data-fbk="${esc(b.arquivo)}">Remover essas fotos do site</button></div>`).join("") : "<p>Nenhum envio para desfazer.</p>"}</section>`;
+  if(fo.ultimo) $("#f-andamento").innerHTML = fo.ultimo;
+  c.querySelectorAll("[data-fbk]").forEach(b => b.onclick = () => desfazerFotos(b.dataset.fbk));
+  if(!it.length) return;
+  const atualizar = () => {
+    const n = fo.sel.size, g = $("#f-enviar");
+    $("#f-cont").textContent = `${n} marcada${n === 1 ? "" : "s"}`;
+    g.textContent = `Enviar ${n} foto${n === 1 ? "" : "s"} para a loja`; g.disabled = n === 0 || n > lim;
+    c.querySelectorAll("#f-lista input").forEach(x => x.checked = fo.sel.has(+x.dataset.p));
+  };
+  $("#f-lista").addEventListener("change", e => { const x = e.target.closest("input[data-p]"); if(!x) return; x.checked ? fo.sel.add(+x.dataset.p) : fo.sel.delete(+x.dataset.p); atualizar(); });
+  $("#f-um").onclick = () => { fo.sel = new Set(it.slice(0, 1).map(i => i.pid)); atualizar(); };
+  $("#f-todos").onclick = () => { fo.sel = new Set(visiveis("#f-lista").slice(0, lim)); atualizar(); };
+  $("#f-nenhum").onclick = () => { fo.sel.clear(); atualizar(); };
+  $("#f-enviar").onclick = async () => {
+    const n = fo.sel.size;
+    if(!confirm(`Vou enviar ${n} foto${n === 1 ? "" : "s"} para a Nuvemshop, como primeira imagem de ${n === 1 ? "1 produto" : n + " produtos"} que ainda não têm foto lá. Dá para desfazer depois. Confirmar?`)) return;
+    fo.ultimo = ""; $("#f-enviar").disabled = true;
+    try{
+      await api("/api/nuvemshop/fotos/aplicar", {method:"POST", body:JSON.stringify({pids:[...fo.sel], quem:quemContando()})});
+      acompanharFotos("enviada");
+    }catch(e){ $("#f-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+  };
+  atualizar();
+}
+async function desfazerFotos(arquivo){
+  if(!confirm("Vou remover da loja as fotos que este envio colocou. Confirmar?")) return;
+  fo.ultimo = "";
+  try{
+    await api("/api/nuvemshop/fotos/desfazer", {method:"POST", body:JSON.stringify({arquivo, quem:quemContando()})});
+    acompanharFotos("removida");
+  }catch(e){ $("#f-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+}
+function acompanharFotos(verbo){
+  const iv = setInterval(async () => {
+    const s = await api("/api/tarefa");
+    if(s.rodando){ $("#f-andamento").innerHTML = `<div class="ok-msg">${esc(s.msg)}</div>`; return; }
+    clearInterval(iv);
+    if(s.erro){ $("#f-andamento").innerHTML = `<div class="erro-msg">Não deu certo: ${esc(s.erro)}</div>`; return; }
+    const r = s.resultado || {};
+    fo.ultimo = `<div class="${r.falharam && r.falharam.length ? "erro-msg" : "ok-msg"}"><b>Pronto.</b> ${num(r.gravados)} foto${r.gravados === 1 ? "" : "s"} ${verbo}${r.gravados === 1 ? "" : "s"}${r.pulados ? " · " + num(r.pulados) + " pulada(s) (já tinham foto ou mudaram)" : ""}.${r.backup ? "<br>Backup: " + esc(r.backup) : ""}${r.falharam && r.falharam.length ? "<br>Não deu certo: " + esc(r.falharam.join("; ")) : ""}</div>`;
+    abrirFotos();
+  }, 1500);
+}
+
 /* ------------------------------------------------ notas e vendas (estoque estimado) */
 const mov = {aba:"importar", estado:"pendente", q:"", pagina:1, contados:true, sel:new Set()};
 const ABAS = [["importar","Importar"],["entradas","Itens das notas"],["historico","Importações"]];

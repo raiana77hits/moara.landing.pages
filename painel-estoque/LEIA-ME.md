@@ -95,14 +95,12 @@ Tela `/prioridades` (Início, Ferramentas, "Prioridades"). Usa só os dados que 
 - **Curva ABC** pelo valor vendido: A = 80% do faturamento, B = até 95%, C = o resto.
 - **Semáforo:** vermelho = provável falta (estoque estimado zerado, cobertura menor que 7 dias, ou
   produto A/B que vende bem, nunca foi contado e não tem compra nos últimos 60 dias);
-  amarelo = conferir ou comprar (cobertura de 7 a 21 dias, ou A/B nunca contado);
-  verde = sem alerta; cinza = sem venda no período (candidato a ocultar, nunca apagar).
+  amarelo = conferir ou comprar; verde = sem alerta; cinza = sem venda no período (candidato a
+  ocultar, nunca apagar).
 - **Comprar (30 d):** venda por dia x 30 menos o estoque estimado. É sugestão, não pedido.
-- A etiqueta **contar** marca os A/B nunca contados: conte primeiro esses, uns 20 a 30 por semana.
-- Itens vendidos por KG não têm estimativa de estoque. "DIVERSOS" e "ENTREGA" são ignorados.
-- Vendas e notas podem ser importadas em CSV ou Excel (.xlsx).
-- Precisa do relatório de vendas importado **com as datas certas** (Notas e vendas).
-- Estoque estimado é alerta, não contagem. Baixe a lista em CSV para levar às compras.
+- A etiqueta **contar** marca os A/B nunca contados: conte primeiro esses.
+- Vendas e notas podem ser importadas em CSV ou Excel (.xlsx). Informe as datas certas do relatório.
+- Estoque estimado é alerta, não contagem.
 
 ## Acesso à Nuvemshop
 

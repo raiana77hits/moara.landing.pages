@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# versao-do-painel: 7
+# versao-do-painel: 9
 """Painel de Estoque - cadastro central (Casa de Embalagens Cangaíba).
 
 Roda só neste computador (127.0.0.1). Usa apenas a biblioteca padrão do Python.
@@ -16,6 +16,7 @@ config.json) e PAINEL_HOST=0.0.0.0. Sem senha o painel só responde neste comput
 
 Este programa NÃO altera nada na Nuvemshop, no iFood, na 99Food nem no Gestor Z.
 """
+import base64
 import collections
 import csv
 import difflib
@@ -23,6 +24,7 @@ import hashlib
 import hmac
 import io
 import json
+import math
 import os
 import re
 import secrets
@@ -34,6 +36,9 @@ import time
 import urllib.error
 import urllib.request
 import webbrowser
+import xml.etree.ElementTree as ET
+import zipfile
+from xml.sax.saxutils import escape as xml_escape
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
@@ -46,7 +51,7 @@ STATIC = os.path.join(BASE, "static")
 PORTA = int(os.environ.get("PAINEL_PORTA") or os.environ.get("PORT") or "8765")
 HOST = os.environ.get("PAINEL_HOST", "127.0.0.1")
 SESSAO_DIAS = 30
-VERSAO_SERVIDOR = "7"      # a tela compara com este número para detectar janela antiga aberta
+VERSAO_SERVIDOR = "9"      # a tela compara com este número para detectar janela antiga aberta
 
 CANAIS = ("nuvemshop", "ifood", "99food")
 
@@ -75,7 +80,9 @@ CREATE TABLE IF NOT EXISTS produtos (
     foto_url TEXT,           -- foto do produto no site (Nuvemshop)
     atualizado_em TEXT,
     estimado REAL,           -- estoque estimado = contagem + entradas - vendas (calculado)
-    est_aviso TEXT           -- 'peso' = vende por KG, não estimamos
+    est_aviso TEXT,          -- 'peso' = vende por KG, não estimamos
+    categoria_id TEXT,       -- categoria da loja (Nuvemshop)
+    categoria_nome TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_prod_sku ON produtos(sku);
 CREATE INDEX IF NOT EXISTS ix_prod_gz ON produtos(gz_codigo);
@@ -158,6 +165,44 @@ CREATE TABLE IF NOT EXISTS de_para (
     PRIMARY KEY (cnpj, cod_fornecedor)
 );
 
+-- catálogo do iFood (planilha exportada do portal), para saber ruptura e o que já existe lá
+CREATE TABLE IF NOT EXISTS ifood_catalogo (
+    ean TEXT PRIMARY KEY,
+    nome TEXT, em_venda INTEGER, bloqueio TEXT, preco REAL, qtd REAL, dt TEXT
+);
+
+-- catálogo da 99Food (planilha "Baixar dados de todos os itens"), guardado inteiro para reeditar
+CREATE TABLE IF NOT EXISTS n99_catalogo (
+    id TEXT PRIMARY KEY,
+    ean TEXT, nome TEXT, descricao TEXT, id_ext TEXT, preco REAL, preco_txt TEXT, qtd REAL,
+    categoria TEXT, disp TEXT, tags TEXT, peso TEXT, volume TEXT, armaz TEXT, embal TEXT
+);
+
+-- pedidos do site (lidos da Nuvemshop, só leitura)
+CREATE TABLE IF NOT EXISTS pedidos_site (
+    id INTEGER PRIMARY KEY,
+    numero TEXT, criado_em TEXT, status TEXT, pagamento TEXT, total REAL
+);
+CREATE TABLE IF NOT EXISTS pedidos_itens (
+    pedido_id INTEGER NOT NULL,
+    variacao_id TEXT, produto_site TEXT, sku TEXT, nome TEXT, qtd REAL
+);
+CREATE INDEX IF NOT EXISTS ix_pi_ped ON pedidos_itens(pedido_id);
+CREATE INDEX IF NOT EXISTS ix_pi_var ON pedidos_itens(variacao_id);
+
+-- categorias da loja (lidas da Nuvemshop)
+CREATE TABLE IF NOT EXISTS categorias_site (
+    id TEXT PRIMARY KEY,
+    nome TEXT NOT NULL       -- caminho completo: Pai > Filha
+);
+
+-- grupo do Gestor Z -> categoria da loja (Nuvemshop)
+CREATE TABLE IF NOT EXISTS categoria_map (
+    grupo TEXT PRIMARY KEY,
+    categoria_id TEXT NOT NULL,
+    categoria_nome TEXT
+);
+
 -- códigos bipados na prateleira que não existem no cadastro
 CREATE TABLE IF NOT EXISTS leituras_sem_cadastro (
     id INTEGER PRIMARY KEY,
@@ -185,7 +230,8 @@ def conectar():
     colunas = {r["name"] for r in con.execute("PRAGMA table_info(produtos)")}
     if "foto_url" not in colunas:          # banco criado por uma versão anterior
         con.execute("ALTER TABLE produtos ADD COLUMN foto_url TEXT")
-    for col, tipo in (("estimado", "REAL"), ("est_aviso", "TEXT")):
+    for col, tipo in (("estimado", "REAL"), ("est_aviso", "TEXT"), ("categoria_id", "TEXT"),
+                      ("categoria_nome", "TEXT")):
         if col not in colunas:
             con.execute(f"ALTER TABLE produtos ADD COLUMN {col} {tipo}")
         con.commit()
@@ -372,7 +418,7 @@ def _texto(v):
     return v or ""
 
 
-def sync_nuvemshop(con, progresso=None):
+def sync_nuvemshop(con, progresso=None, completo=False):
     """Lê todos os produtos da Nuvemshop (GET). Não escreve nada na loja."""
     cfg = carregar_config()
     if not cfg["token"] or not cfg["loja"]:
@@ -392,6 +438,22 @@ def sync_nuvemshop(con, progresso=None):
         time.sleep(1.5)
 
     con.execute("DELETE FROM canais WHERE canal='nuvemshop'")
+    con.execute("UPDATE produtos SET foto_url=NULL")       # a foto do site é relida a cada leitura
+    vistas = {}                                            # categorias vistas nos produtos: id -> (nome, pai)
+    for p in produtos:
+        for c in p.get("categories") or []:
+            vistas[str(c.get("id"))] = (_texto(c.get("name")), str(c["parent"]) if c.get("parent") else None)
+    if completo:                                           # lista completa (inclui categorias vazias), se o token deixar
+        try:
+            for c in categorias_nuvemshop_cruas(cfg):
+                vistas.setdefault(str(c.get("id")), (_texto(c.get("name")), str(c["parent"]) if c.get("parent") else None))
+        except Exception:  # noqa: BLE001 - sem permissão: ficamos só com as que os produtos mostram
+            pass
+
+    caminhos = _caminhos_categorias(vistas)
+    if completo:
+        con.execute("DELETE FROM categorias_site")
+    con.executemany("INSERT OR REPLACE INTO categorias_site(id, nome) VALUES(?,?)", list(caminhos.items()))
     por_sku = por_ean = criados = variacoes = 0
     for p in produtos:
         nome = _texto(p.get("name"))
@@ -428,6 +490,11 @@ def sync_nuvemshop(con, progresso=None):
                 criados += 1
             else:
                 pid = r["id"]
+            cids = [str(c.get("id")) for c in (p.get("categories") or [])]
+            if cids:
+                fundo = max(cids, key=lambda i: caminhos.get(i, "").count(">"))
+                con.execute("UPDATE produtos SET categoria_id=?, categoria_nome=? WHERE id=?",
+                            (fundo, caminhos.get(fundo, ""), pid))
             src = src_por_id.get(v.get("image_id")) or src_primeira
             if src:
                 con.execute("UPDATE produtos SET foto_url=? WHERE id=?", (src, pid))
@@ -467,7 +534,8 @@ def _nuvem(cfg, metodo, caminho, corpo=None):
             "Content-Type": "application/json"})
         try:
             with urllib.request.urlopen(req, timeout=60) as resp:
-                return json.load(resp)
+                bruto = resp.read()
+                return json.loads(bruto) if bruto.strip() else {}
         except urllib.error.HTTPError as e:
             detalhe = e.read().decode("utf-8", "replace")[:300]
             if e.code == 429 or e.code >= 500:
@@ -701,6 +769,614 @@ def desfazer_nuvemshop(arquivo, quem, progresso):
         con.close()
 
 
+# ------------------------------------------------ envio de fotos para a Nuvemshop
+
+MAX_FOTOS_ENVIO = 40
+
+
+def previa_fotos(con):
+    """Fotos tiradas na prateleira que podem subir: só para produto que está no site e
+    ainda não tem foto lá. Não altera nada."""
+    por_site = collections.Counter()
+    linhas = con.execute(
+        "SELECT p.id pid, p.nome, p.sku, p.foto_url, k.id_externo prod_site, k.status "
+        "FROM fotos f JOIN produtos p ON p.id=f.produto_id JOIN canais k ON k.produto_id=p.id "
+        "AND k.canal='nuvemshop' GROUP BY p.id ORDER BY p.nome").fetchall()
+    for r in linhas:
+        por_site[r["prod_site"]] += 1
+    itens, ja_tem, ambiguas, sem_arquivo = [], 0, [], 0
+    for r in linhas:
+        if r["foto_url"]:
+            ja_tem += 1
+        elif por_site[r["prod_site"]] > 1:
+            ambiguas.append(r["nome"])
+        elif not os.path.exists(os.path.join(fotos_dir(), f"{r['pid']}.jpg")):
+            sem_arquivo += 1
+        else:
+            itens.append({"pid": r["pid"], "nome": r["nome"], "sku": r["sku"],
+                          "prod_site": int(r["prod_site"]), "publicado": r["status"] == "Publicado",
+                          "foto": f"/api/foto/{r['pid']}"})
+    total = con.execute("SELECT COUNT(*) FROM fotos").fetchone()[0]
+    fora_site = con.execute(
+        "SELECT COUNT(*) FROM fotos f WHERE NOT EXISTS (SELECT 1 FROM canais k WHERE "
+        "k.produto_id=f.produto_id AND k.canal='nuvemshop')").fetchone()[0]
+    return {"fotos_tiradas": total, "para_enviar": len(itens), "ja_tem_foto_no_site": ja_tem,
+            "fora_do_site": fora_site, "ambiguas": len(ambiguas), "revisar": sorted(ambiguas)[:10],
+            "limite": MAX_FOTOS_ENVIO, "itens": itens}
+
+
+def _salvar_backup_fotos(linhas):
+    os.makedirs(backups_dir(), exist_ok=True)
+    nome = f"fotosnuvem_{datetime.now():%Y%m%d_%H%M%S}.csv"
+    with open(os.path.join(backups_dir(), nome), "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["produto_site", "imagem_site", "sku", "nome"])
+        w.writerows(linhas)
+    return nome
+
+
+def listar_backups_fotos():
+    if not os.path.isdir(backups_dir()):
+        return []
+    saida = []
+    for nome in sorted(os.listdir(backups_dir()), reverse=True):
+        if nome.startswith("fotosnuvem_") and nome.endswith(".csv") and not nome.endswith(".desfeito.csv"):
+            caminho = os.path.join(backups_dir(), nome)
+            with open(caminho, encoding="utf-8-sig") as f:
+                qtd = max(0, sum(1 for _ in f) - 1)
+            saida.append({"arquivo": nome, "itens": qtd, "quando": datetime.fromtimestamp(
+                os.path.getmtime(caminho)).strftime("%Y-%m-%d %H:%M")})
+    return saida
+
+
+def aplicar_fotos(pids, quem, progresso):
+    cfg = _exigir_nuvemshop()
+    quer = {int(p) for p in pids}
+    if not quer:
+        raise RuntimeError("Nada para enviar.")
+    if len(quer) > MAX_FOTOS_ENVIO:
+        raise RuntimeError(f"Por segurança, envie no máximo {MAX_FOTOS_ENVIO} fotos por vez.")
+    con = conectar()
+    try:
+        progresso("Lendo a loja para conferir quais produtos ainda estão sem foto…")
+        sync_nuvemshop(con)
+        plano = {i["pid"]: i for i in previa_fotos(con)["itens"]}
+        escolhidos = [plano[p] for p in quer if p in plano]
+        pulados = len(quer) - len(escolhidos)         # já ganharam foto ou mudaram desde a prévia
+        enviados, falharam = [], []
+        for n, i in enumerate(sorted(escolhidos, key=lambda x: x["nome"]), 1):
+            progresso(f"Enviando foto {n} de {len(escolhidos)}: {i['nome'][:40]}")
+            try:
+                with open(os.path.join(fotos_dir(), f"{i['pid']}.jpg"), "rb") as f:
+                    b64 = base64.b64encode(f.read()).decode()
+                r = _nuvem(cfg, "POST", f"/products/{i['prod_site']}/images", {
+                    "filename": f"{(i['sku'] or 'produto-' + str(i['pid']))}.jpg",
+                    "position": 1, "attachment": b64})
+                if not r.get("id"):
+                    raise RuntimeError("a loja não devolveu o número da imagem")
+                enviados.append(i | {"imagem": r["id"]})
+            except Exception as e:  # noqa: BLE001
+                falharam.append(f"{i['nome']}: {e}")
+            time.sleep(0.6)
+        backup = _salvar_backup_fotos([[i["prod_site"], i["imagem"], i["sku"] or "", i["nome"]]
+                                       for i in enviados]) if enviados else None
+        progresso("Conferindo na loja o que foi enviado…")
+        sync_nuvemshop(con)
+        ok = 0
+        for i in enviados:
+            if con.execute("SELECT foto_url FROM produtos WHERE id=?", (i["pid"],)).fetchone()[0]:
+                ok += 1
+                con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) "
+                            "VALUES(?,?,?,?,?,?)", (i["pid"], agora(), "foto no site", "",
+                                                    "foto enviada para a Nuvemshop", quem or "painel"))
+            else:
+                falharam.append(f"{i['nome']}: a loja ainda não mostra a foto (confira no site)")
+        con.commit()
+        return {"gravados": ok, "pulados": pulados, "falharam": falharam[:10], "backup": backup}
+    finally:
+        con.close()
+
+
+def desfazer_fotos(arquivo, quem, progresso):
+    cfg = _exigir_nuvemshop()
+    if arquivo not in {b["arquivo"] for b in listar_backups_fotos()}:
+        raise RuntimeError("Backup não encontrado.")
+    with open(os.path.join(backups_dir(), arquivo), encoding="utf-8-sig", newline="") as f:
+        linhas = list(csv.DictReader(f))
+    feitos, falharam, pulados = 0, [], 0
+    for n, l in enumerate(linhas, 1):
+        progresso(f"Removendo foto {n} de {len(linhas)}…")
+        try:
+            _nuvem(cfg, "DELETE", f"/products/{int(l['produto_site'])}/images/{int(l['imagem_site'])}")
+            feitos += 1
+        except RuntimeError as e:
+            if " 404" in str(e):
+                pulados += 1                      # já não está mais lá
+            else:
+                falharam.append(f"{l['nome']}: {e}")
+        time.sleep(0.6)
+    if not falharam:
+        os.replace(os.path.join(backups_dir(), arquivo), os.path.join(backups_dir(), arquivo[:-4] + ".desfeito.csv"))
+    con = conectar()
+    try:
+        progresso("Relendo a loja…")
+        sync_nuvemshop(con)
+    finally:
+        con.close()
+    return {"gravados": feitos, "pulados": pulados, "falharam": falharam[:10], "backup": None}
+
+
+# ------------------------------------------------ publicar produtos na Nuvemshop
+
+MAX_PUBLICAR = 60
+
+
+def previa_publicar(con, dia=""):
+    """Produtos ocultos no site que foram contados em um dia. Não altera nada."""
+    base = ("FROM produtos p JOIN canais k ON k.produto_id=p.id AND k.canal='nuvemshop' "
+            "WHERE p.estoque IS NOT NULL AND k.status='Oculto'")
+    dias = [{"dia": r[0], "n": r[1]} for r in con.execute(
+        "SELECT substr(p.conferido_em,1,10) d, COUNT(DISTINCT k.id_externo) " + base +
+        " GROUP BY d ORDER BY d DESC LIMIT 14")]
+    nvar = {r[0]: r[1] for r in con.execute(
+        "SELECT id_externo, COUNT(*) FROM canais WHERE canal='nuvemshop' GROUP BY id_externo")}
+    itens, sem_estoque, sem_foto, varias, sem_preco = [], [], [], [], []
+    vistos = set()
+    if dia:
+        for r in con.execute(
+                "SELECT p.id pid, p.nome, p.sku, p.estoque, k.preco AS preco, p.foto_url, k.id_externo prod_site " + base +
+                " AND substr(p.conferido_em,1,10)=? ORDER BY p.nome", (dia,)):
+            if r["prod_site"] in vistos:
+                continue
+            vistos.add(r["prod_site"])
+            if nvar.get(r["prod_site"], 1) > 1:
+                varias.append(r["nome"])
+            elif not r["preco"] or r["preco"] <= 0:
+                sem_preco.append(r["nome"])
+            elif r["estoque"] == 0:
+                sem_estoque.append(r["nome"])
+            elif not r["foto_url"]:
+                sem_foto.append(r["nome"])
+            else:
+                itens.append({"pid": r["pid"], "nome": r["nome"], "sku": r["sku"], "estoque": r["estoque"],
+                              "preco": r["preco"], "prod_site": int(r["prod_site"]),
+                              "foto": r["foto_url"]})
+    return {"dia": dia, "dias": dias, "para_publicar": len(itens), "sem_estoque": len(sem_estoque),
+            "sem_foto": len(sem_foto), "varias_variacoes": len(varias), "sem_preco": len(sem_preco),
+            "revisar": {"sem_preco": sem_preco[:8], "sem_estoque": sem_estoque[:8], "sem_foto": sem_foto[:8], "varias": varias[:8]},
+            "limite": MAX_PUBLICAR, "itens": itens}
+
+
+def _salvar_backup_publicar(linhas):
+    os.makedirs(backups_dir(), exist_ok=True)
+    nome = f"publicar_{datetime.now():%Y%m%d_%H%M%S}.csv"
+    with open(os.path.join(backups_dir(), nome), "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["produto_site", "sku", "nome"])
+        w.writerows(linhas)
+    return nome
+
+
+def listar_backups_publicar():
+    if not os.path.isdir(backups_dir()):
+        return []
+    saida = []
+    for nome in sorted(os.listdir(backups_dir()), reverse=True):
+        if nome.startswith("publicar_") and nome.endswith(".csv") and not nome.endswith(".desfeito.csv"):
+            caminho = os.path.join(backups_dir(), nome)
+            with open(caminho, encoding="utf-8-sig") as f:
+                qtd = max(0, sum(1 for _ in f) - 1)
+            saida.append({"arquivo": nome, "itens": qtd, "quando": datetime.fromtimestamp(
+                os.path.getmtime(caminho)).strftime("%Y-%m-%d %H:%M")})
+    return saida
+
+
+def _status_site(con, prod_site):
+    r = con.execute("SELECT status FROM canais WHERE canal='nuvemshop' AND id_externo=? LIMIT 1",
+                    (str(prod_site),)).fetchone()
+    return r[0] if r else None
+
+
+def aplicar_publicar(dia, pids, quem, progresso):
+    cfg = _exigir_nuvemshop()
+    quer = {int(p) for p in pids}
+    if not quer:
+        raise RuntimeError("Nada para publicar.")
+    if len(quer) > MAX_PUBLICAR:
+        raise RuntimeError(f"Por segurança, publique no máximo {MAX_PUBLICAR} por vez.")
+    con = conectar()
+    try:
+        progresso("Lendo a loja para conferir o estado atual…")
+        sync_nuvemshop(con)
+        plano = {i["pid"]: i for i in previa_publicar(con, dia)["itens"]}
+        escolhidos = [plano[p] for p in quer if p in plano]
+        pulados = len(quer) - len(escolhidos)
+        feitos, falharam = [], []
+        for n, i in enumerate(sorted(escolhidos, key=lambda x: x["nome"]), 1):
+            progresso(f"Publicando {n} de {len(escolhidos)}: {i['nome'][:40]}")
+            try:
+                _nuvem(cfg, "PUT", f"/products/{i['prod_site']}", {"published": True})
+                feitos.append(i)
+            except Exception as e:  # noqa: BLE001
+                falharam.append(f"{i['nome']}: {e}")
+            time.sleep(0.6)
+        backup = _salvar_backup_publicar([[i["prod_site"], i["sku"] or "", i["nome"]] for i in feitos]) if feitos else None
+        progresso("Conferindo na loja o que foi publicado…")
+        sync_nuvemshop(con)
+        ok = 0
+        for i in feitos:
+            if _status_site(con, i["prod_site"]) == "Publicado":
+                ok += 1
+                con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                            (i["pid"], agora(), "publicado no site", "oculto", "publicado", quem or "painel"))
+            else:
+                falharam.append(f"{i['nome']}: a loja não mostra como publicado")
+        con.commit()
+        return {"gravados": ok, "pulados": pulados, "falharam": falharam[:10], "backup": backup}
+    finally:
+        con.close()
+
+
+def desfazer_publicar(arquivo, quem, progresso):
+    cfg = _exigir_nuvemshop()
+    if arquivo not in {b["arquivo"] for b in listar_backups_publicar()}:
+        raise RuntimeError("Backup não encontrado.")
+    with open(os.path.join(backups_dir(), arquivo), encoding="utf-8-sig", newline="") as f:
+        linhas = list(csv.DictReader(f))
+    feitos, falharam = 0, []
+    for n, l in enumerate(linhas, 1):
+        progresso(f"Ocultando {n} de {len(linhas)}…")
+        try:
+            _nuvem(cfg, "PUT", f"/products/{int(l['produto_site'])}", {"published": False})
+            feitos += 1
+        except RuntimeError as e:
+            falharam.append(f"{l['nome']}: {e}")
+        time.sleep(0.6)
+    if not falharam:
+        os.replace(os.path.join(backups_dir(), arquivo), os.path.join(backups_dir(), arquivo[:-4] + ".desfeito.csv"))
+    con = conectar()
+    try:
+        progresso("Relendo a loja…")
+        sync_nuvemshop(con)
+    finally:
+        con.close()
+    return {"gravados": feitos, "pulados": 0, "falharam": falharam[:10], "backup": None}
+
+
+# ------------------------------------------- cadastrar produtos novos na Nuvemshop
+
+MAX_CADASTRAR = 30
+
+
+def _caminhos_categorias(vistas):
+    """vistas: id -> (nome, pai). Devolve id -> 'Pai > Filha'."""
+    def caminho(cid, n=0):
+        nome, pai = vistas.get(cid, ("", None))
+        return (caminho(pai, n + 1) + " > " if pai and pai in vistas and n < 6 else "") + nome
+    return {cid: caminho(cid) for cid in vistas}
+
+
+def ler_categorias(con):
+    """Lê só a lista de categorias da loja (uma chamada rápida) e guarda no painel."""
+    cfg = _exigir_nuvemshop()
+    vistas = {}
+    for c in categorias_nuvemshop_cruas(cfg):
+        vistas[str(c.get("id"))] = (_texto(c.get("name")), str(c["parent"]) if c.get("parent") else None)
+    if not vistas:
+        raise RuntimeError("A loja não tem nenhuma categoria cadastrada (ou o token não enxerga as categorias).")
+    con.execute("DELETE FROM categorias_site")
+    con.executemany("INSERT OR REPLACE INTO categorias_site(id, nome) VALUES(?,?)", list(_caminhos_categorias(vistas).items()))
+    con.commit()
+    return {"ok": True, "categorias": len(vistas)}
+
+
+def categorias_nuvemshop_cruas(cfg):
+    todas, pagina = [], 1
+    while True:
+        lote = _nuvem(cfg, "GET", f"/categories?per_page=200&page={pagina}")
+        if not isinstance(lote, list) or not lote:
+            break
+        todas.extend(lote)
+        if len(lote) < 200:
+            break
+        pagina += 1
+    return todas
+
+
+def categorias_lista(con):
+    return [{"id": r["id"], "nome": r["nome"]} for r in con.execute(
+        "SELECT id, nome FROM categorias_site ORDER BY nome COLLATE NOCASE")]
+
+
+# ------------------------------------------- organizar categorias (sugestão automática)
+
+def _tokens_cat(t):
+    """Palavras do nome na ordem, sem repetir e sem números/medidas (500ML, C/12...)."""
+    vistos, saida = set(), []
+    for w in re.findall(r"[A-Z0-9]{2,}", _sem_acento(t).upper()):
+        if w in _STOP or w.isdigit() or re.fullmatch(r"\d+[A-Z]{1,3}", w) or w in vistos:
+            continue
+        vistos.add(w)
+        saida.append(w)
+    return saida
+
+
+def sugerir_categorias(con):
+    """Aprende com os produtos que já têm categoria da loja (nome e grupo) e sugere a categoria
+    dos que não têm. A primeira palavra do nome (o tipo do produto) pesa mais que cor, marca e
+    tamanho, e a confiança só é alta quando a categoria combina com a maior parte do nome.
+    Não altera nada. Devolve (sugestões, quantos produtos serviram de exemplo)."""
+    nomes_cat = {r["id"]: r["nome"] for r in con.execute("SELECT id, nome FROM categorias_site")}
+    treino = con.execute("SELECT nome, grupo, categoria_id FROM produtos WHERE categoria_id IS NOT NULL").fetchall()
+    tok_cat, tok_tot, grupo_cat = collections.defaultdict(collections.Counter), collections.Counter(), collections.defaultdict(collections.Counter)
+    for r in treino:
+        for t in _tokens_cat(r["nome"]):
+            tok_cat[t][r["categoria_id"]] += 1
+            tok_tot[t] += 1
+        if r["grupo"]:
+            grupo_cat[r["grupo"]][r["categoria_id"]] += 1
+    n_treino = len(treino)
+    saida = []
+    if not n_treino:
+        return saida, 0
+    for p in con.execute("SELECT id, nome, grupo, ean FROM produtos WHERE categoria_id IS NULL AND ativo=1 "
+                         "ORDER BY nome COLLATE NOCASE"):
+        toks = _tokens_cat(p["nome"])
+        pontos = collections.Counter()
+        for i, t in enumerate(toks):
+            if tok_tot[t] >= 2:
+                peso = math.log(1 + n_treino / tok_tot[t]) * (2.5 if i == 0 else 1.0)
+                for cat, n in tok_cat[t].items():
+                    pontos[cat] += peso * n / tok_tot[t]
+        gc = grupo_cat.get(p["grupo"] or "")
+        if gc and sum(gc.values()) >= 3:
+            total = sum(gc.values())
+            for cat, n in gc.items():
+                pontos[cat] += 1.5 * n / total
+        if not pontos:
+            continue
+        top = pontos.most_common(3)
+        melhor, segundo = top[0][1], (top[1][1] if len(top) > 1 else 0)
+        cat = top[0][0]
+        cobertura = sum(1 for t in toks if tok_cat[t][cat] > 0) / max(1, len(toks))
+        tipo_sabido = bool(toks) and tok_tot[toks[0]] >= 2
+        tipo_apoia = bool(toks) and tok_cat[toks[0]][cat] > 0
+        if melhor >= 2.5 and melhor >= 1.7 * segundo and cobertura >= 0.5 and tipo_apoia:
+            conf = "alta"
+        elif melhor >= 1.2 and melhor >= 1.25 * segundo and cobertura >= 0.34 and (tipo_apoia or not tipo_sabido):
+            conf = "media"
+        else:
+            conf = "baixa"
+        saida.append({"pid": p["id"], "nome": p["nome"], "grupo": p["grupo"], "confianca": conf,
+                      "categoria_id": cat, "categoria": nomes_cat.get(cat, ""),
+                      "outras": [{"id": c, "nome": nomes_cat.get(c, "")} for c, _ in top[1:]]})
+    return saida, n_treino
+
+
+def listar_sugestoes(con, conf="alta", q="", pagina=1, por_pagina=40):
+    todas, n_treino = sugerir_categorias(con)
+    contagem = collections.Counter(x["confianca"] for x in todas)
+    termos = (q or "").lower().split()
+    itens = [x for x in todas if (conf == "todas" or x["confianca"] == conf)
+             and all(t in x["nome"].lower() for t in termos)]
+    sem_sug = con.execute("SELECT COUNT(*) FROM produtos WHERE categoria_id IS NULL AND ativo=1").fetchone()[0] - len(todas)
+    return {"treino": n_treino, "contagem": dict(contagem), "sem_sugestao": max(0, sem_sug), "total": len(itens),
+            "pagina": pagina, "por_pagina": por_pagina,
+            "itens": itens[(pagina - 1) * por_pagina: pagina * por_pagina]}
+
+
+def aplicar_sugestoes(con, itens, quem, conf=""):
+    """Grava a categoria nos produtos (só no painel). Com conf, aplica todas daquele nível."""
+    if conf:
+        itens = [{"pid": x["pid"], "categoria_id": x["categoria_id"]}
+                 for x in sugerir_categorias(con)[0] if x["confianca"] == conf]
+    cats = {r["id"]: r["nome"] for r in con.execute("SELECT id, nome FROM categorias_site")}
+    n = 0
+    for i in itens[:5000]:
+        pid, cid = int(i["pid"]), str(i.get("categoria_id") or "")
+        if cid not in cats:
+            continue
+        r = con.execute("SELECT categoria_id FROM produtos WHERE id=?", (pid,)).fetchone()
+        if not r or r[0] == cid:
+            continue
+        con.execute("UPDATE produtos SET categoria_id=?, categoria_nome=?, atualizado_em=? WHERE id=?",
+                    (cid, cats[cid], agora(), pid))
+        con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                    (pid, agora(), "categoria", r[0] or "", cats[cid], (quem or "painel") + " (sugestão)"))
+        n += 1
+    con.commit()
+    return {"ok": True, "aplicadas": n}
+
+
+def _novos_candidatos(con):
+    return con.execute(
+        "SELECT p.* FROM produtos p WHERE p.origem='manual' AND NOT EXISTS "
+        "(SELECT 1 FROM canais k WHERE k.produto_id=p.id AND k.canal='nuvemshop') "
+        "ORDER BY p.nome").fetchall()
+
+
+def salvar_mapa(con, grupo, cat_id, cat_nome):
+    grupo = (grupo or "").strip()
+    if not grupo:
+        raise ValueError("Grupo inválido.")
+    if not cat_id:
+        con.execute("DELETE FROM categoria_map WHERE grupo=?", (grupo,))
+    else:
+        con.execute("INSERT OR REPLACE INTO categoria_map VALUES(?,?,?)",
+                    (grupo, str(cat_id), (cat_nome or "")[:150]))
+    con.commit()
+    return {"ok": True}
+
+
+def _adivinhar_categoria(grupo, cats):
+    g = _sem_acento(grupo or "").upper().strip()
+    if not g or not cats:
+        return None
+    ultimos = [(c, _sem_acento(c["nome"].split(" > ")[-1]).upper().strip()) for c in cats]
+    for c, n in ultimos:
+        if n == g:
+            return c["id"]
+    for c, n in ultimos:
+        if len(n) >= 4 and (n in g or g in n):
+            return c["id"]
+    return None
+
+
+def previa_cadastrar(con, cats=None):
+    """Produtos cadastrados à mão que ainda não existem no site. Não altera nada.
+    Cria mesmo incompleto (fica oculto); o que falta vai marcado para análise."""
+    mapa = {r["grupo"]: r["categoria_id"] for r in con.execute("SELECT * FROM categoria_map")}
+    nomes_cat = {c["id"]: c["nome"] for c in (cats or [])}
+    itens = []
+    for r in _novos_candidatos(con):
+        ean = "".join(c for c in (r["ean"] or "") if c.isdigit())
+        cid = r["categoria_id"] or mapa.get(r["grupo"] or "") or _adivinhar_categoria(r["grupo"], cats)
+        faltas = []
+        if not r["preco"] or r["preco"] <= 0:
+            faltas.append("sem preço")
+        if r["estoque"] is None:
+            faltas.append("sem contagem")
+        if not cid:
+            faltas.append("sem categoria")
+        if not 6 <= len(ean) <= 14:
+            faltas.append("sem código de barras")
+        itens.append({"pid": r["id"], "nome": r["nome"], "ean": ean, "preco": r["preco"],
+                      "estoque": r["estoque"], "grupo": r["grupo"], "categoria_id": cid,
+                      "categoria": nomes_cat.get(cid, ""), "faltas": faltas,
+                      "foto": f"/api/foto/{r['id']}" if os.path.exists(os.path.join(fotos_dir(), f"{r['id']}.jpg")) else None})
+    return {"para_criar": len(itens), "limite": MAX_CADASTRAR, "itens": itens, "categorias": cats}
+
+
+def _salvar_backup_cadastrar(linhas):
+    os.makedirs(backups_dir(), exist_ok=True)
+    nome = f"cadastrar_{datetime.now():%Y%m%d_%H%M%S}.csv"
+    with open(os.path.join(backups_dir(), nome), "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["produto_site", "nome", "ean"])
+        w.writerows(linhas)
+    return nome
+
+
+def listar_backups_cadastrar():
+    if not os.path.isdir(backups_dir()):
+        return []
+    saida = []
+    for nome in sorted(os.listdir(backups_dir()), reverse=True):
+        if nome.startswith("cadastrar_") and nome.endswith(".csv") and not nome.endswith(".desfeito.csv"):
+            caminho = os.path.join(backups_dir(), nome)
+            with open(caminho, encoding="utf-8-sig") as f:
+                qtd = max(0, sum(1 for _ in f) - 1)
+            saida.append({"arquivo": nome, "itens": qtd, "quando": datetime.fromtimestamp(
+                os.path.getmtime(caminho)).strftime("%Y-%m-%d %H:%M")})
+    return saida
+
+
+def aplicar_cadastrar(itens_in, quem, progresso):
+    cfg = _exigir_nuvemshop()
+    cat_de = {int(i["pid"]): (str(i.get("categoria_id") or "") or None) for i in itens_in}
+    quer = set(cat_de)
+    if not quer:
+        raise RuntimeError("Nada para cadastrar.")
+    if len(quer) > MAX_CADASTRAR:
+        raise RuntimeError(f"Por segurança, cadastre no máximo {MAX_CADASTRAR} por vez.")
+    con = conectar()
+    try:
+        progresso("Lendo a loja para não duplicar nenhum produto…")
+        sync_nuvemshop(con)                     # quem já existe no site (mesmo código de barras) sai do plano
+        plano = {i["pid"]: i for i in previa_cadastrar(con)["itens"]}
+        escolhidos = [plano[p] | {"categoria_id": cat_de[p]} for p in quer if p in plano]
+        pulados = len(quer) - len(escolhidos)
+        criados, falharam = [], []
+        for n, i in enumerate(sorted(escolhidos, key=lambda x: x["nome"]), 1):
+            progresso(f"Cadastrando {n} de {len(escolhidos)}: {i['nome'][:40]}")
+            try:
+                variante = {"price": f"{(i['preco'] or 0):.2f}"}
+                if i["estoque"] is not None:
+                    variante.update(stock_management=True, stock=int(i["estoque"]))
+                if 6 <= len(i["ean"]) <= 14:
+                    variante["barcode"] = i["ean"]
+                else:
+                    variante["sku"] = f"PAINEL-{i['pid']}"        # para o painel reconhecer o produto depois
+                corpo = {"name": {"pt": i["nome"]}, "published": False, "variants": [variante]}
+                if i["categoria_id"]:
+                    corpo["categories"] = [int(i["categoria_id"])]
+                r = _nuvem(cfg, "POST", "/products", corpo)
+                if not r.get("id"):
+                    raise RuntimeError("a loja não devolveu o número do produto")
+                if i["categoria_id"]:
+                    con.execute("UPDATE produtos SET categoria_id=?, categoria_nome=(SELECT nome FROM categorias_site "
+                                "WHERE id=?) WHERE id=?", (i["categoria_id"], i["categoria_id"], i["pid"]))
+                    con.commit()
+                if "sku" in variante:
+                    con.execute("UPDATE produtos SET sku=? WHERE id=?", (variante["sku"], i["pid"]))
+                    con.commit()
+                criados.append(i | {"prod_site": r["id"]})
+            except Exception as e:  # noqa: BLE001
+                falharam.append(f"{i['nome']}: {e}")
+            time.sleep(0.6)
+        backup = _salvar_backup_cadastrar([[i["prod_site"], i["nome"], i["ean"]] for i in criados]) if criados else None
+        for i in criados:                       # foto, se houver
+            arq = os.path.join(fotos_dir(), f"{i['pid']}.jpg")
+            if os.path.exists(arq):
+                try:
+                    with open(arq, "rb") as f:
+                        b64 = base64.b64encode(f.read()).decode()
+                    _nuvem(cfg, "POST", f"/products/{i['prod_site']}/images",
+                           {"filename": f"produto-{i['pid']}.jpg", "position": 1, "attachment": b64})
+                except Exception as e:  # noqa: BLE001
+                    falharam.append(f"{i['nome']}: criado, mas a foto não subiu ({e})")
+                time.sleep(0.6)
+        progresso("Conferindo na loja o que foi criado…")
+        sync_nuvemshop(con)
+        ok = 0
+        for i in criados:
+            if con.execute("SELECT 1 FROM canais WHERE produto_id=? AND canal='nuvemshop'", (i["pid"],)).fetchone():
+                ok += 1
+                con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                            (i["pid"], agora(), "cadastro no site", "", "criado oculto na Nuvemshop", quem or "painel"))
+            else:
+                falharam.append(f"{i['nome']}: criado, mas a leitura da loja não o achou")
+        con.commit()
+        return {"gravados": ok, "pulados": pulados, "falharam": falharam[:10], "backup": backup}
+    finally:
+        con.close()
+
+
+def desfazer_cadastrar(arquivo, quem, progresso):
+    """Apaga da loja só os produtos que esse envio criou, e só se ainda estiverem ocultos."""
+    cfg = _exigir_nuvemshop()
+    if arquivo not in {b["arquivo"] for b in listar_backups_cadastrar()}:
+        raise RuntimeError("Backup não encontrado.")
+    with open(os.path.join(backups_dir(), arquivo), encoding="utf-8-sig", newline="") as f:
+        linhas = list(csv.DictReader(f))
+    feitos, pulados, falharam = 0, 0, []
+    for n, l in enumerate(linhas, 1):
+        progresso(f"Apagando {n} de {len(linhas)}…")
+        try:
+            atual = _nuvem(cfg, "GET", f"/products/{int(l['produto_site'])}")
+            if atual.get("published"):
+                pulados += 1
+                falharam.append(f"{l['nome']}: já está publicado; oculte antes de apagar")
+            else:
+                _nuvem(cfg, "DELETE", f"/products/{int(l['produto_site'])}")
+                feitos += 1
+        except RuntimeError as e:
+            if " 404" in str(e):
+                pulados += 1
+            else:
+                falharam.append(f"{l['nome']}: {e}")
+        time.sleep(0.6)
+    if not falharam:
+        os.replace(os.path.join(backups_dir(), arquivo), os.path.join(backups_dir(), arquivo[:-4] + ".desfeito.csv"))
+    con = conectar()
+    try:
+        progresso("Relendo a loja…")
+        sync_nuvemshop(con)
+    finally:
+        con.close()
+    return {"gravados": feitos, "pulados": pulados, "falharam": falharam[:10], "backup": None}
+
+
 # ------------------------------------------------------------------- consultas
 
 FILTROS = {
@@ -736,7 +1412,12 @@ def _where(q, filtro, grupo):
     for termo in (q or "").split():
         conds.append("(p.nome LIKE ? OR p.ean LIKE ? OR p.sku LIKE ? OR p.gz_codigo = ?)")
         args += [f"%{termo}%", f"%{termo}%", f"%{termo}%", termo]
-    if grupo:
+    if grupo == "cat:__sem":
+        conds.append("p.categoria_id IS NULL")
+    elif grupo.startswith("cat:"):
+        conds.append("p.categoria_id = ?")
+        args.append(grupo[4:])
+    elif grupo:
         conds.append("p.grupo = ?")
         args.append(grupo)
     return " AND ".join(conds), args
@@ -791,6 +1472,11 @@ def resumo(con):
          "grupos_n": [{"grupo": x[0], "n": x[1]} for x in con.execute(
              "SELECT grupo, COUNT(*) FROM produtos WHERE grupo<>'' GROUP BY grupo "
              "ORDER BY COUNT(*) DESC, grupo")],
+         "categorias_n": ([{"key": "cat:" + x[0], "nome": x[1], "n": x[2]} for x in con.execute(
+             "SELECT c.id, c.nome, COUNT(p.id) FROM categorias_site c LEFT JOIN produtos p ON p.categoria_id=c.id "
+             "GROUP BY c.id ORDER BY c.nome COLLATE NOCASE")] +
+             [{"key": "cat:__sem", "nome": "Sem categoria", "n": um("SELECT COUNT(*) FROM produtos WHERE categoria_id IS NULL")}]
+             ) if um("SELECT COUNT(*) FROM categorias_site") else [],
          "meta": {x["chave"]: x["valor"] for x in con.execute("SELECT * FROM meta")},
          "fotos_tiradas": um("SELECT COUNT(*) FROM fotos"),
          "importacoes": {"vendas": um("SELECT COUNT(*) FROM importacoes WHERE tipo='vendas'"),
@@ -803,7 +1489,9 @@ def resumo(con):
                                                       "WHERE tipo='vendas'").fetchone()[0])},
          "servidor": VERSAO_SERVIDOR,
          "pasta": BASE,
-         "nuvemshop_configurada": bool(carregar_config()["token"])}
+         "nuvemshop_configurada": bool(carregar_config()["token"]),
+         "pedidos": {"lidos_em": (con.execute("SELECT valor FROM meta WHERE chave='pedidos_lidos_em'").fetchone() or [None])[0],
+                     "total": um("SELECT COUNT(*) FROM pedidos_site")}}
     return r
 
 
@@ -841,6 +1529,48 @@ def alterar(con, pid, dados):
                     (pid, agora(), "estoque",
                      "" if p["estoque"] is None else str(p["estoque"]),
                      "" if novo is None else str(novo), quem))
+    mudar = {}
+    if "nome" in dados:
+        nome = " ".join(str(dados["nome"] or "").split())
+        if not 2 <= len(nome) <= 150:
+            raise ValueError("O nome precisa ter de 2 a 150 letras.")
+        mudar["nome"] = nome
+    for campo in ("preco", "custo"):
+        if campo in dados:
+            v = None if str(dados[campo] if dados[campo] is not None else "").strip() == "" else num(str(dados[campo]).replace(",", "."))
+            if v is not None and not 0 <= v <= 100000:
+                raise ValueError("Valor fora do normal.")
+            mudar[campo] = v
+    if "ean" in dados:
+        ean = "".join(c for c in str(dados["ean"] or "") if c.isdigit())
+        if ean and not 6 <= len(ean) <= 14:
+            raise ValueError("Código de barras inválido (6 a 14 números).")
+        if ean != (p["ean"] or "") and not p["sku"] and con.execute(
+                "SELECT 1 FROM canais WHERE produto_id=? AND canal='nuvemshop'", (pid,)).fetchone():
+            raise ValueError("Este produto está no site ligado pelo código de barras. Troque o código "
+                             "na Nuvemshop primeiro e depois use “Ler a Nuvemshop agora”.")
+        if ean:
+            outro = con.execute("SELECT nome FROM produtos WHERE ean_norm=? AND id<>? LIMIT 1", (norm_ean(ean), pid)).fetchone()
+            if outro:
+                raise ValueError(f"Este código já é de: {outro['nome']}.")
+        mudar["ean"] = ean
+    if "categoria_id" in dados:
+        cid = str(dados["categoria_id"] or "")
+        cat = con.execute("SELECT id, nome FROM categorias_site WHERE id=?", (cid,)).fetchone() if cid else None
+        if cid and not cat:
+            raise ValueError("Categoria desconhecida. Leia a Nuvemshop de novo.")
+        mudar["categoria_id"] = cat["id"] if cat else None
+        mudar["categoria_nome"] = cat["nome"] if cat else None
+    for campo, novo in mudar.items():
+        antigo = p[campo]
+        if (antigo or None) == (novo or None):
+            continue
+        con.execute(f"UPDATE produtos SET {campo}=?, atualizado_em=? WHERE id=?", (novo, agora(), pid))
+        if campo == "ean":
+            con.execute("UPDATE produtos SET ean_norm=? WHERE id=?", (norm_ean(novo), pid))
+        if campo != "categoria_nome":
+            con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                        (pid, agora(), campo, "" if antigo is None else str(antigo), "" if novo is None else str(novo), quem))
     if "obs" in dados:
         obs = (dados["obs"] or "").strip()
         if obs != (p["obs"] or ""):
@@ -853,7 +1583,462 @@ def alterar(con, pid, dados):
     return detalhe(con, pid)
 
 
+# ------------------------------------------------------------- planilha do iFood
+
+MODELO_IFOOD = os.path.join(STATIC, "modelos", "ifood_planilha_modelo.xlsx")
+LINHAS_POR_PLANILHA = 999          # o modelo do iFood tem 999 linhas de dados
+
+
+def ler_xlsx(raw, exigir=None):
+    """Primeira aba de um .xlsx como lista de linhas (só a biblioteca padrão).
+    Com `exigir` (lista de grupos de títulos aceitos), devolve a primeira aba que tem esses títulos."""
+    z = zipfile.ZipFile(io.BytesIO(raw))
+    ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+    textos = []
+    if "xl/sharedStrings.xml" in z.namelist():
+        for si in ET.fromstring(z.read("xl/sharedStrings.xml")).iter(ns + "si"):
+            textos.append("".join(t.text or "" for t in si.iter(ns + "t")))
+    abas = sorted(n for n in z.namelist() if n.startswith("xl/worksheets/sheet") and n.endswith(".xml"))
+    if not abas:
+        raise ValueError("Isso não parece uma planilha .xlsx.")
+    def ler_aba(caminho):
+        linhas = []
+        for row in ET.fromstring(z.read(caminho)).iter(ns + "row"):
+            d = {}
+            for c in row.findall(ns + "c"):
+                letras = re.match(r"[A-Z]+", c.get("r")).group(0)
+                col = 0
+                for ch in letras:
+                    col = col * 26 + ord(ch) - 64
+                v, t = c.find(ns + "v"), c.get("t")
+                if t == "s" and v is not None:
+                    val = textos[int(v.text)]
+                elif t == "inlineStr":
+                    val = "".join(x.text or "" for x in c.iter(ns + "t"))
+                else:
+                    val = v.text if v is not None else None
+                d[col - 1] = val
+            linhas.append([d.get(i) for i in range(max(d) + 1)] if d else [])
+        return linhas
+
+    if exigir:
+        for caminho in abas:
+            try:
+                linhas = ler_aba(caminho)
+            except KeyError:
+                continue
+            cab = [_cab(c) for c in (linhas[0] if linhas else [])]
+            if all(any(o in cab for o in grupo) for grupo in exigir):
+                return linhas
+    return ler_aba(abas[0])
+
+
+def importar_ifood_catalogo(con, raw, quem="painel"):
+    linhas = ler_xlsx(raw)
+    if not linhas:
+        raise ValueError("A planilha está vazia.")
+    cab = [_cab(c) for c in linhas[0]]
+    ix = lambda *nomes: next((cab.index(n) for n in nomes if n in cab), None)
+    ie, inm, iv = ix("EAN DO PRODUTO", "EAN"), ix("NOME DO PRODUTO", "NOME"), ix("EM VENDA")
+    ib, ip, iq, idt = ix("MOTIVO BLOQUEIO REGRAS"), ix("PRECO INTEGRACAO"), ix("QTD ESTOQUE INTEGRACAO"), ix("DT")
+    if ie is None or iv is None:
+        raise ValueError("Não achei as colunas ean_do_produto e em_venda. É o catálogo exportado do portal do iFood?")
+    g = lambda l, i: (l[i] if i is not None and i < len(l) else None)
+    con.execute("DELETE FROM ifood_catalogo")
+    n = ruptura = em_venda = 0
+    for l in linhas[1:]:
+        ean = "".join(c for c in str(g(l, ie) or "") if c.isdigit())
+        if not ean:
+            continue
+        bloqueio = str(g(l, ib) or "")
+        venda = 1 if str(g(l, iv)).strip().lower() == "true" else 0
+        con.execute("INSERT OR REPLACE INTO ifood_catalogo(ean,nome,em_venda,bloqueio,preco,qtd,dt) VALUES(?,?,?,?,?,?,?)",
+                    (ean, g(l, inm), venda, bloqueio, num(g(l, ip)), num(g(l, iq)), str(g(l, idt) or "")))
+        n += 1
+        ruptura += "Ruptura" in bloqueio
+        em_venda += venda
+    set_meta(con, "ifood_catalogo_em", agora())
+    con.commit()
+    return {"itens": n, "em_venda": em_venda, "ruptura": ruptura}
+
+
+def _ean_ifood(v):
+    d = "".join(c for c in str(v or "") if c.isdigit())
+    return d if 8 <= len(d) <= 14 and not d.startswith("2") else ""     # 2xxxx são códigos internos do caixa
+
+
+def planilha_ifood(con, divisor=0.70):
+    """Produtos conferidos ou cadastrados no painel, prontos para a planilha de importação do iFood.
+    Preço = preço do painel / divisor. Estoque = estimado (ou contagem). O iFood atualiza preço e estoque de
+    quem já existe, cadastra sozinho quem não existe e destrava quem estava em ruptura quando a planilha traz
+    o estoque atual: por isso item em ruptura também vai, com o estoque do painel."""
+    if not 0.05 <= divisor <= 1.0:
+        raise ValueError("O divisor do preço precisa estar entre 0,05 e 1.")
+    catalogo = {r["ean"]: dict(r) for r in con.execute("SELECT * FROM ifood_catalogo")}
+    itens, falta, vistos = [], collections.defaultdict(list), set()
+    for p in con.execute("SELECT * FROM produtos WHERE estoque IS NOT NULL OR origem='manual' ORDER BY nome COLLATE NOCASE"):
+        ean = _ean_ifood(p["ean"])
+        if not ean:
+            falta["sem_codigo"].append(p["nome"])
+            continue
+        if ean in vistos:
+            continue
+        vistos.add(ean)
+        if not p["preco"] or p["preco"] <= 0:
+            falta["sem_preco"].append(p["nome"])
+            continue
+        if p["estoque"] is None:
+            falta["sem_contagem"].append(p["nome"])
+            continue
+        base = p["estimado"] if p["estimado"] is not None else p["estoque"]
+        qtd = max(0, int(math.floor(base)))
+        cat = catalogo.get(ean)
+        ruptura = bool(cat and "Ruptura" in (cat["bloqueio"] or ""))
+        preco = round(p["preco"] / divisor + 1e-9, 2)
+        itens.append({"ean": int(ean), "nome": p["nome"], "preco": preco, "qtd": qtd, "ativo": 1 if qtd > 0 else 0,
+                      "no_ifood": bool(cat), "ruptura": ruptura, "caixa": p["preco"]})
+    enviados = {str(i["ean"]) for i in itens}
+    for e, cat in catalogo.items():              # em ruptura no iFood e sem contagem: não dá para mandar estoque
+        if "Ruptura" in (cat["bloqueio"] or "") and e not in enviados:
+            falta["ruptura_sem_contagem"].append(cat["nome"] or e)
+    novos = sum(1 for i in itens if not i["no_ifood"])
+    return {"divisor": divisor, "total": len(itens), "no_ifood": len(itens) - novos, "novos_no_ifood": novos,
+            "zerados": sum(1 for i in itens if i["qtd"] == 0),
+            "ruptura": sum(1 for i in itens if i["ruptura"] and i["qtd"] > 0),
+            "catalogo_lido": bool(catalogo), "arquivos": max(1, math.ceil(len(itens) / LINHAS_POR_PLANILHA)),
+            "faltas": {k: {"n": len(v), "nomes": v[:8]} for k, v in falta.items()},
+            "revisar": [], "itens": itens}
+
+
+CANAIS_IFOOD = {"app": "App", "shop": "Shop", "white": "White Label"}
+
+
+def _canal_ifood(n, canal):
+    """Texto da coluna Canal como o modelo aceita (nas linhas 9 a 41 a lista do modelo usa 'Ifood')."""
+    if canal == "white":
+        return "White Label"
+    return ("Ifood " if 9 <= n <= 41 else "iFood ") + CANAIS_IFOOD.get(canal, "Shop")
+
+
+def xlsx_ifood(itens, canal="shop"):
+    """Preenche o modelo do iFood (até 999 produtos) sem mexer no resto da planilha."""
+    if len(itens) > LINHAS_POR_PLANILHA:
+        raise ValueError("O modelo do iFood aceita até %d produtos por planilha." % LINHAS_POR_PLANILHA)
+    with open(MODELO_IFOOD, "rb") as f:
+        origem = zipfile.ZipFile(io.BytesIO(f.read()))
+    xml = origem.read("xl/worksheets/sheet1.xml").decode("utf-8")
+    num_ = lambda v: repr(float(v)).rstrip("0").rstrip(".") if isinstance(v, float) else str(v)
+    for n, i in enumerate(itens, start=2):
+        for col, valor in (("A", i["ean"]), ("C", i["preco"]), ("D", i["qtd"]), ("E", i["ativo"])):
+            xml, k = re.subn(rf'<c r="{col}{n}" s="(\d+)"/>', rf'<c r="{col}{n}" s="\1"><v>{num_(valor)}</v></c>', xml)
+            if not k:
+                raise ValueError("O modelo do iFood mudou de formato; envie o modelo atualizado.")
+        xml = re.sub(rf'<c r="J{n}" s="(\d+)"/>',
+                     lambda m: f'<c r="J{n}" s="{m.group(1)}" t="inlineStr"><is><t>{_canal_ifood(n, canal)}</t></is></c>', xml)
+        xml = re.sub(rf'<c r="B{n}" s="(\d+)"/>',
+                     lambda m: f'<c r="B{n}" s="{m.group(1)}" t="inlineStr"><is><t>{xml_escape(i["nome"])}</t></is></c>', xml)
+    saida = io.BytesIO()
+    with zipfile.ZipFile(saida, "w", zipfile.ZIP_DEFLATED) as z:
+        for item in origem.infolist():
+            z.writestr(item, xml.encode("utf-8") if item.filename == "xl/worksheets/sheet1.xml" else origem.read(item.filename))
+    return saida.getvalue()
+
+
+def revisar_ifood_csv(plano):
+    saida = io.StringIO()
+    w = csv.writer(saida, delimiter=";")
+    w.writerow(["situacao", "produto", "codigo_de_barras", "contagem_painel", "estimado_painel", "enviado_ao_ifood", "detalhe"])
+    for k, rot in (("ruptura_sem_contagem", "em ruptura no iFood e sem contagem no painel: conte para voltar a vender"),
+                   ("sem_preco", "sem preço no painel"), ("sem_codigo", "sem código de barras válido"), ("sem_contagem", "sem contagem")):
+        for nome in plano["faltas"].get(k, {}).get("nomes", []):
+            w.writerow(["ficou de fora", nome, "", "", "", "", rot])
+    return "\ufeff" + saida.getvalue()
+
+
+# ----------------------------------------------------------------- planilhas da 99Food
+
+MODELO_99_EDITAR = os.path.join(STATIC, "modelos", "n99_editar_modelo.xlsx")
+MODELO_99_ADICIONAR = os.path.join(STATIC, "modelos", "n99_adicionar_modelo.xlsx")
+MAX_99 = 3000                      # limite de itens por planilha no portal da 99
+
+
+def importar_n99_catalogo(con, raw, quem="painel"):
+    linhas = ler_xlsx(raw)
+    cab = next((i for i, l in enumerate(linhas[:4]) if l and str(l[0] or "").upper().startswith("ID DO ITEM")), None)
+    if cab is None or len(linhas[cab]) < 9:
+        raise ValueError("Não achei as colunas da 99Food. Use “Baixar dados de todos os itens” no portal da 99.")
+    con.execute("DELETE FROM n99_catalogo")
+    g = lambda l, i: str(l[i]).strip() if i < len(l) and l[i] is not None else ""
+    n = ativos = 0
+    for l in linhas[cab + 1:]:
+        if not g(l, 0):
+            continue
+        preco_txt = g(l, 5)
+        try:
+            preco = num_br(preco_txt.replace("R$", ""))
+        except ValueError:
+            preco = None
+        try:
+            qtd = num_br(g(l, 6))
+        except ValueError:
+            qtd = 0.0
+        con.execute("INSERT OR REPLACE INTO n99_catalogo VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (g(l, 0), g(l, 1), g(l, 2), g(l, 3), g(l, 4), preco, preco_txt, qtd, g(l, 7), g(l, 8),
+                     g(l, 9), g(l, 10), g(l, 11), g(l, 12), g(l, 13)))
+        n += 1
+        ativos += qtd > 0 and g(l, 8).lower().startswith("dispon")
+    set_meta(con, "n99_catalogo_em", agora())
+    con.commit()
+    return {"itens": n, "ativos_com_estoque": ativos}
+
+
+def _chaves_ean(v):
+    """O código e, se for GTIN-14 (caixa), também o EAN-13 do produto dentro dela."""
+    d = norm_ean(v)
+    chaves = {d} if d else set()
+    if len(d) == 14:
+        doze = d[1:13]
+        chaves.add(norm_ean(doze + _digito_ean13(doze)))
+    return chaves
+
+
+def _classificar_nome(treino, nome):
+    """Categoria da 99 por semelhança de nome com os itens que já estão lá."""
+    tok_cat, tok_tot = collections.defaultdict(collections.Counter), collections.Counter()
+    for n, c in treino:
+        for t in _tokens_cat(n):
+            tok_cat[t][c] += 1
+            tok_tot[t] += 1
+    pontos = collections.Counter()
+    for i, t in enumerate(_tokens_cat(nome)):
+        if tok_tot[t] >= 2:
+            peso = math.log(1 + len(treino) / tok_tot[t]) * (2.5 if i == 0 else 1.0)
+            for c, n in tok_cat[t].items():
+                pontos[c] += peso * n / tok_tot[t]
+    if not pontos:
+        return None, "baixa"
+    top = pontos.most_common(2)
+    segundo = top[1][1] if len(top) > 1 else 0
+    return top[0][0], ("alta" if top[0][1] >= 2.5 and top[0][1] >= 1.7 * segundo else "media" if top[0][1] >= 1.2 else "baixa")
+
+
+def plano_99(con, divisor=0.70):
+    """O que mudar na 99Food. Base = iFood: item fora de venda ou em ruptura no iFood fica com estoque 0;
+    item que o painel conferiu usa o mesmo estoque e o mesmo preço (÷ divisor) do iFood."""
+    cat99 = [dict(r) for r in con.execute("SELECT * FROM n99_catalogo")]
+    if not cat99:
+        raise ValueError("Leia primeiro o catálogo da 99Food (Baixar dados de todos os itens).")
+    painel = {}
+    for i in planilha_ifood(con, divisor)["itens"]:
+        for k in _chaves_ean(i["ean"]):
+            painel[k] = i
+    ifood = {}
+    for r in con.execute("SELECT * FROM ifood_catalogo"):
+        for k in _chaves_ean(r["ean"]):
+            ifood[k] = dict(r)
+    editar, conferir, vistos = [], [], set()
+    zerar = atualizar = sem_mudar = 0
+    for r in cat99:
+        chaves = _chaves_ean(r["ean"])
+        p = next((painel[k] for k in chaves if k in painel), None)
+        f = next((ifood[k] for k in chaves if k in ifood), None)
+        vistos |= chaves
+        novo_qtd = novo_preco = motivo = None
+        if p:
+            novo_qtd, novo_preco = float(p["qtd"]), p["preco"]
+            motivo = "estoque e preço do painel" + (" (destrava a ruptura do iFood)" if p["ruptura"] else "")
+        elif f:
+            if (not f["em_venda"] or "Ruptura" in (f["bloqueio"] or "")) and r["qtd"] > 0:
+                novo_qtd, motivo = 0.0, "fora de venda ou em ruptura no iFood e sem contagem no painel"
+        elif r["qtd"] > 0 and r["disp"].lower().startswith("dispon"):
+            conferir.append({"nome": r["nome"], "ean": r["ean"], "qtd": r["qtd"], "motivo": "ativo na 99, mas não está no iFood nem no painel"})
+        mudou_q = novo_qtd is not None and novo_qtd != r["qtd"]
+        mudou_p = novo_preco is not None and (r["preco"] is None or abs(novo_preco - r["preco"]) > 0.004)
+        if mudou_q or mudou_p:
+            linha = dict(r)
+            if mudou_q:
+                linha["qtd"] = novo_qtd
+            if mudou_p:
+                linha["preco_txt"] = "R$" + f"{novo_preco:.2f}".replace(".", ",")
+            linha["motivo"], linha["zerou"] = motivo, bool(mudou_q and novo_qtd == 0 and r["qtd"] > 0)
+            editar.append(linha)
+            zerar += linha["zerou"]
+            atualizar += not linha["zerou"]
+        else:
+            sem_mudar += 1
+    treino = [(r["nome"], r["categoria"]) for r in cat99 if r["categoria"]]
+    novos = []
+    for i in planilha_ifood(con, divisor)["itens"]:
+        if _chaves_ean(i["ean"]) & vistos:
+            continue
+        cat, conf = _classificar_nome(treino, i["nome"])
+        novos.append({"ean": str(i["ean"]), "nome": i["nome"], "preco": i["preco"], "qtd": i["qtd"], "categoria": cat or "", "confianca": conf})
+    return {"divisor": divisor, "itens_99": len(cat99), "ativos_com_estoque": sum(1 for r in cat99 if r["qtd"] > 0),
+            "zerar": zerar, "atualizar": atualizar, "sem_mudar": sem_mudar, "conferir": len(conferir),
+            "novos": len(novos), "novos_incertos": sum(1 for n in novos if n["confianca"] == "baixa"),
+            "editar": editar, "lista_conferir": conferir, "lista_novos": novos}
+
+
+def _xlsx_preencher(modelo, linhas, colunas, extra_dimensao):
+    """Escreve linhas (listas de valores) a partir da linha 3 do modelo da 99, sem tocar no resto."""
+    with open(modelo, "rb") as f:
+        origem = zipfile.ZipFile(io.BytesIO(f.read()))
+    xml = origem.read("xl/worksheets/sheet1.xml").decode("utf-8")
+    letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    partes = []
+    for n, valores in enumerate(linhas, start=3):
+        cel = []
+        for j, v in enumerate(valores[:colunas]):
+            if v is None or v == "":
+                continue
+            ref = f"{letras[j]}{n}"
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                cel.append(f'<c r="{ref}"><v>{v:g}</v></c>' if isinstance(v, float) else f'<c r="{ref}"><v>{v}</v></c>')
+            else:
+                cel.append(f'<c r="{ref}" t="inlineStr"><is><t xml:space="preserve">{xml_escape(str(v))}</t></is></c>')
+        partes.append(f'<row r="{n}">' + "".join(cel) + "</row>")
+    xml = re.sub(r"<row r=\"3\".*?</sheetData>", lambda m: "".join(partes) + "</sheetData>", xml, count=1, flags=re.S)
+    xml = re.sub(r'<dimension ref="[^"]*"/>', f'<dimension ref="A1:{letras[colunas - 1]}{max(2, len(linhas) + 2)}"/>', xml, count=1)
+    saida = io.BytesIO()
+    with zipfile.ZipFile(saida, "w", zipfile.ZIP_DEFLATED) as z:
+        for item in origem.infolist():
+            z.writestr(item, xml.encode("utf-8") if item.filename == "xl/worksheets/sheet1.xml" else origem.read(item.filename))
+    return saida.getvalue()
+
+
+def _preco_99(r):
+    """Preço como número: a 99 recusa o texto 'R$15,57' ao enviar a planilha (Conteúdo inválido em Preço do item)."""
+    if r.get("preco_txt") and r["preco_txt"].startswith("R$"):
+        try:
+            return round(num_br(r["preco_txt"].replace("R$", "")), 2)
+        except ValueError:
+            pass
+    return round(r["preco"], 2) if r.get("preco") is not None else ""
+
+
+def xlsx_99_editar(plano, teste=False):
+    itens = plano["editar"][:5] if teste else plano["editar"]
+    if len(itens) > MAX_99:
+        raise ValueError("A 99 aceita até %d itens por planilha." % MAX_99)
+    linhas = [[r["id"], r["ean"], r["nome"], r["descricao"], r["id_ext"], _preco_99(r), r["qtd"], r["categoria"],
+               r["disp"], r["tags"], r["peso"], r["volume"], r["armaz"], r["embal"]] for r in itens]
+    return _xlsx_preencher(MODELO_99_EDITAR, linhas, 14, True)
+
+
+def xlsx_99_adicionar(plano, teste=False):
+    itens = plano["lista_novos"][:5] if teste else plano["lista_novos"]
+    if len(itens) > MAX_99:
+        raise ValueError("A 99 aceita até %d itens por planilha." % MAX_99)
+    linhas = [[n["ean"], n["nome"], "", "", round(n["preco"], 2), n["qtd"], n["categoria"]] for n in itens]
+    return _xlsx_preencher(MODELO_99_ADICIONAR, linhas, 12, True)
+
+
+def revisar_99_csv(plano):
+    saida = io.StringIO()
+    w = csv.writer(saida, delimiter=";")
+    w.writerow(["situacao", "produto", "codigo_de_barras", "estoque_atual_99", "detalhe"])
+    for r in plano["lista_conferir"]:
+        w.writerow(["conferir", r["nome"], r["ean"], r["qtd"], r["motivo"]])
+    for n in plano["lista_novos"]:
+        if n["confianca"] == "baixa":
+            w.writerow(["categoria incerta (novo item)", n["nome"], n["ean"], "", "escolha a categoria na planilha antes de subir"])
+    return "\ufeff" + saida.getvalue()
+
+
+# ------------------------------------------------------ pedidos do site (só leitura)
+
+def sync_pedidos(con, progresso=None):
+    """Lê da Nuvemshop os pedidos novos para o estoque estimado descontar as vendas do site."""
+    cfg = _exigir_nuvemshop()
+    primeira = con.execute("SELECT MIN(substr(conferido_em,1,10)) FROM produtos WHERE estoque IS NOT NULL").fetchone()[0]
+    ate = con.execute("SELECT valor FROM meta WHERE chave='pedidos_ate'").fetchone()
+    desde = ate[0] if ate else (primeira or datetime.now().strftime("%Y-%m-%d"))
+    desde = (datetime.strptime(desde, "%Y-%m-%d") - timedelta(days=2)).strftime("%Y-%m-%d")   # folga: pedidos que mudam
+    pagina = lidos = 0
+    while True:
+        if progresso:
+            progresso(f"Lendo pedidos do site desde {desde}: {lidos} até agora")
+        try:
+            lote = _nuvem(cfg, "GET", f"/orders?created_at_min={desde}T00:00:00-03:00&per_page=200&page={pagina + 1}")
+        except RuntimeError as e:
+            if " 404" in str(e):
+                break                                  # a Nuvemshop responde 404 depois da última página
+            raise
+        if not isinstance(lote, list) or not lote:
+            break
+        for o in lote:
+            con.execute("INSERT OR REPLACE INTO pedidos_site(id,numero,criado_em,status,pagamento,total) VALUES(?,?,?,?,?,?)",
+                        (o.get("id"), str(o.get("number") or ""), str(o.get("created_at") or "")[:19],
+                         str(o.get("status") or ""), str(o.get("payment_status") or ""), num(o.get("total"))))
+            con.execute("DELETE FROM pedidos_itens WHERE pedido_id=?", (o.get("id"),))
+            for it in o.get("products") or []:
+                con.execute("INSERT INTO pedidos_itens(pedido_id,variacao_id,produto_site,sku,nome,qtd) VALUES(?,?,?,?,?,?)",
+                            (o.get("id"), str(it.get("variant_id") or ""), str(it.get("product_id") or ""),
+                             str(it.get("sku") or ""), _texto(it.get("name")), num(it.get("quantity")) or 0))
+            lidos += 1
+        if len(lote) < 200:
+            break
+        pagina += 1
+        time.sleep(1.5)
+    set_meta(con, "pedidos_ate", datetime.now().strftime("%Y-%m-%d"))
+    set_meta(con, "pedidos_lidos_em", agora())
+    con.commit()
+    recalcular(con)
+    return {"pedidos": lidos}
+
+
+def _rotina_pedidos():
+    """A cada 10 minutos lê os pedidos novos do site (se a Nuvemshop estiver conectada)."""
+    time.sleep(60)
+    while True:
+        try:
+            if carregar_config()["token"] and not TAREFA["rodando"]:
+                con = conectar()
+                try:
+                    sync_pedidos(con)
+                finally:
+                    con.close()
+        except Exception:  # noqa: BLE001 - a rotina nunca derruba o painel
+            pass
+        time.sleep(600)
+
+
 # ------------------------------------------------- vendas, notas e estoque estimado
+
+def enviar_produto_site(con, pid, quem, campos=()):
+    """Manda para a Nuvemshop só os campos que você acabou de editar (nome, categoria, preço)."""
+    campos = {c for c in campos if c in ("nome", "categoria", "preco")}
+    if not campos:
+        raise ValueError("Nada para enviar: mude o nome, a categoria ou o preço primeiro.")
+    cfg = _exigir_nuvemshop()
+    p = con.execute("SELECT * FROM produtos WHERE id=?", (pid,)).fetchone()
+    if not p:
+        raise ValueError("Produto não encontrado.")
+    ks = con.execute("SELECT id_externo, id_variacao FROM canais WHERE produto_id=? AND canal='nuvemshop'", (pid,)).fetchall()
+    if not ks:
+        raise ValueError("Este produto ainda não está no site. Use “Cadastrar no site”.")
+    prod_site = ks[0]["id_externo"]
+    n = con.execute("SELECT COUNT(*) FROM canais WHERE canal='nuvemshop' AND id_externo=?", (prod_site,)).fetchone()[0]
+    if len(ks) > 1 or n > 1:
+        raise ValueError("Este produto tem várias variações no site. Edite direto na Nuvemshop.")
+    corpo = {}
+    if "nome" in campos:
+        corpo["name"] = {"pt": p["nome"]}
+    if "categoria" in campos and p["categoria_id"]:
+        corpo["categories"] = [int(p["categoria_id"])]
+    if corpo:
+        _nuvem(cfg, "PUT", f"/products/{prod_site}", corpo)
+    if "preco" in campos and p["preco"]:
+        _nuvem(cfg, "PUT", f"/products/{prod_site}/variants/{ks[0]['id_variacao']}", {"price": f"{p['preco']:.2f}"})
+    if "nome" in campos:
+        con.execute("UPDATE canais SET nome=? WHERE produto_id=? AND canal='nuvemshop'", (p["nome"], pid))
+    if "preco" in campos and p["preco"]:
+        con.execute("UPDATE canais SET preco=? WHERE produto_id=? AND canal='nuvemshop'", (p["preco"], pid))
+    con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                (pid, agora(), "dados no site", "", "enviados: " + ", ".join(sorted(campos)), quem or "painel"))
+    con.commit()
+    return detalhe(con, pid)
+
 
 def _sem_acento(t):
     t = unicodedata.normalize("NFD", str(t or ""))
@@ -879,78 +2064,15 @@ def num_br(t):
     return float(t)
 
 
-def _ler_xlsx(raw, exigir=None):
-    """Lê .xlsx só com a biblioteca padrão. Devolve a primeira aba que tem as colunas pedidas
-    (exigir = lista de grupos; cada grupo é uma tupla de nomes aceitos), senão a primeira aba."""
-    import zipfile
-    import xml.etree.ElementTree as ET
-    ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
-          "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships"}
-    try:
-        z = zipfile.ZipFile(io.BytesIO(raw))
-    except zipfile.BadZipFile:
-        raise ValueError("Não consegui abrir a planilha .xlsx. Salve de novo como .xlsx ou .csv.")
-    textos = []
-    if "xl/sharedStrings.xml" in z.namelist():
-        for si in ET.fromstring(z.read("xl/sharedStrings.xml")).findall("m:si", ns):
-            textos.append("".join(t.text or "" for t in si.iter("{%s}t" % ns["m"])))
-    rels = {r.get("Id"): r.get("Target") for r in ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))}
-    abas = []
-    for sh in ET.fromstring(z.read("xl/workbook.xml")).find("m:sheets", ns):
-        alvo = rels.get(sh.get("{%s}id" % ns["r"]), "")
-        abas.append((sh.get("name"), "xl/" + alvo.lstrip("/").replace("xl/", "", 1)))
-
-    def col_idx(ref):
-        n = 0
-        for ch in re.match(r"[A-Z]+", ref).group(0):
-            n = n * 26 + ord(ch) - 64
-        return n - 1
-
-    def ler_aba(caminho):
-        linhas = []
-        for row in ET.fromstring(z.read(caminho)).iter("{%s}row" % ns["m"]):
-            cel = {}
-            for c in row.findall("m:c", ns):
-                t, v = c.get("t"), c.find("m:v", ns)
-                if t == "inlineStr":
-                    val = "".join(x.text or "" for x in c.iter("{%s}t" % ns["m"]))
-                elif v is None or v.text is None:
-                    continue
-                elif t == "s":
-                    val = textos[int(v.text)]
-                elif t == "b":
-                    val = "1" if v.text == "1" else "0"
-                else:
-                    val = v.text
-                    if re.fullmatch(r"-?\d+\.0+", val):
-                        val = val.split(".")[0]
-                cel[col_idx(c.get("r"))] = val.strip()
-            if cel:
-                linhas.append([cel.get(i, "") for i in range(max(cel) + 1)])
-        return linhas
-
-    escolhida = None
-    for nome, caminho in abas:
-        try:
-            linhas = ler_aba(caminho)
-        except KeyError:
-            continue
-        if len(linhas) < 2:
-            continue
-        if escolhida is None:
-            escolhida = linhas
-        cab = [_cab(c) for c in linhas[0]]
-        if exigir and all(any(o in cab for o in grupo) for grupo in exigir):
-            return linhas
-    if escolhida is None:
-        raise ValueError("A planilha está vazia ou sem a linha de títulos.")
-    return escolhida
-
-
 def _ler_csv(raw, exigir=None):
     """Aceita CSV ou planilha .xlsx (detecta pelo conteúdo)."""
     if isinstance(raw, bytes) and raw[:2] == b"PK":
-        linhas = _ler_xlsx(raw, exigir)
+        try:
+            brutas = ler_xlsx(raw, exigir)
+        except zipfile.BadZipFile:
+            raise ValueError("Não consegui abrir a planilha .xlsx. Salve de novo como .xlsx ou .csv.")
+        linhas = [[re.sub(r"^(-?\d+)\.0+$", r"\1", str(c if c is not None else "").strip()) for c in l]
+                  for l in brutas]
     else:
         texto = raw.decode("utf-8-sig", errors="replace") if isinstance(raw, bytes) else raw
         primeira = texto.split("\n", 1)[0]
@@ -1125,6 +2247,12 @@ def recalcular(con, ids=None):
     for r in con.execute("SELECT gz_codigo, inicio, unidade, SUM(qtd) AS q FROM vendas_gz "
                          "GROUP BY gz_codigo, inicio, unidade"):
         ven.setdefault(r["gz_codigo"], []).append((r["inicio"], r["unidade"], r["q"] or 0))
+    sitev = {}
+    for r in con.execute(
+            "SELECT k.produto_id pid, substr(o.criado_em,1,10) d, SUM(i.qtd) q FROM pedidos_itens i "
+            "JOIN pedidos_site o ON o.id=i.pedido_id JOIN canais k ON k.canal='nuvemshop' "
+            "AND k.id_variacao=i.variacao_id WHERE o.status<>'cancelled' GROUP BY k.produto_id, d"):
+        sitev.setdefault(r["pid"], []).append((r["d"], r["q"] or 0))
     for p in prods:
         est, aviso = None, None
         if p["estoque"] is not None and p["conferido_em"]:
@@ -1136,6 +2264,7 @@ def recalcular(con, ids=None):
                     if un == "KG":
                         aviso = "peso"
                     v += q
+            v += sum(q for d, q in sitev.get(p["id"], []) if d > dia)
             if aviso != "peso":
                 est = round(p["estoque"] + e - v, 2)
         con.execute("UPDATE produtos SET estimado=?, est_aviso=? WHERE id=?", (est, aviso, p["id"]))
@@ -1158,7 +2287,12 @@ def movimento_produto(con, pid):
     vendas = [dict(r) for r in con.execute(
         "SELECT inicio, fim, qtd, unidade FROM vendas_gz WHERE gz_codigo=? AND inicio>? "
         "ORDER BY inicio DESC", (str(p["gz_codigo"] or ""), dia))]
-    return {"contagem_em": dia, "entradas": entradas, "vendas": vendas}
+    site = [dict(r) for r in con.execute(
+        "SELECT substr(o.criado_em,1,10) AS dia, o.numero, i.qtd FROM pedidos_itens i JOIN pedidos_site o "
+        "ON o.id=i.pedido_id JOIN canais k ON k.canal='nuvemshop' AND k.id_variacao=i.variacao_id "
+        "WHERE k.produto_id=? AND o.status<>'cancelled' AND substr(o.criado_em,1,10)>? ORDER BY o.criado_em DESC",
+        (pid, dia))]
+    return {"contagem_em": dia, "entradas": entradas, "vendas": vendas, "site": site}
 
 
 def prioridades(con, cor="", q="", pagina=1, por_pagina=50, tudo=False):
@@ -1267,7 +2401,7 @@ _INDICE = {"n": -1, "tok": {}, "lista": []}
 
 
 def _indice_produtos(con):
-    n = con.execute("SELECT COUNT(*) FROM produtos").fetchone()[0]
+    n = tuple(con.execute("SELECT COUNT(*), MAX(atualizado_em) FROM produtos").fetchone())
     if _INDICE["n"] != n:
         lista = [(r["id"], r["nome"]) for r in con.execute(
             "SELECT id, nome FROM produtos WHERE ativo=1 OR ativo IS NULL")]
@@ -1460,13 +2594,17 @@ def criar_produto_manual(con, d, quem=None):
             raise ValueError("Quantidade fora do normal.")
     quem = (quem or d.get("quem") or "").strip()[:40] or "painel"
     grupo = " ".join(str(d.get("grupo") or "").split())[:60].upper()   # os grupos do Gestor Z são em maiúsculas
+    cat = con.execute("SELECT id, nome FROM categorias_site WHERE id=?", (str(d.get("categoria_id") or ""),)).fetchone()
+    if cat and not grupo:
+        grupo = cat["nome"].split(" > ")[-1].upper()[:60]
     unidade = (str(d.get("unidade") or "UN").strip().upper() or "UN")[:6]
     obs = str(d.get("obs") or "").strip()[:300]
     cur = con.execute(
         "INSERT INTO produtos(ean,ean_norm,nome,grupo,unidade,custo,preco,ativo,origem,estoque,conferido_em,"
-        "obs,atualizado_em) VALUES(?,?,?,?,?,?,?,1,'manual',?,?,?,?)",
+        "obs,atualizado_em,categoria_id,categoria_nome) VALUES(?,?,?,?,?,?,?,1,'manual',?,?,?,?,?,?)",
         (ean, norm_ean(ean), nome, grupo or None, unidade, custo, preco, estoque,
-         agora() if estoque is not None else None, obs or None, agora()))
+         agora() if estoque is not None else None, obs or None, agora(),
+         cat["id"] if cat else None, cat["nome"] if cat else None))
     pid = cur.lastrowid
     con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
                 (pid, agora(), "cadastro", "", "cadastrado à mão na conferência", quem))
@@ -1628,7 +2766,7 @@ def exportar_csv(con, q, filtro, grupo):
     where, args = _where(q, filtro, grupo)
     saida = io.StringIO()
     w = csv.writer(saida, delimiter=";")
-    w.writerow(["sku", "codigo_gestorz", "codigo_de_barras", "produto", "grupo", "preco",
+    w.writerow(["sku", "codigo_gestorz", "codigo_de_barras", "produto", "grupo", "categoria_site", "preco",
                 "estoque_oficial", "estoque_estimado", "conferido_em", "nuvemshop", "ifood", "99food", "situacao", "obs"])
     linhas = con.execute(f"SELECT p.* FROM produtos p WHERE {where} "
                          "ORDER BY p.nome COLLATE NOCASE", args).fetchall()
@@ -1638,7 +2776,7 @@ def exportar_csv(con, q, filtro, grupo):
         por = {c: "; ".join(f"{x['status']} ({x['estoque']})" if x["estoque"] else x["status"]
                             for x in cs if x["canal"] == c) for c in CANAIS}
         w.writerow([l["sku"] or "", l["gz_codigo"] or "", l["ean"] or "", l["nome"],
-                    l["grupo"] or "", "" if l["preco"] is None else f"{l['preco']:.2f}".replace(".", ","),
+                    l["grupo"] or "", l["categoria_nome"] or "", "" if l["preco"] is None else f"{l['preco']:.2f}".replace(".", ","),
                     "" if l["estoque"] is None else l["estoque"],
                     "" if l["estimado"] is None else f"{l['estimado']:g}".replace(".", ","),
                     l["conferido_em"] or "",
@@ -1668,12 +2806,20 @@ def _tarefa(funcao, *args):
     threading.Thread(target=correr, daemon=True).start()
 
 
+def _sync_pedidos_tarefa(progresso):
+    con = conectar()
+    try:
+        return sync_pedidos(con, progresso)
+    finally:
+        con.close()
+
+
 def _rodar_sync():
     TAREFA.update(rodando=True, msg="Conectando na Nuvemshop", erro="", resultado=None)
     try:
         con = conectar()
         try:
-            TAREFA["resultado"] = sync_nuvemshop(con, lambda m: TAREFA.update(msg=m))
+            TAREFA["resultado"] = sync_nuvemshop(con, lambda m: TAREFA.update(msg=m), completo=True)
         finally:
             con.close()
         TAREFA["msg"] = "Concluído"
@@ -1798,6 +2944,77 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(listar_importacoes(con))
             if u.path == "/api/nuvemshop/previa":
                 return self._json(previa_nuvemshop(con, qs.get("modo", "zerar")))
+            if u.path in ("/api/ifood/previa", "/api/ifood/planilha", "/api/ifood/revisar.csv"):
+                try:
+                    divisor = float(str(qs.get("divisor", "0.70")).replace(",", "."))
+                except ValueError:
+                    raise ValueError("Divisor inválido.")
+                plano = planilha_ifood(con, divisor)
+                if u.path == "/api/ifood/previa":
+                    r = dict(plano)
+                    r["itens"] = plano["itens"][:12]
+                    r["catalogo_em"] = (con.execute("SELECT valor FROM meta WHERE chave='ifood_catalogo_em'").fetchone() or [None])[0]
+                    return self._json(r)
+                if u.path == "/api/ifood/revisar.csv":
+                    corpo = revisar_ifood_csv(plano).encode("utf-8")
+                    tipo, nome = "text/csv; charset=utf-8", "ifood_revisar.csv"
+                else:
+                    parte = max(1, int(qs.get("parte", 1)))
+                    corpo = xlsx_ifood(plano["itens"][(parte - 1) * LINHAS_POR_PLANILHA: parte * LINHAS_POR_PLANILHA],
+                                       qs.get("canal", "shop") if qs.get("canal", "shop") in ("app", "shop", "white") else "shop")
+                    tipo, nome = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", f"ifood_planilha_{parte}.xlsx"
+                self.send_response(200)
+                self.send_header("Content-Type", tipo)
+                self.send_header("Content-Length", str(len(corpo)))
+                self.send_header("Content-Disposition", f'attachment; filename="{nome}"')
+                self.end_headers()
+                self.wfile.write(corpo)
+                return
+            if u.path in ("/api/n99/previa", "/api/n99/editar.xlsx", "/api/n99/adicionar.xlsx", "/api/n99/revisar.csv"):
+                try:
+                    divisor = float(str(qs.get("divisor", "0.70")).replace(",", "."))
+                except ValueError:
+                    raise ValueError("Divisor inválido.")
+                plano = plano_99(con, divisor)
+                teste = qs.get("teste") == "1"
+                if u.path == "/api/n99/previa":
+                    r = {k: v for k, v in plano.items() if k not in ("editar", "lista_conferir", "lista_novos")}
+                    r["amostra"] = [{"nome": x["nome"], "qtd": x["qtd"], "preco_txt": x["preco_txt"], "motivo": x["motivo"]} for x in plano["editar"][:12]]
+                    r["catalogo_em"] = (con.execute("SELECT valor FROM meta WHERE chave='n99_catalogo_em'").fetchone() or [None])[0]
+                    return self._json(r)
+                if u.path == "/api/n99/revisar.csv":
+                    corpo, tipo, nome = revisar_99_csv(plano).encode("utf-8"), "text/csv; charset=utf-8", "99food_revisar.csv"
+                else:
+                    corpo = xlsx_99_editar(plano, teste) if u.path.endswith("editar.xlsx") else xlsx_99_adicionar(plano, teste)
+                    tipo = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    nome = ("99food_editar" if u.path.endswith("editar.xlsx") else "99food_adicionar") + ("_teste" if teste else "") + ".xlsx"
+                self.send_response(200)
+                self.send_header("Content-Type", tipo)
+                self.send_header("Content-Length", str(len(corpo)))
+                self.send_header("Content-Disposition", f'attachment; filename="{nome}"')
+                self.end_headers()
+                self.wfile.write(corpo)
+                return
+            if u.path == "/api/categorias/sugestoes":
+                return self._json(listar_sugestoes(con, qs.get("confianca", "alta"), qs.get("q", ""),
+                                                   max(1, int(qs.get("pagina", 1)))))
+            if u.path == "/api/categorias":
+                return self._json({"itens": categorias_lista(con)})
+            if u.path == "/api/nuvemshop/cadastrar/previa":
+                cats = categorias_lista(con)
+                r = previa_cadastrar(con, cats)
+                r["erro_categorias"] = "" if cats else "As categorias da loja ainda não foram lidas. Clique em “Atualizar dados” > “Ler a Nuvemshop agora”."
+                return self._json(r)
+            if u.path == "/api/nuvemshop/cadastrar/backups":
+                return self._json({"itens": listar_backups_cadastrar()})
+            if u.path == "/api/nuvemshop/publicar/previa":
+                return self._json(previa_publicar(con, qs.get("dia", "")))
+            if u.path == "/api/nuvemshop/publicar/backups":
+                return self._json({"itens": listar_backups_publicar()})
+            if u.path == "/api/nuvemshop/fotos/previa":
+                return self._json(previa_fotos(con))
+            if u.path == "/api/nuvemshop/fotos/backups":
+                return self._json({"itens": listar_backups_fotos()})
             if u.path == "/api/nuvemshop/backups":
                 return self._json({"itens": listar_backups()})
             if u.path.startswith("/api/foto/"):
@@ -1872,12 +3089,49 @@ class Handler(BaseHTTPRequestHandler):
             if u.path.startswith("/api/produto/"):
                 dados = json.loads(self._corpo() or b"{}")
                 return self._json(alterar(con, int(u.path.rsplit("/", 1)[1]), dados))
+            if u.path.startswith("/api/nuvemshop/produto/"):
+                d = json.loads(self._corpo() or b"{}")
+                return self._json(enviar_produto_site(con, int(u.path.rsplit("/", 1)[1]), (d.get("quem") or "painel")[:40],
+                                                      d.get("campos") or []))
             if u.path == "/api/config/nuvemshop":
                 d = json.loads(self._corpo() or b"{}")
                 return self._json(conectar_nuvemshop(d.get("token"), d.get("loja")))
             if u.path == "/api/nuvemshop/aplicar":
                 d = json.loads(self._corpo() or b"{}")
                 _tarefa(aplicar_nuvemshop, d.get("modo", "zerar"), d.get("vids") or [], (d.get("quem") or "painel")[:40])
+                return self._json({"ok": True})
+            if u.path == "/api/categorias/aplicar":
+                d = json.loads(self._corpo() or b"{}")
+                return self._json(aplicar_sugestoes(con, d.get("itens") or [], (d.get("quem") or "painel")[:40],
+                                                    d.get("confianca") or ""))
+            if u.path == "/api/nuvemshop/categorias/ler":
+                return self._json(ler_categorias(con))
+            if u.path == "/api/nuvemshop/categorias/mapa":
+                d = json.loads(self._corpo() or b"{}")
+                return self._json(salvar_mapa(con, d.get("grupo"), d.get("categoria_id"), d.get("categoria_nome")))
+            if u.path == "/api/nuvemshop/cadastrar/aplicar":
+                d = json.loads(self._corpo() or b"{}")
+                _tarefa(aplicar_cadastrar, d.get("itens") or [], (d.get("quem") or "painel")[:40])
+                return self._json({"ok": True})
+            if u.path == "/api/nuvemshop/cadastrar/desfazer":
+                d = json.loads(self._corpo() or b"{}")
+                _tarefa(desfazer_cadastrar, str(d.get("arquivo") or ""), (d.get("quem") or "painel")[:40])
+                return self._json({"ok": True})
+            if u.path == "/api/nuvemshop/publicar/aplicar":
+                d = json.loads(self._corpo() or b"{}")
+                _tarefa(aplicar_publicar, str(d.get("dia") or ""), d.get("pids") or [], (d.get("quem") or "painel")[:40])
+                return self._json({"ok": True})
+            if u.path == "/api/nuvemshop/publicar/desfazer":
+                d = json.loads(self._corpo() or b"{}")
+                _tarefa(desfazer_publicar, str(d.get("arquivo") or ""), (d.get("quem") or "painel")[:40])
+                return self._json({"ok": True})
+            if u.path == "/api/nuvemshop/fotos/aplicar":
+                d = json.loads(self._corpo() or b"{}")
+                _tarefa(aplicar_fotos, d.get("pids") or [], (d.get("quem") or "painel")[:40])
+                return self._json({"ok": True})
+            if u.path == "/api/nuvemshop/fotos/desfazer":
+                d = json.loads(self._corpo() or b"{}")
+                _tarefa(desfazer_fotos, str(d.get("arquivo") or ""), (d.get("quem") or "painel")[:40])
                 return self._json({"ok": True})
             if u.path == "/api/nuvemshop/desfazer":
                 d = json.loads(self._corpo() or b"{}")
@@ -1890,6 +3144,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(criar_produto_manual(con, json.loads(self._corpo() or b"{}")))
             if u.path == "/api/sem-cadastro":
                 return self._json(registrar_sem_cadastro(con, json.loads(self._corpo() or b"{}")))
+            if u.path == "/api/importar/n99-catalogo":
+                return self._json(importar_n99_catalogo(con, self._corpo()))
+            if u.path == "/api/importar/ifood-catalogo":
+                return self._json(importar_ifood_catalogo(con, self._corpo()))
             if u.path == "/api/importar/vendas":
                 qp = {k: v[0] for k, v in parse_qs(u.query).items()}
                 return self._json(importar_vendas(con, self._corpo(), qp.get("inicio"), qp.get("fim"),
@@ -1911,6 +3169,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(importar_gestorz(con, self._corpo()))
             if u.path == "/api/importar/painel":
                 return self._json(importar_painel(con, self._corpo()))
+            if u.path == "/api/sync/pedidos":
+                _tarefa(lambda prog: _sync_pedidos_tarefa(prog))
+                return self._json({"ok": True})
             if u.path == "/api/sync/nuvemshop":
                 if not TAREFA["rodando"]:
                     threading.Thread(target=_rodar_sync, daemon=True).start()
@@ -1922,6 +3183,33 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"erro": str(e)}, 500)
         finally:
             con.close()
+
+
+def backup_banco():
+    """Cópia do banco na pasta backups: uma por dia, renovada se tiver mais de 6 horas
+    (guarda as 14 mais recentes). Escreve num arquivo temporário e só então troca."""
+    try:
+        os.makedirs(backups_dir(), exist_ok=True)
+        destino = os.path.join(backups_dir(), f"banco_{datetime.now():%Y%m%d}.db")
+        velho = not os.path.exists(destino) or time.time() - os.path.getmtime(destino) > 6 * 3600
+        if velho and os.path.exists(DB_PATH):
+            tmp = destino + ".tmp"
+            origem, copia = sqlite3.connect(DB_PATH), sqlite3.connect(tmp)
+            origem.backup(copia)
+            copia.close()
+            origem.close()
+            os.replace(tmp, destino)
+        antigos = sorted(n for n in os.listdir(backups_dir()) if n.startswith("banco_") and n.endswith(".db"))
+        for n in antigos[:-14]:
+            os.remove(os.path.join(backups_dir(), n))
+    except Exception:  # noqa: BLE001 - backup nunca derruba o painel
+        pass
+
+
+def _rotina_backup():
+    while True:
+        backup_banco()
+        time.sleep(6 * 3600)
 
 
 def manter_acordado():
@@ -1937,6 +3225,8 @@ def manter_acordado():
 
 def servir(abrir=True):
     conectar().close()
+    threading.Thread(target=_rotina_backup, daemon=True).start()
+    threading.Thread(target=_rotina_pedidos, daemon=True).start()
     manter_acordado()
     if HOST not in ("127.0.0.1", "localhost") and not tem_senha():
         print("Para abrir o painel para outros aparelhos é obrigatório definir uma senha "
