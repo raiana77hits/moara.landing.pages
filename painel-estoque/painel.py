@@ -34,7 +34,7 @@ import time
 import urllib.error
 import urllib.request
 import webbrowser
-from datetime import datetime
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -879,12 +879,84 @@ def num_br(t):
     return float(t)
 
 
-def _ler_csv(raw):
-    texto = raw.decode("utf-8-sig", errors="replace") if isinstance(raw, bytes) else raw
-    primeira = texto.split("\n", 1)[0]
-    delim = ";" if primeira.count(";") > primeira.count(",") else ","
-    leitor = csv.reader(io.StringIO(texto), delimiter=delim)
-    linhas = [l for l in leitor if any(c.strip() for c in l)]
+def _ler_xlsx(raw, exigir=None):
+    """Lê .xlsx só com a biblioteca padrão. Devolve a primeira aba que tem as colunas pedidas
+    (exigir = lista de grupos; cada grupo é uma tupla de nomes aceitos), senão a primeira aba."""
+    import zipfile
+    import xml.etree.ElementTree as ET
+    ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+          "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships"}
+    try:
+        z = zipfile.ZipFile(io.BytesIO(raw))
+    except zipfile.BadZipFile:
+        raise ValueError("Não consegui abrir a planilha .xlsx. Salve de novo como .xlsx ou .csv.")
+    textos = []
+    if "xl/sharedStrings.xml" in z.namelist():
+        for si in ET.fromstring(z.read("xl/sharedStrings.xml")).findall("m:si", ns):
+            textos.append("".join(t.text or "" for t in si.iter("{%s}t" % ns["m"])))
+    rels = {r.get("Id"): r.get("Target") for r in ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))}
+    abas = []
+    for sh in ET.fromstring(z.read("xl/workbook.xml")).find("m:sheets", ns):
+        alvo = rels.get(sh.get("{%s}id" % ns["r"]), "")
+        abas.append((sh.get("name"), "xl/" + alvo.lstrip("/").replace("xl/", "", 1)))
+
+    def col_idx(ref):
+        n = 0
+        for ch in re.match(r"[A-Z]+", ref).group(0):
+            n = n * 26 + ord(ch) - 64
+        return n - 1
+
+    def ler_aba(caminho):
+        linhas = []
+        for row in ET.fromstring(z.read(caminho)).iter("{%s}row" % ns["m"]):
+            cel = {}
+            for c in row.findall("m:c", ns):
+                t, v = c.get("t"), c.find("m:v", ns)
+                if t == "inlineStr":
+                    val = "".join(x.text or "" for x in c.iter("{%s}t" % ns["m"]))
+                elif v is None or v.text is None:
+                    continue
+                elif t == "s":
+                    val = textos[int(v.text)]
+                elif t == "b":
+                    val = "1" if v.text == "1" else "0"
+                else:
+                    val = v.text
+                    if re.fullmatch(r"-?\d+\.0+", val):
+                        val = val.split(".")[0]
+                cel[col_idx(c.get("r"))] = val.strip()
+            if cel:
+                linhas.append([cel.get(i, "") for i in range(max(cel) + 1)])
+        return linhas
+
+    escolhida = None
+    for nome, caminho in abas:
+        try:
+            linhas = ler_aba(caminho)
+        except KeyError:
+            continue
+        if len(linhas) < 2:
+            continue
+        if escolhida is None:
+            escolhida = linhas
+        cab = [_cab(c) for c in linhas[0]]
+        if exigir and all(any(o in cab for o in grupo) for grupo in exigir):
+            return linhas
+    if escolhida is None:
+        raise ValueError("A planilha está vazia ou sem a linha de títulos.")
+    return escolhida
+
+
+def _ler_csv(raw, exigir=None):
+    """Aceita CSV ou planilha .xlsx (detecta pelo conteúdo)."""
+    if isinstance(raw, bytes) and raw[:2] == b"PK":
+        linhas = _ler_xlsx(raw, exigir)
+    else:
+        texto = raw.decode("utf-8-sig", errors="replace") if isinstance(raw, bytes) else raw
+        primeira = texto.split("\n", 1)[0]
+        delim = ";" if primeira.count(";") > primeira.count(",") else ","
+        linhas = [l for l in csv.reader(io.StringIO(texto), delimiter=delim)]
+    linhas = [l for l in linhas if any(c.strip() for c in l)]
     if len(linhas) < 2:
         raise ValueError("O arquivo está vazio ou sem a linha de títulos.")
     return [_cab(c) for c in linhas[0]], linhas[1:]
@@ -892,6 +964,8 @@ def _ler_csv(raw):
 
 def _data(t):
     t = str(t or "").strip()
+    if re.fullmatch(r"\d{5}(\.\d+)?", t):            # data em número do Excel
+        return (datetime(1899, 12, 30) + timedelta(days=int(float(t)))).strftime("%Y-%m-%d")
     for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d/%m/%y", "%Y-%m-%d %H:%M:%S"):
         try:
             return datetime.strptime(t[:19] if "%H" in fmt else t[:10], fmt).strftime("%Y-%m-%d")
@@ -914,7 +988,7 @@ def importar_vendas(con, raw, inicio, fim, arquivo="", quem="painel"):
     inicio, fim = _data(inicio), _data(fim)
     if fim < inicio:
         raise ValueError("A data final é antes da inicial.")
-    cab, linhas = _ler_csv(raw)
+    cab, linhas = _ler_csv(raw, [("QTDE VENDA", "QUANTIDADE VENDA", "QTD VENDA")])
     ic = _col(cab, "CODIGO INTERNO", "CODIGO", "COD")
     inm = _col(cab, "NOME DO ITEM", "NOME", "DESCRICAO", "PRODUTO")
     iq = _col(cab, "QTDE VENDA", "QUANTIDADE VENDA", "QTD VENDA", exato=True)
@@ -958,15 +1032,17 @@ def importar_vendas(con, raw, inicio, fim, arquivo="", quem="painel"):
 
 NOTA_COLS = {"emissao": ("EMISSAO", "DATA"), "fornecedor": ("FORNECEDOR", "EMITENTE"),
              "cnpj": ("CNPJ",), "nota": ("NOTA", "NUMERO"), "serie": ("SERIE",),
-             "cod": ("COD FORNECEDOR", "CODIGO FORNECEDOR", "COD"), "descricao": ("DESCRICAO", "PRODUTO"),
+             "cod": ("COD FORNECEDOR", "CODIGO FORNECEDOR", "COD"), "descricao": ("DESCRICAO", "PRODUTO", "ITEM NA NOTA"),
              "un": ("UN", "UNIDADE"), "quantidade": ("QUANTIDADE", "QTD", "QTDE"),
              "cfop": ("CFOP",), "ncm": ("NCM",)}
 
 
 def importar_notas(con, raw, arquivo="", quem="painel"):
     """Itens das notas de entrada. Reimportar o mesmo arquivo não duplica nada."""
-    cab, linhas = _ler_csv(raw)
+    cab, linhas = _ler_csv(raw, [("EMISSAO", "DATA"), ("QUANTIDADE", "QTD", "QTDE")])
     ix = {k: _col(cab, *v, exato=True) for k, v in NOTA_COLS.items()}
+    if ix["cnpj"] is None:                  # sem CNPJ no arquivo: o fornecedor identifica a nota
+        ix["cnpj"] = ix["fornecedor"]
     if None in (ix["emissao"], ix["cnpj"], ix["nota"], ix["cod"], ix["quantidade"]):
         raise ValueError("Não achei as colunas emissao, cnpj, nota, cod_fornecedor e quantidade. "
                          "É o arquivo de itens das notas de entrada?")

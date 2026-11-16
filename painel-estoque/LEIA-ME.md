@@ -100,6 +100,7 @@ Tela `/prioridades` (Início, Ferramentas, "Prioridades"). Usa só os dados que 
 - **Comprar (30 d):** venda por dia x 30 menos o estoque estimado. É sugestão, não pedido.
 - A etiqueta **contar** marca os A/B nunca contados: conte primeiro esses, uns 20 a 30 por semana.
 - Itens vendidos por KG não têm estimativa de estoque. "DIVERSOS" e "ENTREGA" são ignorados.
+- Vendas e notas podem ser importadas em CSV ou Excel (.xlsx).
 - Precisa do relatório de vendas importado **com as datas certas** (Notas e vendas).
 - Estoque estimado é alerta, não contagem. Baixe a lista em CSV para levar às compras.
 

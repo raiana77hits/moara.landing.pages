@@ -784,14 +784,14 @@ function desenharImportar(){
   if(ult){ const d = new Date(ult + "T12:00:00"); d.setDate(d.getDate() + 1); ini = isoDia(d); }
   $("#m-corpo").innerHTML = `
     <section><b>Vendas do caixa (Gestor Z)</b>
-      <p>Relatório de vendas por item, em CSV. Informe de que dia a que dia ele vale. Cada venda só pode ser importada uma vez: períodos não podem se cruzar.${ult ? " Última importada até " + esc(ult) + "." : ""}</p>
+      <p>Relatório de vendas por item, em CSV ou Excel (.xlsx). Informe de que dia a que dia ele vale. Cada venda só pode ser importada uma vez: períodos não podem se cruzar.${ult ? " Última importada até " + esc(ult) + "." : ""}</p>
       <div class="linha" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
         <label>De <input type="date" id="v-ini" value="${ini}"></label>
         <label>Até <input type="date" id="v-fim" value="${ini > isoDia(new Date()) ? ini : isoDia(new Date())}"></label></div>
-      <input type="file" id="f-vendas" accept=".csv,text/csv"></section>
+      <input type="file" id="f-vendas" accept=".csv,.xlsx,text/csv"></section>
     <section><b>Notas de entrada (fornecedores)</b>
-      <p>Arquivo CSV com os itens das notas. Pode reenviar o arquivo inteiro: só entram as notas novas.</p>
-      <input type="file" id="f-notas" accept=".csv,text/csv"></section>
+      <p>Arquivo CSV ou Excel (.xlsx) com os itens das notas. Pode reenviar o arquivo inteiro: só entram as notas novas.</p>
+      <input type="file" id="f-notas" accept=".csv,.xlsx,text/csv"></section>
     <div id="m-msg"></div>`;
   $("#f-vendas").onchange = async e => {
     const f = e.target.files[0]; if(!f) return;
