@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prioridades · Painel de Estoque</title>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--tx:#1b1f24;--mut:#667085;--bd:#e4e7ec;--ver:#d92d20;--ama:#b54708;--vd:#067647;--ci:#667085}
+  @media (prefers-color-scheme:dark){:root{--bg:#14171c;--card:#1d2127;--tx:#e8eaed;--mut:#9aa3af;--bd:#2c323a}}
+  *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,sans-serif}
+  main{max-width:1100px;margin:0 auto;padding:16px}
+  a{color:inherit}h1{font-size:20px;margin:6px 0}
+  .mut{color:var(--mut);font-size:13px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  .chip{border:1px solid var(--bd);background:var(--card);border-radius:999px;padding:7px 14px;cursor:pointer;font:inherit;color:inherit}
+  .chip.on{outline:2px solid var(--tx)}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  input{flex:1;min-width:180px;padding:9px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:inherit;font:inherit}
+  .btn{padding:9px 14px;border:1px solid var(--bd);border-radius:8px;background:var(--card);text-decoration:none;font-size:14px}
+  .tabela{background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow-x:auto}
+  table{border-collapse:collapse;width:100%;min-width:760px}
+  th,td{padding:9px 10px;border-bottom:1px solid var(--bd);text-align:left;font-size:14px;vertical-align:top}
+  th{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.03em}
+  .n{text-align:right;white-space:nowrap}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+  .vermelho{background:var(--ver)}.amarelo{background:#f79009}.verde{background:var(--vd)}.cinza{background:var(--ci)}
+  .tag{font-size:11px;border:1px solid var(--bd);border-radius:6px;padding:1px 6px;margin-left:6px;color:var(--mut)}
+  .pg{display:flex;gap:8px;justify-content:center;margin:14px 0}
+</style>
+</head>
+<body>
+<main>
+  <p><a href="/">← Painel</a></p>
+  <h1>Prioridades: o que contar e comprar</h1>
+  <p class="mut" id="sub">Carregando…</p>
+  <div class="chips" id="chips"></div>
+  <div class="bar">
+    <input id="q" type="search" placeholder="Buscar por nome ou SKU">
+    <a class="btn" id="csv" href="/api/prioridades.csv">Baixar (CSV)</a>
+  </div>
+  <div class="tabela"><table>
+    <thead><tr><th>Produto</th><th>Motivo</th><th class="n">Estoque</th><th class="n">Vende/dia</th>
+    <th class="n">Cobertura</th><th class="n">Comprar (30 d)</th><th class="n">Vendas R$</th></tr></thead>
+    <tbody id="lista"></tbody>
+  </table></div>
+  <div class="pg"><button class="btn" id="ant">Anterior</button><span class="mut" id="pg"></span><button class="btn" id="prox">Próxima</button></div>
+</main>
+<script>
+const NOMES={vermelho:"Provável falta",amarelo:"Conferir / comprar",verde:"Sem alerta",cinza:"Parado"};
+let cor="",pagina=1,total=0;
+const $=s=>document.querySelector(s);
+const esc=t=>String(t??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=v=>v==null?"—":String(v).replace(".",",");
+async function carregar(){
+  const r=await fetch(`/api/prioridades?cor=${cor}&q=${encodeURIComponent($("#q").value)}&pagina=${pagina}`);
+  if(r.status===401){location="/login";return}
+  const d=await r.json(); total=d.total||0;
+  if(!d.periodo){$("#sub").textContent=d.aviso;$("#lista").innerHTML="";return}
+  $("#sub").textContent=`Vendas de ${d.periodo[0]} a ${d.periodo[1]} (${d.dias} dias). ${d.para_contar||0} produtos que vendem bem e nunca foram contados: comece por eles. Estimativa é alerta, não contagem.`;
+  const cs=[["","Todos"],...Object.keys(NOMES).map(k=>[k,`${NOMES[k]} (${d.resumo[k]||0})`])];
+  $("#chips").innerHTML=cs.map(([k,t])=>`<button class="chip ${k===cor?"on":""}" data-k="${k}">${k?`<span class="dot ${k}"></span>`:""}${t}</button>`).join("");
+  $("#lista").innerHTML=d.itens.map(i=>`<tr>
+    <td><span class="dot ${i.cor}"></span>${esc(i.nome)}<span class="tag">${i.classe}</span>${i.contar?'<span class="tag">contar</span>':""}${i.peso?'<span class="tag">por kg</span>':""}<div class="mut">${esc(i.sku||"")}</div></td>
+    <td>${esc(i.motivo)}</td>
+    <td class="n">${fmt(i.estimado??i.estoque)}${i.estimado!=null?'<div class="mut">estimado</div>':i.estoque!=null?'<div class="mut">contado</div>':""}</td>
+    <td class="n">${fmt(i.por_dia)}</td><td class="n">${i.cobertura_dias==null?"—":fmt(i.cobertura_dias)+" d"}</td>
+    <td class="n">${i.comprar_30d==null?"—":i.comprar_30d}</td><td class="n">${fmt(i.vendas_valor)}</td></tr>`).join("");
+  const pgs=Math.max(1,Math.ceil(total/50));$("#pg").textContent=`${pagina} de ${pgs}`;
+  $("#ant").disabled=pagina<=1;$("#prox").disabled=pagina>=pgs;
+  $("#csv").href="/api/prioridades.csv?cor="+cor;
+}
+$("#chips").onclick=e=>{const b=e.target.closest(".chip");if(b){cor=b.dataset.k;pagina=1;carregar()}};
+let t;$("#q").oninput=()=>{clearTimeout(t);t=setTimeout(()=>{pagina=1;carregar()},300)};
+$("#ant").onclick=()=>{pagina--;carregar()};$("#prox").onclick=()=>{pagina++;carregar()};
+carregar();
+</script>
+</body>
+</html>
