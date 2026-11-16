@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- tela-build: 9.4 -->
+<!-- tela-build: 9.5 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -738,7 +738,7 @@ $("#s-x").onclick = () => $("#dsync").close();
 
 /* ------------------------------------------------ enviar estoque para a Nuvemshop */
 let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
-const BUILD = "9.4";
+const BUILD = "9.5";
 const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
 async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
 async function desenharSync(){
@@ -870,7 +870,7 @@ $("#i-nuvem").onclick = async () => {
   }, 1500);
 };
 /* ------------------------------------------------ planilha do iFood */
-const ifd = {divisor:"0,70", canal:"shop"};
+const ifd = {divisor:"0,70", canal:"shop", aba:"ifood"};
 $("#b-ifood").onclick = () => abrirIfood(); $("#b-ifood2").onclick = () => abrirIfood();
 $("#if-x").onclick = () => $("#difood").close();
 async function abrirIfood(){
@@ -882,7 +882,7 @@ async function abrirIfood(){
   const f = p.faltas, aviso = (k, t) => f[k] ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(f[k].n)} ficam de fora: ${t}<br><small>${f[k].nomes.map(esc).join(" · ")}${f[k].n > 8 ? " · …" : ""}</small></p>` : "";
   const q = "divisor=" + encodeURIComponent(ifd.divisor) + "&canal=" + ifd.canal;
   let n9 = null; try{ n9 = await api("/api/n99/previa?" + q); }catch(e){ n9 = {erro:e.message}; }
-  const sec99 = !n9 || n9.erro ? `<section><b>99Food</b><p>${n9 && /Leia primeiro/.test(n9.erro || "") ? "Ainda não li o catálogo da 99Food." : esc((n9 || {}).erro || "")} No portal da 99: <i>Cardápio da loja</i> &gt; <i>Editar itens em lote</i> &gt; <b>Baixar dados de todos os itens</b>. Envie aqui esse arquivo.</p><input type="file" id="n9-cat" accept=".xlsx"><div id="n9-msg" role="status"></div></section>` : `<section><b>99Food</b>
+  const sec99 = !n9 || n9.erro ? `<section><b>99Food</b><p>${n9 && /Leia primeiro/.test(n9.erro || "") ? "Ainda não li o catálogo da 99Food." : esc((n9 || {}).erro || "")} Para gerar as planilhas da 99 o painel precisa saber os itens que já estão lá. No portal da 99: <i>Cardápio da loja</i> &gt; <i>Editar itens em lote</i> &gt; link <b>“Baixar dados de todos os itens”</b> (arquivo <i>grocery_shop_item_download…xlsx</i>). Envie esse arquivo aqui. Depois aparecem os botões <b>Editar</b> e <b>Novos</b>.</p><input type="file" id="n9-cat" accept=".xlsx"><div id="n9-msg" role="status"></div></section>` : `<section><b>99Food</b>
       <p>Catálogo lido em ${data(n9.catalogo_em)} · ${num(n9.itens_99)} itens, ${num(n9.ativos_com_estoque)} com estoque. <label>Atualizar o catálogo: <input type="file" id="n9-cat" accept=".xlsx"></label></p><div id="n9-msg" role="status"></div>
       <p>Regra: item conferido no painel usa o mesmo estoque e o mesmo preço do iFood (÷ ${esc(ifd.divisor)}). Item <b>fora de venda ou em ruptura no iFood e sem contagem no painel</b> fica com estoque 0 na 99.</p>
       <p><b>${num(n9.zerar)}</b> a zerar · <b>${num(n9.atualizar)}</b> a atualizar (painel) · ${num(n9.sem_mudar)} sem mudança · <b>${num(n9.conferir)}</b> para você conferir (ativos na 99 que não estão no iFood nem no painel; não mexi neles) · <b>${num(n9.novos)}</b> novos para adicionar${n9.novos_incertos ? " (" + num(n9.novos_incertos) + " com categoria incerta)" : ""}.</p>
@@ -893,7 +893,7 @@ async function abrirIfood(){
         <a class="btn pri" href="/api/n99/editar.xlsx?${q}">Editar: planilha completa (${num(n9.zerar + n9.atualizar)})</a>
         ${n9.novos ? `<a class="btn" href="/api/n99/adicionar.xlsx?${q}&teste=1">Novos: teste (5)</a><a class="btn" href="/api/n99/adicionar.xlsx?${q}">Novos: completa (${num(n9.novos)})</a>` : ""}
         <a class="btn" href="/api/n99/revisar.csv?${q}">Lista para conferir</a></div></section>`;
-  c.innerHTML = `<section><b>1. Catálogo do iFood</b>
+  const secIf = `<section><b>1. Catálogo do iFood</b>
       <p>${p.catalogo_lido ? `Catálogo lido em ${data(p.catalogo_em)}.` : "Ainda não li o catálogo do iFood."} Envie a planilha exportada do portal do iFood (a que tem as colunas <i>ean_do_produto</i> e <i>em_venda</i>): é dela que o painel sabe quais itens estão em <b>ruptura</b> e quais já existem lá.</p>
       <input type="file" id="if-cat" accept=".xlsx"><div id="if-cat-msg" role="status"></div></section>
     <section><b>2. Regra de preço</b>
@@ -908,15 +908,19 @@ async function abrirIfood(){
         ${p.total ? Array.from({length:p.arquivos}, (_, k) => `<a class="btn pri" href="/api/ifood/planilha?${q}&parte=${k + 1}">Baixar planilha${p.arquivos > 1 ? " " + (k + 1) + " de " + p.arquivos : ""}</a>`).join("") : ""}
         <a class="btn" href="/api/ifood/revisar.csv?${q}">Baixar lista para conferir</a></div>
       <p style="color:var(--muted);font-size:13px">A coluna <i>Canal</i> vai preenchida com o canal escolhido acima (iFood Shop). Depois de baixar, suba a planilha no portal do iFood (importação por planilha).</p></section>`;
-  c.insertAdjacentHTML("beforeend", sec99);
+  const tem99 = n9 && !n9.erro, temIf = p.catalogo_lido;
+  c.innerHTML = `<div class="abas" id="if-abas">
+    <button data-a="ifood" class="${ifd.aba === "ifood" ? "on" : ""}">🍔 iFood ${temIf ? "✓" : "(falta o catálogo)"}</button>
+    <button data-a="99" class="${ifd.aba === "99" ? "on" : ""}">🛵 99Food ${tem99 ? "✓" : "(falta o catálogo)"}</button></div>` + (ifd.aba === "99" ? sec99 : secIf);
+  $("#if-abas").onclick = e => { const b = e.target.closest("button[data-a]"); if(b){ ifd.aba = b.dataset.a; abrirIfood(); } };
   if($("#n9-cat")) $("#n9-cat").onchange = async e => {
     const f2 = e.target.files[0]; if(!f2) return; $("#n9-msg").textContent = "Lendo o catálogo da 99Food…";
     try{ const r = await api("/api/importar/n99-catalogo", {method:"POST", body: await f2.arrayBuffer()}); $("#n9-msg").innerHTML = `<div class="ok-msg">Pronto: ${num(r.itens)} itens, ${num(r.ativos_com_estoque)} ativos com estoque.</div>`; setTimeout(abrirIfood, 1200); }
     catch(err){ $("#n9-msg").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
   };
-  $("#if-canal").onchange = e => { ifd.canal = e.target.value; abrirIfood(); };
-  $("#if-aplicar").onclick = () => { ifd.divisor = $("#if-div").value || "0,70"; abrirIfood(); };
-  $("#if-cat").onchange = async e => {
+  if($("#if-canal")) $("#if-canal").onchange = e => { ifd.canal = e.target.value; abrirIfood(); };
+  if($("#if-aplicar")) $("#if-aplicar").onclick = () => { ifd.divisor = $("#if-div").value || "0,70"; abrirIfood(); };
+  if($("#if-cat")) $("#if-cat").onchange = async e => {
     const f2 = e.target.files[0]; if(!f2) return; $("#if-cat-msg").textContent = "Lendo o catálogo…";
     try{ const r = await api("/api/importar/ifood-catalogo", {method:"POST", body: await f2.arrayBuffer()}); $("#if-cat-msg").innerHTML = `<div class="ok-msg">Pronto: ${num(r.itens)} itens, ${num(r.em_venda)} em venda, ${num(r.ruptura)} em ruptura.</div>`; setTimeout(abrirIfood, 1200); }
     catch(err){ $("#if-cat-msg").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
