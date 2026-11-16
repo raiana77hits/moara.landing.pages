@@ -2528,8 +2528,9 @@ def itens_so_na_nota(con):
         "LEFT JOIN de_para d ON d.cnpj=n.cnpj AND d.cod_fornecedor=n.cod_fornecedor "
         "WHERE d.cnpj IS NULL GROUP BY n.cnpj, n.cod_fornecedor").fetchall()
     saida = []
+    da_nota = {r[0] for r in con.execute("SELECT id FROM produtos WHERE obs LIKE 'Veio da nota fiscal%'")}
     for it in base:
-        sug = sugerir_produtos(con, it["descricao"], 1)
+        sug = [x for x in sugerir_produtos(con, it["descricao"], 6) if x["id"] not in da_nota][:1]
         if sug and sug[0]["parecido"] >= 0.6 and _cobre(it["descricao"], sug[0]["nome"]):
             continue                      # já parece existir no painel: vincule na aba Itens das notas
         saida.append({"cnpj": it["cnpj"], "cod": it["cod_fornecedor"], "nome": _nome_da_nota(it["descricao"]),
