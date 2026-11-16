@@ -171,6 +171,13 @@ CREATE TABLE IF NOT EXISTS ifood_catalogo (
     nome TEXT, em_venda INTEGER, bloqueio TEXT, preco REAL, qtd REAL, dt TEXT
 );
 
+-- catálogo da 99Food (planilha "Baixar dados de todos os itens"), guardado inteiro para reeditar
+CREATE TABLE IF NOT EXISTS n99_catalogo (
+    id TEXT PRIMARY KEY,
+    ean TEXT, nome TEXT, descricao TEXT, id_ext TEXT, preco REAL, preco_txt TEXT, qtd REAL,
+    categoria TEXT, disp TEXT, tags TEXT, peso TEXT, volume TEXT, armaz TEXT, embal TEXT
+);
+
 -- pedidos do site (lidos da Nuvemshop, só leitura)
 CREATE TABLE IF NOT EXISTS pedidos_site (
     id INTEGER PRIMARY KEY,
@@ -1722,6 +1729,186 @@ def revisar_ifood_csv(plano):
     return "\ufeff" + saida.getvalue()
 
 
+# ----------------------------------------------------------------- planilhas da 99Food
+
+MODELO_99_EDITAR = os.path.join(STATIC, "modelos", "n99_editar_modelo.xlsx")
+MODELO_99_ADICIONAR = os.path.join(STATIC, "modelos", "n99_adicionar_modelo.xlsx")
+MAX_99 = 3000                      # limite de itens por planilha no portal da 99
+
+
+def importar_n99_catalogo(con, raw, quem="painel"):
+    linhas = ler_xlsx(raw)
+    cab = next((i for i, l in enumerate(linhas[:4]) if l and str(l[0] or "").upper().startswith("ID DO ITEM")), None)
+    if cab is None or len(linhas[cab]) < 9:
+        raise ValueError("Não achei as colunas da 99Food. Use “Baixar dados de todos os itens” no portal da 99.")
+    con.execute("DELETE FROM n99_catalogo")
+    g = lambda l, i: str(l[i]).strip() if i < len(l) and l[i] is not None else ""
+    n = ativos = 0
+    for l in linhas[cab + 1:]:
+        if not g(l, 0):
+            continue
+        preco_txt = g(l, 5)
+        try:
+            preco = num_br(preco_txt.replace("R$", ""))
+        except ValueError:
+            preco = None
+        try:
+            qtd = num_br(g(l, 6))
+        except ValueError:
+            qtd = 0.0
+        con.execute("INSERT OR REPLACE INTO n99_catalogo VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (g(l, 0), g(l, 1), g(l, 2), g(l, 3), g(l, 4), preco, preco_txt, qtd, g(l, 7), g(l, 8),
+                     g(l, 9), g(l, 10), g(l, 11), g(l, 12), g(l, 13)))
+        n += 1
+        ativos += qtd > 0 and g(l, 8).lower().startswith("dispon")
+    set_meta(con, "n99_catalogo_em", agora())
+    con.commit()
+    return {"itens": n, "ativos_com_estoque": ativos}
+
+
+def _chaves_ean(v):
+    """O código e, se for GTIN-14 (caixa), também o EAN-13 do produto dentro dela."""
+    d = norm_ean(v)
+    chaves = {d} if d else set()
+    if len(d) == 14:
+        doze = d[1:13]
+        chaves.add(norm_ean(doze + _digito_ean13(doze)))
+    return chaves
+
+
+def _classificar_nome(treino, nome):
+    """Categoria da 99 por semelhança de nome com os itens que já estão lá."""
+    tok_cat, tok_tot = collections.defaultdict(collections.Counter), collections.Counter()
+    for n, c in treino:
+        for t in _tokens_cat(n):
+            tok_cat[t][c] += 1
+            tok_tot[t] += 1
+    pontos = collections.Counter()
+    for i, t in enumerate(_tokens_cat(nome)):
+        if tok_tot[t] >= 2:
+            peso = math.log(1 + len(treino) / tok_tot[t]) * (2.5 if i == 0 else 1.0)
+            for c, n in tok_cat[t].items():
+                pontos[c] += peso * n / tok_tot[t]
+    if not pontos:
+        return None, "baixa"
+    top = pontos.most_common(2)
+    segundo = top[1][1] if len(top) > 1 else 0
+    return top[0][0], ("alta" if top[0][1] >= 2.5 and top[0][1] >= 1.7 * segundo else "media" if top[0][1] >= 1.2 else "baixa")
+
+
+def plano_99(con, divisor=0.70):
+    """O que mudar na 99Food. Base = iFood: item fora de venda ou em ruptura no iFood fica com estoque 0;
+    item que o painel conferiu usa o mesmo estoque e o mesmo preço (÷ divisor) do iFood."""
+    cat99 = [dict(r) for r in con.execute("SELECT * FROM n99_catalogo")]
+    if not cat99:
+        raise ValueError("Leia primeiro o catálogo da 99Food (Baixar dados de todos os itens).")
+    painel = {}
+    for i in planilha_ifood(con, divisor)["itens"]:
+        for k in _chaves_ean(i["ean"]):
+            painel[k] = i
+    ifood = {}
+    for r in con.execute("SELECT * FROM ifood_catalogo"):
+        for k in _chaves_ean(r["ean"]):
+            ifood[k] = dict(r)
+    editar, conferir, vistos = [], [], set()
+    zerar = atualizar = sem_mudar = 0
+    for r in cat99:
+        chaves = _chaves_ean(r["ean"])
+        p = next((painel[k] for k in chaves if k in painel), None)
+        f = next((ifood[k] for k in chaves if k in ifood), None)
+        vistos |= chaves
+        novo_qtd = novo_preco = motivo = None
+        if p:
+            novo_qtd, novo_preco = float(p["qtd"]), p["preco"]
+            motivo = "estoque e preço do painel" + (" (ruptura no iFood)" if p["ruptura"] else "")
+        elif f:
+            if (not f["em_venda"] or "Ruptura" in (f["bloqueio"] or "")) and r["qtd"] > 0:
+                novo_qtd, motivo = 0.0, "fora de venda ou em ruptura no iFood"
+        elif r["qtd"] > 0 and r["disp"].lower().startswith("dispon"):
+            conferir.append({"nome": r["nome"], "ean": r["ean"], "qtd": r["qtd"], "motivo": "ativo na 99, mas não está no iFood nem no painel"})
+        mudou_q = novo_qtd is not None and novo_qtd != r["qtd"]
+        mudou_p = novo_preco is not None and (r["preco"] is None or abs(novo_preco - r["preco"]) > 0.004)
+        if mudou_q or mudou_p:
+            linha = dict(r)
+            if mudou_q:
+                linha["qtd"] = novo_qtd
+            if mudou_p:
+                linha["preco_txt"] = "R$" + f"{novo_preco:.2f}".replace(".", ",")
+            linha["motivo"], linha["zerou"] = motivo, bool(mudou_q and novo_qtd == 0 and r["qtd"] > 0)
+            editar.append(linha)
+            zerar += linha["zerou"]
+            atualizar += not linha["zerou"]
+        else:
+            sem_mudar += 1
+    treino = [(r["nome"], r["categoria"]) for r in cat99 if r["categoria"]]
+    novos = []
+    for i in planilha_ifood(con, divisor)["itens"]:
+        if _chaves_ean(i["ean"]) & vistos:
+            continue
+        cat, conf = _classificar_nome(treino, i["nome"])
+        novos.append({"ean": str(i["ean"]), "nome": i["nome"], "preco": i["preco"], "qtd": i["qtd"], "categoria": cat or "", "confianca": conf})
+    return {"divisor": divisor, "itens_99": len(cat99), "ativos_com_estoque": sum(1 for r in cat99 if r["qtd"] > 0),
+            "zerar": zerar, "atualizar": atualizar, "sem_mudar": sem_mudar, "conferir": len(conferir),
+            "novos": len(novos), "novos_incertos": sum(1 for n in novos if n["confianca"] == "baixa"),
+            "editar": editar, "lista_conferir": conferir, "lista_novos": novos}
+
+
+def _xlsx_preencher(modelo, linhas, colunas, extra_dimensao):
+    """Escreve linhas (listas de valores) a partir da linha 3 do modelo da 99, sem tocar no resto."""
+    with open(modelo, "rb") as f:
+        origem = zipfile.ZipFile(io.BytesIO(f.read()))
+    xml = origem.read("xl/worksheets/sheet1.xml").decode("utf-8")
+    letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    partes = []
+    for n, valores in enumerate(linhas, start=3):
+        cel = []
+        for j, v in enumerate(valores[:colunas]):
+            if v is None or v == "":
+                continue
+            ref = f"{letras[j]}{n}"
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                cel.append(f'<c r="{ref}"><v>{v:g}</v></c>' if isinstance(v, float) else f'<c r="{ref}"><v>{v}</v></c>')
+            else:
+                cel.append(f'<c r="{ref}" t="inlineStr"><is><t xml:space="preserve">{xml_escape(str(v))}</t></is></c>')
+        partes.append(f'<row r="{n}">' + "".join(cel) + "</row>")
+    xml = re.sub(r"<row r=\"3\".*?</sheetData>", lambda m: "".join(partes) + "</sheetData>", xml, count=1, flags=re.S)
+    xml = re.sub(r'<dimension ref="[^"]*"/>', f'<dimension ref="A1:{letras[colunas - 1]}{max(2, len(linhas) + 2)}"/>', xml, count=1)
+    saida = io.BytesIO()
+    with zipfile.ZipFile(saida, "w", zipfile.ZIP_DEFLATED) as z:
+        for item in origem.infolist():
+            z.writestr(item, xml.encode("utf-8") if item.filename == "xl/worksheets/sheet1.xml" else origem.read(item.filename))
+    return saida.getvalue()
+
+
+def xlsx_99_editar(plano, teste=False):
+    itens = plano["editar"][:5] if teste else plano["editar"]
+    if len(itens) > MAX_99:
+        raise ValueError("A 99 aceita até %d itens por planilha." % MAX_99)
+    linhas = [[r["id"], r["ean"], r["nome"], r["descricao"], r["id_ext"], r["preco_txt"], r["qtd"], r["categoria"],
+               r["disp"], r["tags"], r["peso"], r["volume"], r["armaz"], r["embal"]] for r in itens]
+    return _xlsx_preencher(MODELO_99_EDITAR, linhas, 14, True)
+
+
+def xlsx_99_adicionar(plano, teste=False):
+    itens = plano["lista_novos"][:5] if teste else plano["lista_novos"]
+    if len(itens) > MAX_99:
+        raise ValueError("A 99 aceita até %d itens por planilha." % MAX_99)
+    linhas = [[n["ean"], n["nome"], "", "", "R$" + f"{n['preco']:.2f}".replace(".", ","), n["qtd"], n["categoria"]] for n in itens]
+    return _xlsx_preencher(MODELO_99_ADICIONAR, linhas, 12, True)
+
+
+def revisar_99_csv(plano):
+    saida = io.StringIO()
+    w = csv.writer(saida, delimiter=";")
+    w.writerow(["situacao", "produto", "codigo_de_barras", "estoque_atual_99", "detalhe"])
+    for r in plano["lista_conferir"]:
+        w.writerow(["conferir", r["nome"], r["ean"], r["qtd"], r["motivo"]])
+    for n in plano["lista_novos"]:
+        if n["confianca"] == "baixa":
+            w.writerow(["categoria incerta (novo item)", n["nome"], n["ean"], "", "escolha a categoria na planilha antes de subir"])
+    return "\ufeff" + saida.getvalue()
+
+
 # ------------------------------------------------------ pedidos do site (só leitura)
 
 def sync_pedidos(con, progresso=None):
@@ -2623,6 +2810,31 @@ class Handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(corpo)
                 return
+            if u.path in ("/api/n99/previa", "/api/n99/editar.xlsx", "/api/n99/adicionar.xlsx", "/api/n99/revisar.csv"):
+                try:
+                    divisor = float(str(qs.get("divisor", "0.70")).replace(",", "."))
+                except ValueError:
+                    raise ValueError("Divisor inválido.")
+                plano = plano_99(con, divisor)
+                teste = qs.get("teste") == "1"
+                if u.path == "/api/n99/previa":
+                    r = {k: v for k, v in plano.items() if k not in ("editar", "lista_conferir", "lista_novos")}
+                    r["amostra"] = [{"nome": x["nome"], "qtd": x["qtd"], "preco_txt": x["preco_txt"], "motivo": x["motivo"]} for x in plano["editar"][:12]]
+                    r["catalogo_em"] = (con.execute("SELECT valor FROM meta WHERE chave='n99_catalogo_em'").fetchone() or [None])[0]
+                    return self._json(r)
+                if u.path == "/api/n99/revisar.csv":
+                    corpo, tipo, nome = revisar_99_csv(plano).encode("utf-8"), "text/csv; charset=utf-8", "99food_revisar.csv"
+                else:
+                    corpo = xlsx_99_editar(plano, teste) if u.path.endswith("editar.xlsx") else xlsx_99_adicionar(plano, teste)
+                    tipo = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    nome = ("99food_editar" if u.path.endswith("editar.xlsx") else "99food_adicionar") + ("_teste" if teste else "") + ".xlsx"
+                self.send_response(200)
+                self.send_header("Content-Type", tipo)
+                self.send_header("Content-Length", str(len(corpo)))
+                self.send_header("Content-Disposition", f'attachment; filename="{nome}"')
+                self.end_headers()
+                self.wfile.write(corpo)
+                return
             if u.path == "/api/categorias/sugestoes":
                 return self._json(listar_sugestoes(con, qs.get("confianca", "alta"), qs.get("q", ""),
                                                    max(1, int(qs.get("pagina", 1)))))
@@ -2772,6 +2984,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(criar_produto_manual(con, json.loads(self._corpo() or b"{}")))
             if u.path == "/api/sem-cadastro":
                 return self._json(registrar_sem_cadastro(con, json.loads(self._corpo() or b"{}")))
+            if u.path == "/api/importar/n99-catalogo":
+                return self._json(importar_n99_catalogo(con, self._corpo()))
             if u.path == "/api/importar/ifood-catalogo":
                 return self._json(importar_ifood_catalogo(con, self._corpo()))
             if u.path == "/api/importar/vendas":

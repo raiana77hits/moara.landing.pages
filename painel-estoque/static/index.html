@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- tela-build: 9.1 -->
+<!-- tela-build: 9.2 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -265,7 +265,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
     <details class="menu-loja" id="menu-loja"><summary class="btn pri">Loja online ▾</summary><div class="menu-itens">
       <button id="b-sync">Enviar estoque</button><button id="b-foto">Enviar fotos</button>
       <button id="b-cad">Cadastrar produtos novos</button><button id="b-pub">Publicar produtos</button>
-      <button id="b-ifood">Planilha do iFood</button></div></details>
+      <button id="b-ifood">Planilhas dos apps (iFood e 99)</button></div></details>
     <button id="b-org">Organizar categorias</button>
     <button id="b-mov">Notas e vendas</button>
     <button id="b-imp">Atualizar dados</button>
@@ -318,7 +318,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
         <h2>Ferramentas</h2>
         <button class="btn-lista" id="b-sync2"><span class="ic">🚚</span>Enviar estoque para a Nuvemshop</button>
         <button class="btn-lista" id="b-cad2"><span class="ic">🆕</span>Cadastrar produtos novos no site</button>
-        <button class="btn-lista" id="b-ifood2"><span class="ic">🍔</span>Planilha do iFood</button>
+        <button class="btn-lista" id="b-ifood2"><span class="ic">🍔</span>Planilhas dos apps (iFood e 99)</button>
         <button class="btn-lista" id="b-pub2"><span class="ic">🟢</span>Publicar produtos no site</button>
         <button class="btn-lista" id="b-foto2"><span class="ic">📷</span>Enviar fotos para a Nuvemshop</button>
         <button class="btn-lista" id="b-org2"><span class="ic">🗂️</span>Organizar categorias dos produtos</button>
@@ -377,7 +377,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 </dialog>
 
 <dialog id="difood">
-  <div class="topo"><h3>Planilha do iFood</h3><button id="if-x">Fechar</button></div>
+  <div class="topo"><h3>Planilhas dos apps</h3><button id="if-x">Fechar</button></div>
   <div class="corpo imp" id="if-corpo"></div>
 </dialog>
 
@@ -738,7 +738,7 @@ $("#s-x").onclick = () => $("#dsync").close();
 
 /* ------------------------------------------------ enviar estoque para a Nuvemshop */
 let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
-const BUILD = "9.1";
+const BUILD = "9.2";
 const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
 async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
 async function desenharSync(){
@@ -881,6 +881,18 @@ async function abrirIfood(){
   catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
   const f = p.faltas, aviso = (k, t) => f[k] ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(f[k].n)} ficam de fora: ${t}<br><small>${f[k].nomes.map(esc).join(" · ")}${f[k].n > 8 ? " · …" : ""}</small></p>` : "";
   const q = "divisor=" + encodeURIComponent(ifd.divisor);
+  let n9 = null; try{ n9 = await api("/api/n99/previa?" + q); }catch(e){ n9 = {erro:e.message}; }
+  const sec99 = !n9 || n9.erro ? `<section><b>99Food</b><p>${n9 && /Leia primeiro/.test(n9.erro || "") ? "Ainda não li o catálogo da 99Food." : esc((n9 || {}).erro || "")} No portal da 99: <i>Cardápio da loja</i> &gt; <i>Editar itens em lote</i> &gt; <b>Baixar dados de todos os itens</b>. Envie aqui esse arquivo.</p><input type="file" id="n9-cat" accept=".xlsx"><div id="n9-msg" role="status"></div></section>` : `<section><b>99Food</b>
+      <p>Catálogo lido em ${data(n9.catalogo_em)} · ${num(n9.itens_99)} itens, ${num(n9.ativos_com_estoque)} com estoque. <label>Atualizar o catálogo: <input type="file" id="n9-cat" accept=".xlsx"></label></p><div id="n9-msg" role="status"></div>
+      <p>Regra: o iFood manda. Item <b>fora de venda ou em ruptura no iFood</b> fica com estoque 0 na 99. Item conferido no painel usa o mesmo estoque e o mesmo preço (÷ ${esc(ifd.divisor)}).</p>
+      <p><b>${num(n9.zerar)}</b> a zerar · <b>${num(n9.atualizar)}</b> a atualizar (painel) · ${num(n9.sem_mudar)} sem mudança · <b>${num(n9.conferir)}</b> para você conferir (ativos na 99 que não estão no iFood nem no painel; não mexi neles) · <b>${num(n9.novos)}</b> novos para adicionar${n9.novos_incertos ? " (" + num(n9.novos_incertos) + " com categoria incerta)" : ""}.</p>
+      ${n9.amostra.length ? `<div class="rolagem"><table class="mini"><thead><tr><th>Item</th><th>Estoque</th><th>Preço</th><th>Motivo</th></tr></thead><tbody>${n9.amostra.map(i => `<tr><td>${esc(i.nome)}</td><td>${i.qtd}</td><td>${esc(i.preco_txt)}</td><td>${esc(i.motivo)}</td></tr>`).join("")}</tbody></table></div><small>Mostrando as 12 primeiras mudanças.</small>` : ""}
+      <p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)"><b>Faça um teste primeiro:</b> baixe a planilha de teste (5 itens), envie no portal da 99 e confira. Só depois baixe a completa.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a class="btn" href="/api/n99/editar.xlsx?${q}&teste=1">Editar: planilha de teste (5)</a>
+        <a class="btn pri" href="/api/n99/editar.xlsx?${q}">Editar: planilha completa (${num(n9.zerar + n9.atualizar)})</a>
+        ${n9.novos ? `<a class="btn" href="/api/n99/adicionar.xlsx?${q}&teste=1">Novos: teste (5)</a><a class="btn" href="/api/n99/adicionar.xlsx?${q}">Novos: completa (${num(n9.novos)})</a>` : ""}
+        <a class="btn" href="/api/n99/revisar.csv?${q}">Lista para conferir</a></div></section>`;
   c.innerHTML = `<section><b>1. Catálogo do iFood</b>
       <p>${p.catalogo_lido ? `Catálogo lido em ${data(p.catalogo_em)}.` : "Ainda não li o catálogo do iFood."} Envie a planilha exportada do portal do iFood (a que tem as colunas <i>ean_do_produto</i> e <i>em_venda</i>): é dela que o painel sabe quais itens estão em <b>ruptura</b> e quais já existem lá.</p>
       <input type="file" id="if-cat" accept=".xlsx"><div id="if-cat-msg" role="status"></div></section>
@@ -896,6 +908,12 @@ async function abrirIfood(){
         ${p.total ? Array.from({length:p.arquivos}, (_, k) => `<a class="btn pri" href="/api/ifood/planilha?${q}&parte=${k + 1}">Baixar planilha${p.arquivos > 1 ? " " + (k + 1) + " de " + p.arquivos : ""}</a>`).join("") : ""}
         <a class="btn" href="/api/ifood/revisar.csv?${q}">Baixar lista para conferir</a></div>
       <p style="color:var(--muted);font-size:13px">A coluna <i>Canal</i> do modelo fica em branco. Depois de baixar, suba a planilha no portal do iFood (importação por planilha).</p></section>`;
+  c.insertAdjacentHTML("beforeend", sec99);
+  if($("#n9-cat")) $("#n9-cat").onchange = async e => {
+    const f2 = e.target.files[0]; if(!f2) return; $("#n9-msg").textContent = "Lendo o catálogo da 99Food…";
+    try{ const r = await api("/api/importar/n99-catalogo", {method:"POST", body: await f2.arrayBuffer()}); $("#n9-msg").innerHTML = `<div class="ok-msg">Pronto: ${num(r.itens)} itens, ${num(r.ativos_com_estoque)} ativos com estoque.</div>`; setTimeout(abrirIfood, 1200); }
+    catch(err){ $("#n9-msg").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
+  };
   $("#if-aplicar").onclick = () => { ifd.divisor = $("#if-div").value || "0,70"; abrirIfood(); };
   $("#if-cat").onchange = async e => {
     const f2 = e.target.files[0]; if(!f2) return; $("#if-cat-msg").textContent = "Lendo o catálogo…";
