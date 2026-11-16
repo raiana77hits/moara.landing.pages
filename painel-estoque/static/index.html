@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- tela-build: 9.5 -->
+<!-- tela-build: 9.6 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -738,7 +738,7 @@ $("#s-x").onclick = () => $("#dsync").close();
 
 /* ------------------------------------------------ enviar estoque para a Nuvemshop */
 let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
-const BUILD = "9.5";
+const BUILD = "9.6";
 const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
 async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
 async function desenharSync(){
@@ -882,10 +882,19 @@ async function abrirIfood(){
   const f = p.faltas, aviso = (k, t) => f[k] ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(f[k].n)} ficam de fora: ${t}<br><small>${f[k].nomes.map(esc).join(" · ")}${f[k].n > 8 ? " · …" : ""}</small></p>` : "";
   const q = "divisor=" + encodeURIComponent(ifd.divisor) + "&canal=" + ifd.canal;
   let n9 = null; try{ n9 = await api("/api/n99/previa?" + q); }catch(e){ n9 = {erro:e.message}; }
-  const sec99 = !n9 || n9.erro ? `<section><b>99Food</b><p>${n9 && /Leia primeiro/.test(n9.erro || "") ? "Ainda não li o catálogo da 99Food." : esc((n9 || {}).erro || "")} Para gerar as planilhas da 99 o painel precisa saber os itens que já estão lá. No portal da 99: <i>Cardápio da loja</i> &gt; <i>Editar itens em lote</i> &gt; link <b>“Baixar dados de todos os itens”</b> (arquivo <i>grocery_shop_item_download…xlsx</i>). Envie esse arquivo aqui. Depois aparecem os botões <b>Editar</b> e <b>Novos</b>.</p><input type="file" id="n9-cat" accept=".xlsx"><div id="n9-msg" role="status"></div></section>` : `<section><b>99Food</b>
-      <p>Catálogo lido em ${data(n9.catalogo_em)} · ${num(n9.itens_99)} itens, ${num(n9.ativos_com_estoque)} com estoque. <label>Atualizar o catálogo: <input type="file" id="n9-cat" accept=".xlsx"></label></p><div id="n9-msg" role="status"></div>
-      <p>Regra: item conferido no painel usa o mesmo estoque e o mesmo preço do iFood (÷ ${esc(ifd.divisor)}). Item <b>fora de venda ou em ruptura no iFood e sem contagem no painel</b> fica com estoque 0 na 99.</p>
+  const ok99 = n9 && !n9.erro;
+  const catalogo99 = `<section><b>1. Catálogo da 99Food</b>
+      <p>${ok99 ? `Catálogo lido em ${data(n9.catalogo_em)} · ${num(n9.itens_99)} itens, ${num(n9.ativos_com_estoque)} com estoque.` : "Ainda não li o catálogo da 99Food."} No portal da 99: <i>Cardápio da loja</i> &gt; <i>Editar itens em lote</i> &gt; link <b>“Baixar dados de todos os itens”</b>. Envie esse arquivo (<i>grocery_shop_item_download….xlsx</i>): é dele que o painel sabe quais itens já existem na 99 e o que está ativo.</p>
+      <input type="file" id="n9-cat" accept=".xlsx"><div id="n9-msg" role="status"></div></section>`;
+  const regra99 = `<section><b>2. Regra de preço</b>
+      <p>Preço na 99Food = preço do painel ÷ <input id="if-div" inputmode="decimal" value="${esc(ifd.divisor)}" style="width:70px;padding:6px;border:1px solid var(--line);border-radius:6px"> <button id="if-aplicar">Recalcular</button></p>
+      <p style="color:var(--muted);font-size:13px">É a mesma regra do iFood: ÷ 0,70 equivale a +42,86% sobre o preço do painel.</p></section>`;
+  const faltas99 = aviso("sem_preco", "sem preço no painel.") + aviso("sem_contagem", "cadastrado mas sem contagem.") + aviso("sem_codigo", "sem código de barras válido.");
+  const resultado99 = !ok99 ? `<section><b>3. O que vai na planilha</b>
+      <p>Do painel: <b>${num(p.total)}</b> produtos conferidos ou cadastrados, com preço e código de barras, prontos para a 99. Envie o catálogo da 99 no passo 1 para ver o que muda e liberar as planilhas de <b>Editar</b> e de <b>Novos</b>.</p>${faltas99}</section>` : `<section><b>3. O que vai na planilha</b>
+      <p style="color:var(--muted);font-size:13px">Item conferido no painel usa o mesmo estoque e o mesmo preço do iFood. Item <b>fora de venda ou em ruptura no iFood e sem contagem no painel</b> fica com estoque 0 na 99 (a 99 não destrava sozinha).</p>
       <p><b>${num(n9.zerar)}</b> a zerar · <b>${num(n9.atualizar)}</b> a atualizar (painel) · ${num(n9.sem_mudar)} sem mudança · <b>${num(n9.conferir)}</b> para você conferir (ativos na 99 que não estão no iFood nem no painel; não mexi neles) · <b>${num(n9.novos)}</b> novos para adicionar${n9.novos_incertos ? " (" + num(n9.novos_incertos) + " com categoria incerta)" : ""}.</p>
+      ${faltas99}
       ${n9.amostra.length ? `<div class="rolagem"><table class="mini"><thead><tr><th>Item</th><th>Estoque</th><th>Preço</th><th>Motivo</th></tr></thead><tbody>${n9.amostra.map(i => `<tr><td>${esc(i.nome)}</td><td>${i.qtd}</td><td>${esc(i.preco_txt)}</td><td>${esc(i.motivo)}</td></tr>`).join("")}</tbody></table></div><small>Mostrando as 12 primeiras mudanças.</small>` : ""}
       <p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)"><b>Faça um teste primeiro:</b> baixe a planilha de teste (5 itens), envie no portal da 99 e confira. Só depois baixe a completa.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -893,6 +902,7 @@ async function abrirIfood(){
         <a class="btn pri" href="/api/n99/editar.xlsx?${q}">Editar: planilha completa (${num(n9.zerar + n9.atualizar)})</a>
         ${n9.novos ? `<a class="btn" href="/api/n99/adicionar.xlsx?${q}&teste=1">Novos: teste (5)</a><a class="btn" href="/api/n99/adicionar.xlsx?${q}">Novos: completa (${num(n9.novos)})</a>` : ""}
         <a class="btn" href="/api/n99/revisar.csv?${q}">Lista para conferir</a></div></section>`;
+  const sec99 = catalogo99 + regra99 + resultado99;
   const secIf = `<section><b>1. Catálogo do iFood</b>
       <p>${p.catalogo_lido ? `Catálogo lido em ${data(p.catalogo_em)}.` : "Ainda não li o catálogo do iFood."} Envie a planilha exportada do portal do iFood (a que tem as colunas <i>ean_do_produto</i> e <i>em_venda</i>): é dela que o painel sabe quais itens estão em <b>ruptura</b> e quais já existem lá.</p>
       <input type="file" id="if-cat" accept=".xlsx"><div id="if-cat-msg" role="status"></div></section>
