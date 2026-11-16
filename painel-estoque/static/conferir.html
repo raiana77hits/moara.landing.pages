@@ -200,15 +200,17 @@ async function abrirCamera(){
     const cfg = {fps:10, disableFlip:true,
       videoConstraints: camId ? {deviceId:{exact:camId}, width:{ideal:1920}, height:{ideal:1080}}
                               : {facingMode:"environment", width:{ideal:1920}, height:{ideal:1080}}};
-    if(IOS){   // no iPhone, ler só uma faixa larga no meio ajuda muito a achar o código de barras
-      const w = Math.min(340, Math.floor(window.innerWidth * 0.9));
-      cfg.qrbox = {width: w, height: 150};
+    if(IOS){   // no iPhone: ler só uma faixa larga no meio e pedir mais pixels (código pequeno, de longe)
+      const w = Math.min(360, Math.floor(window.innerWidth * 0.92));
+      cfg.qrbox = {width: w, height: 190}; cfg.fps = 15;
+      cfg.videoConstraints = camId ? {deviceId:{exact:camId}, width:{ideal:3840}, height:{ideal:2160}}
+                                   : {facingMode:"environment", width:{ideal:3840}, height:{ideal:2160}};
     }
     await leitor.start(alvo, cfg, onLido, () => {});
     $("#b-trocar").hidden = false;
     lendo = true; $("#b-cam").textContent = "Fechar a câmera"; $("#b-cam").classList.remove("pri");
     let res = ""; try{ const st = leitor.getRunningTrackSettings(); res = " (" + st.width + "×" + st.height + ")"; }catch(e){}
-    status("Câmera ligada" + res + ". Deixe as listras na horizontal, a uns 15 a 20 cm, com boa luz.");
+    status("Câmera ligada" + res + ". Deixe as listras na horizontal, a uns 20 a 25 cm (mais perto o iPhone não foca), com boa luz.");
     clearTimeout(dica);
     dica = setTimeout(() => { if(lendo && $("#caixa").hidden === false) status("Ainda não li nada. Afaste um pouco o celular até o código ficar nítido, ou use “Tirar foto do código”.", "aviso"); }, 12000);
   }catch(e){
@@ -247,24 +249,33 @@ $("#b-trocar").onclick = async () => {
 // Plano B: foto tirada pela câmera do próprio celular (foca melhor que o vídeo ao vivo)
 // O iPhone tira fotos de 12 a 48 milhões de pixels (HEIC): grandes demais para o leitor e para o navegador.
 // Reduzimos a foto em vários tamanhos (e girada) e tentamos ler cada um até acertar.
-async function variantesDaFoto(f){
+async function variantesDaFoto(f, aoGerar){
   let bmp;
   try{ bmp = await createImageBitmap(f, {imageOrientation:"from-image"}); }
   catch(e){
     bmp = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = URL.createObjectURL(f); });
   }
-  const w = bmp.width || bmp.naturalWidth, h = bmp.height || bmp.naturalHeight, saida = [];
-  const gerar = async (lado, giro) => {
-    const k = Math.min(1, lado / Math.max(w, h)), c = document.createElement("canvas");
-    const cw = Math.round(w * k), ch = Math.round(h * k), x = c.getContext("2d");
+  const w = bmp.width || bmp.naturalWidth, h = bmp.height || bmp.naturalHeight;
+  // recorta (fx,fy,fw,fh = fração da foto), reduz para no máximo `lado` pixels e gira se pedido
+  const gerar = async (nome, fx, fy, fw, fh, lado, giro) => {
+    const sx = Math.round(fx * w), sy = Math.round(fy * h), sw = Math.round(fw * w), sh = Math.round(fh * h);
+    const k = Math.min(1, lado / Math.max(sw, sh)), cw = Math.max(1, Math.round(sw * k)), ch = Math.max(1, Math.round(sh * k));
+    const c = document.createElement("canvas"), x = c.getContext("2d");
     if(giro){ c.width = ch; c.height = cw; x.translate(ch, 0); x.rotate(Math.PI / 2); } else { c.width = cw; c.height = ch; }
-    x.drawImage(bmp, 0, 0, cw, ch);
+    x.drawImage(bmp, sx, sy, sw, sh, 0, 0, cw, ch);
     const b = await new Promise(r => c.toBlob(r, "image/jpeg", 0.92));
     c.width = c.height = 0;
-    return b ? new File([b], "foto-" + lado + (giro ? "r" : "") + ".jpg", {type:"image/jpeg"}) : null;
+    return b ? new File([b], nome + ".jpg", {type:"image/jpeg"}) : null;
   };
-  for(const [lado, giro] of [[1600, 0], [1000, 0], [2200, 0], [1400, 1], [700, 0]]){
-    try{ const a = await gerar(lado, giro); if(a) saida.push(a); }catch(e){}
+  // ordem: foto inteira (códigos grandes), depois o meio e os cantos em alta resolução (códigos pequenos)
+  const planos = [["inteira-2400", 0, 0, 1, 1, 2400, 0], ["inteira-1400", 0, 0, 1, 1, 1400, 0],
+    ["meio", .2, .2, .6, .6, 2400, 0], ["meio-giro", .2, .2, .6, .6, 2000, 1]];
+  for(const fy of [.25, 0, .5]) for(const fx of [.25, 0, .5]) planos.push([`bloco-${fx}-${fy}`, fx, fy, .5, .5, 2200, 0]);
+  planos.push(["inteira-900", 0, 0, 1, 1, 900, 0], ["inteira-giro", 0, 0, 1, 1, 1800, 1]);
+  const saida = [];
+  for(const p of planos){
+    try{ const a = await gerar(...p); if(a) saida.push(a); }catch(e){}
+    if(aoGerar) aoGerar(saida.length, planos.length);
   }
   return saida;
 }
@@ -277,12 +288,15 @@ $("#f-foto").addEventListener("change", async e => {
     let tentativas = [];
     try{ tentativas = await variantesDaFoto(f); }catch(x){}
     tentativas.push(f);                                   // por último, a foto original
+    let n = 0;
     for(const a of tentativas){
+      status("Lendo a foto… " + (++n) + " de " + tentativas.length);
       try{
         const t = String(await arq.scanFile(a, false)).trim();
         if(gs1Ok(t)){ lido = t; break; }
         errado = errado || t;
-      }catch(err){ /* não achou neste tamanho: tenta o próximo */ }
+      }catch(err){ /* não achou neste trecho: tenta o próximo */ }
+      await new Promise(r => setTimeout(r, 0));          // deixa a tela respirar
     }
   }finally{ try{ arq.clear(); }catch(x){} }
   if(lido){ bip(); status("Código lido: " + lido); buscar(lido, true); return; }
