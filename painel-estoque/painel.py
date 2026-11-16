@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# versao-do-painel: 8
+# versao-do-painel: 9
 """Painel de Estoque - cadastro central (Casa de Embalagens Cangaíba).
 
 Roda só neste computador (127.0.0.1). Usa apenas a biblioteca padrão do Python.
@@ -36,7 +36,7 @@ import time
 import urllib.error
 import urllib.request
 import webbrowser
-from datetime import datetime
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -48,7 +48,7 @@ STATIC = os.path.join(BASE, "static")
 PORTA = int(os.environ.get("PAINEL_PORTA") or os.environ.get("PORT") or "8765")
 HOST = os.environ.get("PAINEL_HOST", "127.0.0.1")
 SESSAO_DIAS = 30
-VERSAO_SERVIDOR = "8"      # a tela compara com este número para detectar janela antiga aberta
+VERSAO_SERVIDOR = "9"      # a tela compara com este número para detectar janela antiga aberta
 
 CANAIS = ("nuvemshop", "ifood", "99food")
 
@@ -161,6 +161,18 @@ CREATE TABLE IF NOT EXISTS de_para (
     quem TEXT, quando TEXT,
     PRIMARY KEY (cnpj, cod_fornecedor)
 );
+
+-- pedidos do site (lidos da Nuvemshop, só leitura)
+CREATE TABLE IF NOT EXISTS pedidos_site (
+    id INTEGER PRIMARY KEY,
+    numero TEXT, criado_em TEXT, status TEXT, pagamento TEXT, total REAL
+);
+CREATE TABLE IF NOT EXISTS pedidos_itens (
+    pedido_id INTEGER NOT NULL,
+    variacao_id TEXT, produto_site TEXT, sku TEXT, nome TEXT, qtd REAL
+);
+CREATE INDEX IF NOT EXISTS ix_pi_ped ON pedidos_itens(pedido_id);
+CREATE INDEX IF NOT EXISTS ix_pi_var ON pedidos_itens(variacao_id);
 
 -- categorias da loja (lidas da Nuvemshop)
 CREATE TABLE IF NOT EXISTS categorias_site (
@@ -411,7 +423,6 @@ def sync_nuvemshop(con, progresso=None, completo=False):
 
     con.execute("DELETE FROM canais WHERE canal='nuvemshop'")
     con.execute("UPDATE produtos SET foto_url=NULL")       # a foto do site é relida a cada leitura
-    con.execute("UPDATE produtos SET categoria_id=NULL, categoria_nome=NULL WHERE origem<>'manual'")
     vistas = {}                                            # categorias vistas nos produtos: id -> (nome, pai)
     for p in produtos:
         for c in p.get("categories") or []:
@@ -1462,7 +1473,9 @@ def resumo(con):
                                                       "WHERE tipo='vendas'").fetchone()[0])},
          "servidor": VERSAO_SERVIDOR,
          "pasta": BASE,
-         "nuvemshop_configurada": bool(carregar_config()["token"])}
+         "nuvemshop_configurada": bool(carregar_config()["token"]),
+         "pedidos": {"lidos_em": (con.execute("SELECT valor FROM meta WHERE chave='pedidos_lidos_em'").fetchone() or [None])[0],
+                     "total": um("SELECT COUNT(*) FROM pedidos_site")}}
     return r
 
 
@@ -1552,6 +1565,64 @@ def alterar(con, pid, dados):
     con.commit()
     recalcular(con, [pid])
     return detalhe(con, pid)
+
+
+# ------------------------------------------------------ pedidos do site (só leitura)
+
+def sync_pedidos(con, progresso=None):
+    """Lê da Nuvemshop os pedidos novos para o estoque estimado descontar as vendas do site."""
+    cfg = _exigir_nuvemshop()
+    primeira = con.execute("SELECT MIN(substr(conferido_em,1,10)) FROM produtos WHERE estoque IS NOT NULL").fetchone()[0]
+    ate = con.execute("SELECT valor FROM meta WHERE chave='pedidos_ate'").fetchone()
+    desde = ate[0] if ate else (primeira or datetime.now().strftime("%Y-%m-%d"))
+    desde = (datetime.strptime(desde, "%Y-%m-%d") - timedelta(days=2)).strftime("%Y-%m-%d")   # folga: pedidos que mudam
+    pagina = lidos = 0
+    while True:
+        if progresso:
+            progresso(f"Lendo pedidos do site desde {desde}: {lidos} até agora")
+        try:
+            lote = _nuvem(cfg, "GET", f"/orders?created_at_min={desde}T00:00:00-03:00&per_page=200&page={pagina + 1}")
+        except RuntimeError as e:
+            if " 404" in str(e):
+                break                                  # a Nuvemshop responde 404 depois da última página
+            raise
+        if not isinstance(lote, list) or not lote:
+            break
+        for o in lote:
+            con.execute("INSERT OR REPLACE INTO pedidos_site(id,numero,criado_em,status,pagamento,total) VALUES(?,?,?,?,?,?)",
+                        (o.get("id"), str(o.get("number") or ""), str(o.get("created_at") or "")[:19],
+                         str(o.get("status") or ""), str(o.get("payment_status") or ""), num(o.get("total"))))
+            con.execute("DELETE FROM pedidos_itens WHERE pedido_id=?", (o.get("id"),))
+            for it in o.get("products") or []:
+                con.execute("INSERT INTO pedidos_itens(pedido_id,variacao_id,produto_site,sku,nome,qtd) VALUES(?,?,?,?,?,?)",
+                            (o.get("id"), str(it.get("variant_id") or ""), str(it.get("product_id") or ""),
+                             str(it.get("sku") or ""), _texto(it.get("name")), num(it.get("quantity")) or 0))
+            lidos += 1
+        if len(lote) < 200:
+            break
+        pagina += 1
+        time.sleep(1.5)
+    set_meta(con, "pedidos_ate", datetime.now().strftime("%Y-%m-%d"))
+    set_meta(con, "pedidos_lidos_em", agora())
+    con.commit()
+    recalcular(con)
+    return {"pedidos": lidos}
+
+
+def _rotina_pedidos():
+    """A cada 10 minutos lê os pedidos novos do site (se a Nuvemshop estiver conectada)."""
+    time.sleep(60)
+    while True:
+        try:
+            if carregar_config()["token"] and not TAREFA["rodando"]:
+                con = conectar()
+                try:
+                    sync_pedidos(con)
+                finally:
+                    con.close()
+        except Exception:  # noqa: BLE001 - a rotina nunca derruba o painel
+            pass
+        time.sleep(600)
 
 
 # ------------------------------------------------- vendas, notas e estoque estimado
@@ -1785,6 +1856,12 @@ def recalcular(con, ids=None):
     for r in con.execute("SELECT gz_codigo, inicio, unidade, SUM(qtd) AS q FROM vendas_gz "
                          "GROUP BY gz_codigo, inicio, unidade"):
         ven.setdefault(r["gz_codigo"], []).append((r["inicio"], r["unidade"], r["q"] or 0))
+    sitev = {}
+    for r in con.execute(
+            "SELECT k.produto_id pid, substr(o.criado_em,1,10) d, SUM(i.qtd) q FROM pedidos_itens i "
+            "JOIN pedidos_site o ON o.id=i.pedido_id JOIN canais k ON k.canal='nuvemshop' "
+            "AND k.id_variacao=i.variacao_id WHERE o.status<>'cancelled' GROUP BY k.produto_id, d"):
+        sitev.setdefault(r["pid"], []).append((r["d"], r["q"] or 0))
     for p in prods:
         est, aviso = None, None
         if p["estoque"] is not None and p["conferido_em"]:
@@ -1796,6 +1873,7 @@ def recalcular(con, ids=None):
                     if un == "KG":
                         aviso = "peso"
                     v += q
+            v += sum(q for d, q in sitev.get(p["id"], []) if d > dia)
             if aviso != "peso":
                 est = round(p["estoque"] + e - v, 2)
         con.execute("UPDATE produtos SET estimado=?, est_aviso=? WHERE id=?", (est, aviso, p["id"]))
@@ -1818,7 +1896,12 @@ def movimento_produto(con, pid):
     vendas = [dict(r) for r in con.execute(
         "SELECT inicio, fim, qtd, unidade FROM vendas_gz WHERE gz_codigo=? AND inicio>? "
         "ORDER BY inicio DESC", (str(p["gz_codigo"] or ""), dia))]
-    return {"contagem_em": dia, "entradas": entradas, "vendas": vendas}
+    site = [dict(r) for r in con.execute(
+        "SELECT substr(o.criado_em,1,10) AS dia, o.numero, i.qtd FROM pedidos_itens i JOIN pedidos_site o "
+        "ON o.id=i.pedido_id JOIN canais k ON k.canal='nuvemshop' AND k.id_variacao=i.variacao_id "
+        "WHERE k.produto_id=? AND o.status<>'cancelled' AND substr(o.criado_em,1,10)>? ORDER BY o.criado_em DESC",
+        (pid, dia))]
+    return {"contagem_em": dia, "entradas": entradas, "vendas": vendas, "site": site}
 
 
 _STOP = {"DE", "DA", "DO", "COM", "PARA", "C", "E", "EM", "UN", "CX", "PCT", "KG", "G", "ML", "L"}
@@ -2237,6 +2320,14 @@ def _tarefa(funcao, *args):
     threading.Thread(target=correr, daemon=True).start()
 
 
+def _sync_pedidos_tarefa(progresso):
+    con = conectar()
+    try:
+        return sync_pedidos(con, progresso)
+    finally:
+        con.close()
+
+
 def _rodar_sync():
     TAREFA.update(rodando=True, msg="Conectando na Nuvemshop", erro="", resultado=None)
     try:
@@ -2522,6 +2613,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(importar_gestorz(con, self._corpo()))
             if u.path == "/api/importar/painel":
                 return self._json(importar_painel(con, self._corpo()))
+            if u.path == "/api/sync/pedidos":
+                _tarefa(lambda prog: _sync_pedidos_tarefa(prog))
+                return self._json({"ok": True})
             if u.path == "/api/sync/nuvemshop":
                 if not TAREFA["rodando"]:
                     threading.Thread(target=_rodar_sync, daemon=True).start()
@@ -2576,6 +2670,7 @@ def manter_acordado():
 def servir(abrir=True):
     conectar().close()
     threading.Thread(target=_rotina_backup, daemon=True).start()
+    threading.Thread(target=_rotina_pedidos, daemon=True).start()
     manter_acordado()
     if HOST not in ("127.0.0.1", "localhost") and not tem_senha():
         print("Para abrir o painel para outros aparelhos é obrigatório definir uma senha "

@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- tela-build: 8.3 -->
+<!-- tela-build: 9.0 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -401,6 +401,11 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
       <button class="pri" id="i-nuvem">Ler a Nuvemshop agora</button>
     </section>
     <section>
+      <b>Pedidos do site</b>
+      <p id="i-ped-txt">O painel lê os pedidos novos sozinho a cada 10 minutos, para o estoque estimado descontar as vendas do site.</p>
+      <button id="i-ped">Ler os pedidos agora</button>
+    </section>
+    <section>
       <b>Cadastro do Gestor Z</b>
       <p>Arquivo CSV com as colunas id_produto, codigo, gtin, descricao, venda.</p>
       <input type="file" id="f-gz" accept=".csv">
@@ -415,7 +420,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 </dialog>
 
 <script>
-const VERSAO = "8";
+const VERSAO = "9";
 const $ = s => document.querySelector(s);
 const est = {q:"", filtro:"todos", grupo:"", pagina:1, total:0};
 let RESUMO = null;
@@ -629,7 +634,7 @@ async function abrir(id){
       <dt>Preço no caixa</dt><dd>${brl(p.preco) || "—"}</dd>
       <dt>Custo</dt><dd>${p.custo ? brl(p.custo) : "—"}</dd>
       <dt>Estoque oficial</dt><dd><b>${p.estoque ?? "não conferido"}</b>${p.conferido_em ? " · " + data(p.conferido_em) : ""}</dd>
-      <dt>Estoque estimado</dt><dd>${p.estimado != null ? "<b>" + fmtN(p.estimado) + "</b> (contagem + notas − vendas do caixa; vendas do site, iFood e 99 ainda não entram)" : (p.est_aviso === "peso" ? "vende por peso: sem estimativa" : "precisa de contagem")}</dd>
+      <dt>Estoque estimado</dt><dd>${p.estimado != null ? "<b>" + fmtN(p.estimado) + "</b> (contagem + notas − vendas do caixa e do site; iFood e 99 ainda não entram)" : (p.est_aviso === "peso" ? "vende por peso: sem estimativa" : "precisa de contagem")}</dd>
       <dt>Saldo no Gestor Z</dt><dd>${esc(p.gz_saldo) || "sem controle"}</dd>
       <dt>Situação estimada</dt><dd>${esc(p.situacao) || "—"}</dd>
       <dt>Ação sugerida</dt><dd>${esc(p.acao) || "—"}</dd>
@@ -641,9 +646,10 @@ async function abrir(id){
     ${p.movimento ? `<div><h4>Desde a contagem (${esc(p.movimento.contagem_em)})</h4>
       <div class="rolagem"><table class="mini"><tbody>${
         p.movimento.entradas.map(e => `<tr><td>${esc(e.emissao)}</td><td>entrou</td><td>+${fmtN(e.unidades)} un (${fmtN(e.quantidade)} × ${fmtN(e.fator)}) · ${esc(e.fornecedor)}</td></tr>`).join("") +
-        p.movimento.vendas.map(v => `<tr><td>${esc(v.inicio)} a ${esc(v.fim)}</td><td>vendeu</td><td>−${fmtN(v.qtd)} ${esc(v.unidade)} no caixa</td></tr>`).join("") ||
+        p.movimento.vendas.map(v => `<tr><td>${esc(v.inicio)} a ${esc(v.fim)}</td><td>vendeu</td><td>−${fmtN(v.qtd)} ${esc(v.unidade)} no caixa</td></tr>`).join("") +
+        (p.movimento.site || []).map(v => `<tr><td>${esc(v.dia)}</td><td>vendeu</td><td>−${fmtN(v.qtd)} no site (pedido ${esc(v.numero)})</td></tr>`).join("") ||
         "<tr><td>Nenhuma nota nem venda importada depois da contagem.</td></tr>"}</tbody></table></div>
-      <p class="m" style="color:var(--muted);font-size:13px">Vendas do site, iFood e 99 ainda não entram na conta.</p></div>` : ""}
+      <p class="m" style="color:var(--muted);font-size:13px">Vendas do iFood e da 99 ainda não entram na conta.</p></div>` : ""}
     <div><h4>Observação</h4><textarea id="d-obs">${esc(p.obs)}</textarea><div style="margin-top:8px"><button class="pri" id="d-salvar">Salvar observação</button></div></div>
     <div><h4>Histórico</h4>${p.historico.length ? `<div class="rolagem"><table class="mini"><tbody>${
       p.historico.map(h => `<tr><td>${data(h.quando)}</td><td>${esc(h.campo)}</td><td>${esc(h.de) || "—"} → ${esc(h.para) || "—"}</td></tr>`).join("")}</tbody></table></div>` : "Nenhuma alteração ainda."}</div>`;
@@ -725,7 +731,7 @@ $("#s-x").onclick = () => $("#dsync").close();
 
 /* ------------------------------------------------ enviar estoque para a Nuvemshop */
 let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
-const BUILD = "8.3";
+const BUILD = "9.0";
 const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
 async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
 async function desenharSync(){
@@ -832,6 +838,17 @@ async function enviar(input, url){
 }
 $("#f-gz").onchange = e => enviar(e.target, "/api/importar/gestorz");
 $("#f-pn").onchange = e => enviar(e.target, "/api/importar/painel");
+$("#i-ped").onclick = async () => {
+  $("#i-ped").disabled = true; $("#msg").textContent = "Lendo os pedidos do site…";
+  try{
+    await api("/api/sync/pedidos", {method:"POST"});
+    const iv = setInterval(async () => {
+      const s = await api("/api/tarefa");
+      $("#msg").textContent = s.erro ? "Não deu certo: " + s.erro : s.msg;
+      if(!s.rodando){ clearInterval(iv); $("#i-ped").disabled = false; if(s.resultado) $("#msg").textContent = `Pronto: ${s.resultado.pedidos} pedidos lidos. O estoque estimado foi recalculado.`; carregarResumo(); carregar(); }
+    }, 1500);
+  }catch(e){ $("#i-ped").disabled = false; $("#msg").textContent = "Não deu certo: " + e.message; }
+};
 $("#i-nuvem").onclick = async () => {
   $("#i-nuvem").disabled = true;
   await api("/api/sync/nuvemshop", {method:"POST"});
