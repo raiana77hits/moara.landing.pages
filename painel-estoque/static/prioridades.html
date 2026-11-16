@@ -25,6 +25,11 @@
   .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
   .vermelho{background:var(--ver)}.amarelo{background:#f79009}.verde{background:var(--vd)}.cinza{background:var(--ci)}
   .tag{font-size:11px;border:1px solid var(--bd);border-radius:6px;padding:1px 6px;margin-left:6px;color:var(--mut)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:12px 0}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px}
+  .card b{font-size:22px;display:block}.card small{color:var(--mut)}
+  .card button{margin-top:8px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:inherit;font:inherit;cursor:pointer}
+  .alerta{border-color:#f79009}
   .pg{display:flex;gap:8px;justify-content:center;margin:14px 0}
 </style>
 </head>
@@ -33,6 +38,7 @@
   <p><a href="/">← Painel</a></p>
   <h1>Prioridades: o que contar e comprar</h1>
   <p class="mut" id="sub">Carregando…</p>
+  <div class="cards" id="central"></div>
   <div class="chips" id="chips"></div>
   <div class="bar">
     <input id="q" type="search" placeholder="Buscar por nome ou SKU">
@@ -74,7 +80,31 @@ async function carregar(){
 $("#chips").onclick=e=>{const b=e.target.closest(".chip");if(b){cor=b.dataset.k;pagina=1;carregar()}};
 let t;$("#q").oninput=()=>{clearTimeout(t);t=setTimeout(()=>{pagina=1;carregar()},300)};
 $("#ant").onclick=()=>{pagina--;carregar()};$("#prox").onclick=()=>{pagina++;carregar()};
-carregar();
+async function central(){
+  const d=await (await fetch("/api/central")).json(); if(!d.periodo){$("#central").innerHTML="";return}
+  const top=(d.falta_no_site_top||[]).map(i=>esc(i.nome)).slice(0,4).join(", ");
+  $("#central").innerHTML=`
+   <div class="card"><b>${d.comprar}</b>itens para comprar<br><small>vermelho ou amarelo com venda</small></div>
+   <div class="card"><b>${d.para_contar}</b>itens para contar primeiro<br><small>vendem bem e nunca foram contados</small></div>
+   <div class="card ${d.notas_sem_vinculo?"alerta":""}"><b>${d.notas_sem_vinculo}</b>itens de nota sem vínculo<br>
+     <small>sem vínculo o painel não sabe o que já entrou</small><br>
+     <button id="b-auto">Vincular os ${d.auto_seguros} seguros</button> <button id="b-des">Desfazer automáticos</button></div>
+   <div class="card ${d.falta_no_site?"alerta":""}"><b>${d.falta_no_site}</b>vendem ou entraram e faltam no site<br><small>${top||"—"}</small></div>`;
+  const ba=$("#b-auto"); if(ba) ba.onclick=async()=>{
+    const p=await (await fetch("/api/entradas/auto-previa")).json();
+    if(!p.seguros){alert("Nada seguro para vincular sozinho. O resto precisa da sua decisão.");return}
+    const ex=p.amostra.slice(0,5).map(a=>`• ${a.nota}  →  ${a.produto}  (x${a.fator})`).join("\n");
+    if(!confirm(`Vincular ${p.seguros} itens de nota automaticamente?\n\nExemplos:\n${ex}\n\nOs ${p.para_decidir} restantes ficam para você decidir. Dá para desfazer depois.`))return;
+    const r=await fetch("/api/entradas/auto-aplicar",{method:"POST",body:"{}"}); const j=await r.json();
+    alert(r.ok?`Pronto: ${j.seguros} vínculos feitos.`:(j.erro||"Erro")); central(); carregar();
+  };
+  const bd=$("#b-des"); if(bd) bd.onclick=async()=>{
+    if(!confirm("Desfazer todos os vínculos feitos automaticamente? Os que você fez à mão ficam."))return;
+    const r=await fetch("/api/entradas/auto-desfazer",{method:"POST",body:"{}"}); const j=await r.json();
+    alert(r.ok?`Removidos ${j.removidos} vínculos automáticos.`:(j.erro||"Erro")); central(); carregar();
+  };
+}
+carregar(); central();
 </script>
 </body>
 </html>

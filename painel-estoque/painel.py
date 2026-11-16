@@ -2393,6 +2393,111 @@ def prioridades(con, cor="", q="", pagina=1, por_pagina=50, tudo=False):
             "para_contar": fila, "itens": itens, "notas_sem_vinculo": sem_vinculo}
 
 
+_PACOTE = re.compile(r"\b(?:CX|FD|PCT|DP|CT|PC)[- ]?(\d{1,4})\s*UN")
+_DICA_PACOTE = re.compile(r"\bC/\s*\d|\b\d{1,4}\s*X\s*\d|\b\d{1,4}\s*(?:PCS?|P|UN|UND|UNID)\b|\bDZ\b")
+_TAM = re.compile(r"(\d+(?:[.,]\d+)?)\s*(ML|LTS?|L|KG|GR?|M)\b")
+
+
+def _tamanhos(t):
+    saida = set()
+    for n, u in _TAM.findall(_sem_acento(t).upper()):
+        v = float(n.replace(",", "."))
+        u = {"LT": "L", "LTS": "L", "GR": "G"}.get(u, u)
+        if u == "L":
+            v, u = v * 1000, "ML"
+        if u == "KG":
+            v, u = v * 1000, "G"
+        saida.add((round(v), u))
+    return saida
+
+
+def _fator_nota(descricao, un):
+    """Unidades por caixa/pacote só quando o texto da nota é claro (CX-12UN). Senão None."""
+    d = _sem_acento(descricao).upper()
+    m = _PACOTE.search(d)
+    if m and 1 <= int(m.group(1)) <= 2000:
+        return float(m.group(1))
+    if str(un or "").strip().upper() in ("UN", "UNI", "1UN", "UND") and not _DICA_PACOTE.search(d):
+        return 1.0
+    return None
+
+
+def _cobre(descricao, nome):
+    """Todas as palavras do nome do produto aparecem na descrição da nota (evita marca/variação errada)."""
+    ref = _sem_acento(descricao).upper()
+    seco = re.sub(r"[^A-Z0-9]", "", ref)
+    nt = _tokens(descricao)
+    for w in _tokens(nome):
+        if w in nt or any(len(x) >= 4 and len(w) >= 4 and (x.startswith(w) or w.startswith(x)) for x in nt):
+            continue
+        if re.search(r"\d", w) and w in seco:
+            continue
+        return False
+    return True
+
+
+def auto_vincular_notas(con, aplicar=False, quem="auto"):
+    """Liga sozinho os itens das notas aos produtos quando é seguro: nome muito parecido, mesmo
+    tamanho (ml/L/kg/g) e fator de caixa claro no texto. O resto fica para você decidir.
+    Tudo que entra aqui fica marcado 'auto' e pode ser desfeito de uma vez."""
+    itens = con.execute(
+        "SELECT n.cnpj, n.cod_fornecedor, MAX(n.descricao) descricao, MAX(n.un) un FROM notas_itens n "
+        "LEFT JOIN de_para d ON d.cnpj=n.cnpj AND d.cod_fornecedor=n.cod_fornecedor "
+        "WHERE d.cnpj IS NULL GROUP BY n.cnpj, n.cod_fornecedor").fetchall()
+    ok, duvida, afetados = [], 0, set()
+    for it in itens:
+        sug = sugerir_produtos(con, it["descricao"], 2)
+        fator = _fator_nota(it["descricao"], it["un"])
+        if not sug or fator is None:
+            duvida += 1
+            continue
+        top = sug[0]
+        gap = top["parecido"] - (sug[1]["parecido"] if len(sug) > 1 else 0)
+        tn, tp = _tamanhos(it["descricao"]), _tamanhos(top["nome"])
+        if (top["parecido"] < 0.70 or gap < 0.05 or (tn and tp and tn != tp) or (bool(tn) != bool(tp))
+                or not _cobre(it["descricao"], top["nome"])):
+            duvida += 1
+            continue
+        ok.append((it, top, fator))
+    if aplicar:
+        for it, top, fator in ok:
+            con.execute("INSERT OR IGNORE INTO de_para VALUES(?,?,?,?,'confirmado',?,?)",
+                        (it["cnpj"], it["cod_fornecedor"], top["id"], fator, quem, agora()))
+            afetados.add(top["id"])
+        con.commit()
+        recalcular(con, afetados)
+    amostra = [{"nota": it["descricao"][:60], "produto": top["nome"][:60], "fator": fator,
+                "parecido": top["parecido"]} for it, top, fator in ok[:12]]
+    return {"aplicado": bool(aplicar), "seguros": len(ok), "para_decidir": duvida, "amostra": amostra}
+
+
+def desfazer_auto_vinculos(con):
+    ids = {r[0] for r in con.execute("SELECT DISTINCT produto_id FROM de_para WHERE quem='auto'")}
+    n = con.execute("DELETE FROM de_para WHERE quem='auto'").rowcount
+    con.commit()
+    recalcular(con, ids)
+    return {"ok": True, "removidos": n}
+
+
+def central(con):
+    """Visão única: o que falta fazer, juntando vendas, notas, estoque e site."""
+    pr = prioridades(con, tudo=True)
+    itens = pr.get("itens", [])
+    sem_site = [i for i in itens if not i["nuvemshop"] and (i["vendas_valor"] > 0 or i["entrada_60d"] > 0)]
+    sem_site.sort(key=lambda i: -(i["vendas_valor"] or 0))
+    auto = auto_vincular_notas(con, False)
+    return {
+        "periodo": pr.get("periodo"), "aviso": pr.get("aviso"),
+        "cores": pr.get("resumo", {}), "para_contar": pr.get("para_contar", 0),
+        "comprar": sum(1 for i in itens if i["cor"] in ("vermelho", "amarelo") and i["comprar_30d"]),
+        "notas_sem_vinculo": pr.get("notas_sem_vinculo", 0), "auto_seguros": auto["seguros"],
+        "falta_no_site": len(sem_site),
+        "falta_no_site_top": [{"nome": i["nome"], "vendas_valor": i["vendas_valor"], "entrou": i["entrada_60d"]}
+                              for i in sem_site[:10]],
+        "ultima_nuvemshop": con.execute("SELECT valor FROM meta WHERE chave='nuvemshop_sync_em'").fetchone()[0]
+        if con.execute("SELECT valor FROM meta WHERE chave='nuvemshop_sync_em'").fetchone() else None}
+
+
 def prioridades_csv(con, cor=""):
     r = prioridades(con, cor=cor, tudo=True)
     saida = io.StringIO()
@@ -2946,6 +3051,10 @@ class Handler(BaseHTTPRequestHandler):
                                                   so_contados=qs.get("contados") == "1"))
             if u.path == "/prioridades":
                 return self._arquivo("prioridades.html", "text/html; charset=utf-8")
+            if u.path == "/api/central":
+                return self._json(central(con))
+            if u.path == "/api/entradas/auto-previa":
+                return self._json(auto_vincular_notas(con, False))
             if u.path == "/api/prioridades":
                 return self._json(prioridades(con, qs.get("cor", ""), qs.get("q", ""),
                                               max(1, int(qs.get("pagina", 1))), 50))
@@ -3176,6 +3285,10 @@ class Handler(BaseHTTPRequestHandler):
                 qp = {k: v[0] for k, v in parse_qs(u.query).items()}
                 return self._json(importar_notas(con, self._corpo(), unquote(qp.get("arquivo", "")),
                                                  unquote(self.headers.get("X-Quem") or "painel")[:40]))
+            if u.path == "/api/entradas/auto-aplicar":
+                return self._json(auto_vincular_notas(con, True))
+            if u.path == "/api/entradas/auto-desfazer":
+                return self._json(desfazer_auto_vinculos(con))
             if u.path == "/api/entradas/vinculo":
                 d = json.loads(self._corpo() or b"{}")
                 return self._json(vincular_entrada(con, d, (d.get("quem") or "painel")[:40]))
