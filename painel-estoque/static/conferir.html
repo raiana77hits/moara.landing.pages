@@ -85,6 +85,7 @@ li small{color:var(--muted);white-space:nowrap}
   <div id="caixa" hidden><div id="leitor"></div><div class="mira"></div></div>
   <div id="cam-status" class="status" hidden role="status"></div>
   <div id="cam-msg" class="aviso a-warn" hidden></div>
+  <pre id="cam-det" class="aviso" hidden style="font-size:12px;white-space:pre-wrap;word-break:break-word"></pre>
   <button class="pri" id="b-cam">Abrir a câmera para bipar</button>
   <button id="b-trocar" hidden>🔄 Trocar de câmera</button>
   <div id="dica-ios" class="aviso" hidden>No iPhone: se a câmera não ler, toque e segure no campo abaixo e escolha <b>“Digitalizar texto”</b> (ícone de câmera) e aponte para o <b>número impresso</b> embaixo das listras.</div>
@@ -173,6 +174,9 @@ if(IOS) $("#dica-ios").hidden = false;
 const guardado = k => { try{ return localStorage.getItem(k) || ""; }catch(e){ return ""; } };
 const guardar = (k, v) => { try{ localStorage.setItem(k, v); }catch(e){} };
 let camId = guardado("camId");
+let quadros = 0, errosLeitor = {};
+const detalhe = t => { const e = $("#cam-det"); e.hidden = !t; e.textContent = t || ""; };
+const infoNavegador = () => "BarcodeDetector: " + ("BarcodeDetector" in window ? "sim" : "não") + " · iOS: " + (IOS ? "sim" : "não") + " · " + (navigator.userAgent.match(/(iPhone OS|Android) [\d_.]+/) || [""])[0];
 const FORMATOS = () => { const F = Html5QrcodeSupportedFormats; return [F.EAN_13, F.EAN_8, F.UPC_A, F.ITF]; };
 function onLido(texto){
   texto = String(texto).trim();
@@ -206,13 +210,20 @@ async function abrirCamera(){
       cfg.videoConstraints = camId ? {deviceId:{exact:camId}, width:{ideal:3840}, height:{ideal:2160}}
                                    : {facingMode:"environment", width:{ideal:3840}, height:{ideal:2160}};
     }
-    await leitor.start(alvo, cfg, onLido, () => {});
+    quadros = 0; errosLeitor = {};
+    await leitor.start(alvo, cfg, onLido, msg => { quadros++; const k = String(msg).slice(0, 50); errosLeitor[k] = (errosLeitor[k] || 0) + 1; });
     $("#b-trocar").hidden = false;
     lendo = true; $("#b-cam").textContent = "Fechar a câmera"; $("#b-cam").classList.remove("pri");
     let res = ""; try{ const st = leitor.getRunningTrackSettings(); res = " (" + st.width + "×" + st.height + ")"; }catch(e){}
     status("Câmera ligada" + res + ". Deixe as listras na horizontal, a uns 20 a 25 cm (mais perto o iPhone não foca), com boa luz.");
     clearTimeout(dica);
-    dica = setTimeout(() => { if(lendo && $("#caixa").hidden === false) status("Ainda não li nada. Afaste um pouco o celular até o código ficar nítido, ou use “Tirar foto do código”.", "aviso"); }, 12000);
+    dica = setTimeout(() => {
+      if(lendo && $("#caixa").hidden === false){
+        status("Ainda não li nada. Afaste um pouco o celular até o código ficar nítido, ou use “Tirar foto do código”.", "aviso");
+        let r = ""; try{ const st = leitor.getRunningTrackSettings(); r = st.width + "×" + st.height + " a " + Math.round(st.frameRate || 0) + " fps"; }catch(e){}
+        detalhe("Detalhes: " + quadros + " leituras tentadas em 12 s · vídeo " + r + "\n" + infoNavegador() + "\n" + Object.entries(errosLeitor).slice(0, 3).map(([k, v]) => v + "x " + k).join("\n"));
+      }
+    }, 12000);
   }catch(e){
     $("#caixa").hidden = true; leitor = null; status("");
     $("#cam-msg").hidden = false; $("#cam-msg").textContent = msgErro(e);
@@ -221,7 +232,7 @@ async function abrirCamera(){
 async function fecharCamera(){
   clearTimeout(dica);
   if(leitor){ try{ await leitor.stop(); leitor.clear(); }catch(e){} }
-  leitor = null; lendo = false; $("#caixa").hidden = true; status(""); $("#b-trocar").hidden = true;
+  leitor = null; lendo = false; $("#caixa").hidden = true; status(""); detalhe(""); $("#b-trocar").hidden = true;
   $("#b-cam").textContent = "Abrir a câmera para bipar"; $("#b-cam").classList.add("pri");
 }
 function pausar(sim){
@@ -274,7 +285,7 @@ async function variantesDaFoto(f, aoGerar){
   planos.push(["inteira-900", 0, 0, 1, 1, 900, 0], ["inteira-giro", 0, 0, 1, 1, 1800, 1]);
   const saida = [];
   for(const p of planos){
-    try{ const a = await gerar(...p); if(a) saida.push(a); }catch(e){}
+    try{ const a = await gerar(...p); if(a) saida.push(a); }catch(e){ saida.erro = String(e && (e.name + ": " + e.message) || e).slice(0, 100); }
     if(aoGerar) aoGerar(saida.length, planos.length);
   }
   return saida;
@@ -283,10 +294,11 @@ $("#f-foto").addEventListener("change", async e => {
   const f = e.target.files[0]; e.target.value = ""; if(!f) return;
   status("Lendo a foto…");
   const arq = new Html5Qrcode("leitor-arq", {formatsToSupport: FORMATOS(), experimentalFeatures:{useBarCodeDetectorIfSupported:true}, verbose:false});
-  let errado = "", lido = "";
+  let errado = "", lido = "", errosFoto = {}, tentouN = 0, falhaVar = "";
   try{
     let tentativas = [];
-    try{ tentativas = await variantesDaFoto(f); }catch(x){}
+    try{ tentativas = await variantesDaFoto(f); }catch(x){ falhaVar = String(x && (x.name + ": " + x.message) || x).slice(0, 120); }
+    if(tentativas.erro && !falhaVar) falhaVar = tentativas.erro;
     tentativas.push(f);                                   // por último, a foto original
     let n = 0;
     for(const a of tentativas){
@@ -295,10 +307,14 @@ $("#f-foto").addEventListener("change", async e => {
         const t = String(await arq.scanFile(a, false)).trim();
         if(gs1Ok(t)){ lido = t; break; }
         errado = errado || t;
-      }catch(err){ /* não achou neste trecho: tenta o próximo */ }
+      }catch(err){ const k = String(err && (err.message || err) || err).slice(0, 60); errosFoto[k] = (errosFoto[k] || 0) + 1; }
+      tentouN++;
       await new Promise(r => setTimeout(r, 0));          // deixa a tela respirar
     }
   }finally{ try{ arq.clear(); }catch(x){} }
+  detalhe(lido ? "" : "Detalhes da foto: " + Math.round(f.size / 1024) + " KB, " + (f.type || "tipo?") + " · " + tentouN + " tentativas" +
+    (falhaVar ? "\nErro ao preparar: " + falhaVar : "") + "\n" + infoNavegador() +
+    "\n" + Object.entries(errosFoto).slice(0, 3).map(([k, v]) => v + "x " + k).join("\n"));
   if(lido){ bip(); status("Código lido: " + lido); buscar(lido, true); return; }
   if(errado) status("Li “" + errado + "”, mas parece errado. Tire outra foto, mais de perto e com o código reto.", "aviso");
   else status("Não achei um código de barras na foto. Chegue mais perto (uns 10 a 15 cm), deixe as listras na horizontal e bem iluminadas, ou digite o código.", "aviso");
