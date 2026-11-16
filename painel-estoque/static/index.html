@@ -1005,9 +1005,10 @@ async function abrirCadastrar(){
   c.innerHTML = `<section><b>Produtos novos para cadastrar no site</b>
     <p>Estes são os produtos que cadastramos no painel e ainda não existem na Nuvemshop. Eles são criados <b>ocultos</b> (o cliente não vê), do jeito que estão. Depois a gente confere e publica.</p>
     <div style="margin:6px 0"><button id="c-lercats" class="${cats.length ? "" : "pri"}">${cats.length ? "Atualizar categorias da loja" : "Ler categorias da loja agora"}</button> <small style="color:var(--muted)">${cats.length ? num(cats.length) + " categorias lidas" : "Sem isso os produtos são criados sem categoria."}</small></div>
+    <div style="margin:6px 0"><button id="c-nota">Trazer itens que chegaram na nota e não têm cadastro</button></div>
     ${it.length ? `<div class="sel-barra"><button id="c-todos">Marcar todos</button><button id="c-nenhum">Desmarcar todos</button><span id="c-cont"></span></div>
     <input type="search" class="busca-lista" data-lista="#c-lista" placeholder="Buscar produto nesta lista" aria-label="Buscar nesta lista"><div class="lista-prev" id="c-lista" style="max-height:55vh">${it.map(i => `<div class="pv" style="flex-direction:column;align-items:stretch;gap:6px;border-bottom:1px solid var(--line);padding:10px 4px">
-      <label style="display:flex;gap:10px;align-items:center"><input type="checkbox" data-p="${i.pid}" ${ca.sel.has(i.pid) ? "checked" : ""}>${i.foto ? `<img src="${i.foto}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px">` : '<span class="pill p-idle">sem foto</span>'}<span><b>${esc(i.nome)}</b><br><small>${i.preco ? brl(i.preco) : "sem preço"} · estoque ${i.estoque ?? "—"} · ${esc(i.ean || "sem código")}</small></span></label>
+      <label style="display:flex;gap:10px;align-items:center"><input type="checkbox" data-p="${i.pid}" ${ca.sel.has(i.pid) ? "checked" : ""}>${i.foto ? `<img src="${i.foto}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px">` : '<span class="pill p-idle">sem foto</span>'}<span><b>${esc(i.nome)}</b><br><small>${i.preco ? brl(i.preco) : "sem preço"} · estoque ${i.estoque ?? "—"} · ${esc(i.ean || "sem código")}</small>${(i.motivos||[]).length ? `<br><small style="color:var(--muted)">${esc(i.motivos.join(" · "))}</small>` : ""}</span></label>
       <select data-c="${i.pid}" data-g="${esc(i.grupo || "")}" ${cats.length ? "" : "disabled"}>${opcoes(i.categoria_id || "")}</select>
       ${i.faltas.length ? `<small style="color:var(--warn)">Falta: ${i.faltas.join(", ")}</small>` : ""}</div>`).join("")}</div>
     <p style="color:var(--muted);font-size:13px">Dica: ao trocar a categoria de um produto, os outros do mesmo grupo  que ainda estão sem categoria passam a usar a mesma.</p>
@@ -1017,6 +1018,14 @@ async function abrirCadastrar(){
   if(ca.ultimo) $("#c-andamento").innerHTML = ca.ultimo;
   c.querySelectorAll("[data-cbk]").forEach(b => b.onclick = () => desfazerCadastrar(b.dataset.cbk));
   $("#c-lercats").onclick = e => lerCategorias(e.target, abrirCadastrar);
+  $("#c-nota").onclick = async () => {
+    const p = await api("/api/cadastrar/so-nota");
+    if(!p.total){ alert("Todos os itens das notas já têm produto no painel."); return; }
+    const ex = p.amostra.slice(0, 6).map(a => "• " + a.nome).join("\n");
+    if(!confirm(`${p.total} itens chegaram em nota e não têm cadastro no painel.\n\nExemplos:\n${ex}\n\nCriar esses produtos no painel (sem preço e sem código de barras) para entrarem nesta lista? Nada é enviado ao site agora.`)) return;
+    const r = await api("/api/cadastrar/trazer-nota", {method:"POST", body:"{}"});
+    alert(`${r.criados} produtos trazidos da nota.`); abrirCadastrar();
+  };
   if(!it.length) return;
   const atualizar = () => {
     const n = ca.sel.size, g = $("#c-criar");

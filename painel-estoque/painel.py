@@ -1189,10 +1189,24 @@ def aplicar_sugestoes(con, itens, quem, conf=""):
 
 
 def _novos_candidatos(con):
+    """Produtos que ainda não estão no site e que 'existem de verdade': cadastrados à mão, ou que
+    venderam no caixa, ou que chegaram em nota fiscal (a nota e a venda já são a prova)."""
     return con.execute(
-        "SELECT p.* FROM produtos p WHERE p.origem='manual' AND NOT EXISTS "
-        "(SELECT 1 FROM canais k WHERE k.produto_id=p.id AND k.canal='nuvemshop') "
+        "SELECT p.* FROM produtos p WHERE (p.ativo=1 OR p.ativo IS NULL) AND p.nome NOT IN ('DIVERSOS','ENTREGA') "
+        "AND NOT EXISTS (SELECT 1 FROM canais k WHERE k.produto_id=p.id AND k.canal='nuvemshop') "
+        "AND (p.origem='manual' "
+        "     OR EXISTS (SELECT 1 FROM vendas_gz v WHERE v.gz_codigo=p.gz_codigo AND p.gz_codigo IS NOT NULL AND v.qtd>0) "
+        "     OR EXISTS (SELECT 1 FROM de_para d WHERE d.produto_id=p.id AND d.estado='confirmado')) "
         "ORDER BY p.nome").fetchall()
+
+
+def _motivos_novos(con):
+    vend = {r[0]: (r[1] or 0, r[2] or 0) for r in con.execute(
+        "SELECT gz_codigo, SUM(valor), SUM(qtd) FROM vendas_gz GROUP BY gz_codigo")}
+    ent = {r[0]: r[1] for r in con.execute(
+        "SELECT d.produto_id, MAX(n.emissao) FROM de_para d JOIN notas_itens n ON n.cnpj=d.cnpj "
+        "AND n.cod_fornecedor=d.cod_fornecedor WHERE d.estado='confirmado' GROUP BY d.produto_id")}
+    return vend, ent
 
 
 def salvar_mapa(con, grupo, cat_id, cat_nome):
@@ -1228,6 +1242,7 @@ def previa_cadastrar(con, cats=None):
     mapa = {r["grupo"]: r["categoria_id"] for r in con.execute("SELECT * FROM categoria_map")}
     nomes_cat = {c["id"]: c["nome"] for c in (cats or [])}
     itens = []
+    vend, ent = _motivos_novos(con)
     for r in _novos_candidatos(con):
         ean = "".join(c for c in (r["ean"] or "") if c.isdigit())
         cid = r["categoria_id"] or mapa.get(r["grupo"] or "") or _adivinhar_categoria(r["grupo"], cats)
@@ -1240,10 +1255,20 @@ def previa_cadastrar(con, cats=None):
             faltas.append("sem categoria")
         if not 6 <= len(ean) <= 14:
             faltas.append("sem código de barras")
-        itens.append({"pid": r["id"], "nome": r["nome"], "ean": ean, "preco": r["preco"],
+        mot = []
+        v = vend.get(str(r["gz_codigo"] or ""))
+        if v and v[1] > 0:
+            mot.append(f"vendeu no caixa (R$ {v[0]:.0f})")
+        if ent.get(r["id"]):
+            mot.append(f"chegou na nota de {ent[r['id']][8:10]}/{ent[r['id']][5:7]}")
+        if r["origem"] == "manual" and r["estoque"] is not None:
+            mot.append("contado na prateleira")
+        itens.append({"pid": r["id"], "sku": r["sku"] or "", "motivos": mot, "vendas_valor": (v[0] if v else 0),
+                      "nome": r["nome"], "ean": ean, "preco": r["preco"],
                       "estoque": r["estoque"], "grupo": r["grupo"], "categoria_id": cid,
                       "categoria": nomes_cat.get(cid, ""), "faltas": faltas,
                       "foto": f"/api/foto/{r['id']}" if os.path.exists(os.path.join(fotos_dir(), f"{r['id']}.jpg")) else None})
+    itens.sort(key=lambda i: (-(i["vendas_valor"] or 0), i["nome"]))      # o que mais vende vem primeiro
     return {"para_criar": len(itens), "limite": MAX_CADASTRAR, "itens": itens, "categorias": cats}
 
 
@@ -1295,8 +1320,10 @@ def aplicar_cadastrar(itens_in, quem, progresso):
                     variante.update(stock_management=True, stock=int(i["estoque"]))
                 if 6 <= len(i["ean"]) <= 14:
                     variante["barcode"] = i["ean"]
+                    if i.get("sku"):
+                        variante["sku"] = str(i["sku"])
                 else:
-                    variante["sku"] = f"PAINEL-{i['pid']}"        # para o painel reconhecer o produto depois
+                    variante["sku"] = str(i.get("sku") or f"PAINEL-{i['pid']}")   # para o painel reconhecer o produto depois
                 corpo = {"name": {"pt": i["nome"]}, "published": False, "variants": [variante]}
                 if i["categoria_id"]:
                     corpo["categories"] = [int(i["categoria_id"])]
@@ -2479,6 +2506,59 @@ def desfazer_auto_vinculos(con):
     return {"ok": True, "removidos": n}
 
 
+_RUIDO_NOTA = [re.compile(p, re.I) for p in (r"\s*\b(?:CX|FD|DP|PCT|CT|PC)[- ]?\d+\s*UN\b.*$", r"\bQTD\.?.*$",
+                                              r"^\s*\d+(?:\.\d+)*\s+", r"\((?:E|NEW|NOVO|NOVA)\)")]
+
+
+def _nome_da_nota(desc):
+    t = str(desc or "")
+    for rx in _RUIDO_NOTA:
+        t = rx.sub(" ", t)
+    t = " ".join(t.split()).strip(" -/.")
+    t = t.title()
+    t = re.sub(r"(\d)(Ml|Kg|G|L|Lt|Un|M|Cm|Mm)\b", lambda m: m.group(1) + m.group(2).lower() if m.group(2) in ("Ml", "Kg", "Cm", "Mm", "Lt", "Un") else m.group(1) + m.group(2), t)
+    return t[:150]
+
+
+def itens_so_na_nota(con):
+    """Itens de nota fiscal que não têm produto no painel (nem parecido). Chegou na nota = existe."""
+    base = con.execute(
+        "SELECT n.cnpj, n.cod_fornecedor, MAX(n.descricao) descricao, MAX(n.un) un, MAX(n.emissao) ultima, "
+        "MAX(n.fornecedor) fornecedor, SUM(n.quantidade) qtd FROM notas_itens n "
+        "LEFT JOIN de_para d ON d.cnpj=n.cnpj AND d.cod_fornecedor=n.cod_fornecedor "
+        "WHERE d.cnpj IS NULL GROUP BY n.cnpj, n.cod_fornecedor").fetchall()
+    saida = []
+    for it in base:
+        sug = sugerir_produtos(con, it["descricao"], 1)
+        if sug and sug[0]["parecido"] >= 0.6 and _cobre(it["descricao"], sug[0]["nome"]):
+            continue                      # já parece existir no painel: vincule na aba Itens das notas
+        saida.append({"cnpj": it["cnpj"], "cod": it["cod_fornecedor"], "nome": _nome_da_nota(it["descricao"]),
+                      "nota": it["descricao"], "fornecedor": it["fornecedor"], "ultima": it["ultima"],
+                      "fator": _fator_nota(it["descricao"], it["un"])})
+    saida.sort(key=lambda x: x["ultima"] or "", reverse=True)
+    return saida
+
+
+def trazer_itens_da_nota(con, quem="painel"):
+    """Cria no painel (sem mandar nada para o site) os produtos que só existem na nota, para entrarem
+    na lista de cadastro. Sem preço e sem código de barras: isso fica marcado como falta."""
+    n = 0
+    for it in itens_so_na_nota(con):
+        if len(it["nome"]) < 3:
+            continue
+        cur = con.execute(
+            "INSERT INTO produtos(nome,unidade,ativo,origem,obs,atualizado_em) VALUES(?,'UN',1,'manual',?,?)",
+            (it["nome"], f"Veio da nota fiscal ({it['fornecedor'][:40]}): {it['nota'][:80]}", agora()))
+        pid = cur.lastrowid
+        con.execute("INSERT OR IGNORE INTO de_para VALUES(?,?,?,?,'confirmado',?,?)",
+                    (it["cnpj"], it["cod"], pid, it["fator"] or 1.0, f"{quem}-nota", agora()))
+        con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                    (pid, agora(), "cadastro", "", "trazido da nota fiscal", quem))
+        n += 1
+    con.commit()
+    return {"ok": True, "criados": n}
+
+
 def central(con):
     """Visão única: o que falta fazer, juntando vendas, notas, estoque e site."""
     pr = prioridades(con, tudo=True)
@@ -3051,6 +3131,9 @@ class Handler(BaseHTTPRequestHandler):
                                                   so_contados=qs.get("contados") == "1"))
             if u.path == "/prioridades":
                 return self._arquivo("prioridades.html", "text/html; charset=utf-8")
+            if u.path == "/api/cadastrar/so-nota":
+                lista = itens_so_na_nota(con)
+                return self._json({"total": len(lista), "amostra": lista[:15]})
             if u.path == "/api/central":
                 return self._json(central(con))
             if u.path == "/api/entradas/auto-previa":
@@ -3285,6 +3368,8 @@ class Handler(BaseHTTPRequestHandler):
                 qp = {k: v[0] for k, v in parse_qs(u.query).items()}
                 return self._json(importar_notas(con, self._corpo(), unquote(qp.get("arquivo", "")),
                                                  unquote(self.headers.get("X-Quem") or "painel")[:40]))
+            if u.path == "/api/cadastrar/trazer-nota":
+                return self._json(trazer_itens_da_nota(con, unquote(self.headers.get("X-Quem") or "painel")[:40]))
             if u.path == "/api/entradas/auto-aplicar":
                 return self._json(auto_vincular_notas(con, True))
             if u.path == "/api/entradas/auto-desfazer":
