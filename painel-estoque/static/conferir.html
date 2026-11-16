@@ -86,6 +86,8 @@ li small{color:var(--muted);white-space:nowrap}
   <div id="cam-status" class="status" hidden role="status"></div>
   <div id="cam-msg" class="aviso a-warn" hidden></div>
   <button class="pri" id="b-cam">Abrir a câmera para bipar</button>
+  <button id="b-trocar" hidden>🔄 Trocar de câmera</button>
+  <div id="dica-ios" class="aviso" hidden>No iPhone: se a câmera não ler, toque e segure no campo abaixo e escolha <b>“Digitalizar texto”</b> (ícone de câmera) e aponte para o <b>número impresso</b> embaixo das listras.</div>
   <label class="btn-foto" for="f-foto">📷 Tirar foto do código<input type="file" id="f-foto" accept="image/*" capture="environment" hidden></label>
   <div id="leitor-arq" hidden></div>
   <form class="linha" id="f-cod">
@@ -166,6 +168,11 @@ function msgErro(e){
   return "Não consegui abrir a câmera (" + (n || m).slice(0, 80) + "). Use o botão “Tirar foto do código” ou digite o código.";
 }
 let leitor = null, lendo = false, ultimo = "", ultimoEm = 0, descartes = 0, dica = null;
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+if(IOS) $("#dica-ios").hidden = false;
+const guardado = k => { try{ return localStorage.getItem(k) || ""; }catch(e){ return ""; } };
+const guardar = (k, v) => { try{ localStorage.setItem(k, v); }catch(e){} };
+let camId = guardado("camId");
 const FORMATOS = () => { const F = Html5QrcodeSupportedFormats; return [F.EAN_13, F.EAN_8, F.UPC_A, F.ITF]; };
 function onLido(texto){
   texto = String(texto).trim();
@@ -189,9 +196,16 @@ async function abrirCamera(){
   leitor = new Html5Qrcode("leitor", {formatsToSupport: FORMATOS(),
     experimentalFeatures:{useBarCodeDetectorIfSupported:true}, verbose:false});
   try{
-    await leitor.start({facingMode:"environment"},
-      {fps:10, disableFlip:true, videoConstraints:{facingMode:"environment", width:{ideal:1920}, height:{ideal:1080}}},
-      onLido, () => {});
+    const alvo = camId ? {deviceId:{exact:camId}} : {facingMode:"environment"};
+    const cfg = {fps:10, disableFlip:true,
+      videoConstraints: camId ? {deviceId:{exact:camId}, width:{ideal:1920}, height:{ideal:1080}}
+                              : {facingMode:"environment", width:{ideal:1920}, height:{ideal:1080}}};
+    if(IOS){   // no iPhone, ler só uma faixa larga no meio ajuda muito a achar o código de barras
+      const w = Math.min(340, Math.floor(window.innerWidth * 0.9));
+      cfg.qrbox = {width: w, height: 150};
+    }
+    await leitor.start(alvo, cfg, onLido, () => {});
+    $("#b-trocar").hidden = false;
     lendo = true; $("#b-cam").textContent = "Fechar a câmera"; $("#b-cam").classList.remove("pri");
     let res = ""; try{ const st = leitor.getRunningTrackSettings(); res = " (" + st.width + "×" + st.height + ")"; }catch(e){}
     status("Câmera ligada" + res + ". Deixe as listras na horizontal, a uns 15 a 20 cm, com boa luz.");
@@ -205,7 +219,7 @@ async function abrirCamera(){
 async function fecharCamera(){
   clearTimeout(dica);
   if(leitor){ try{ await leitor.stop(); leitor.clear(); }catch(e){} }
-  leitor = null; lendo = false; $("#caixa").hidden = true; status("");
+  leitor = null; lendo = false; $("#caixa").hidden = true; status(""); $("#b-trocar").hidden = true;
   $("#b-cam").textContent = "Abrir a câmera para bipar"; $("#b-cam").classList.add("pri");
 }
 function pausar(sim){
@@ -215,19 +229,65 @@ function pausar(sim){
   if(!sim) window.scrollTo({top:0});
 }
 $("#b-cam").onclick = () => lendo ? fecharCamera() : abrirCamera();
+// aparelhos com várias câmeras (iPhone Pro): cada toque tenta a próxima câmera traseira e lembra a escolha
+$("#b-trocar").onclick = async () => {
+  try{
+    const todas = await Html5Qrcode.getCameras();
+    const tras = todas.filter(c => !/front|frontal|user|selfie|facetime/i.test(c.label || ""));
+    const lista = tras.length ? tras : todas;
+    if(lista.length < 2){ status("Este aparelho só mostrou uma câmera.", "aviso"); return; }
+    const i = lista.findIndex(c => c.id === camId);
+    const prox = lista[(i + 1) % lista.length];
+    camId = prox.id; guardar("camId", camId);
+    await fecharCamera(); await abrirCamera();
+    status("Câmera: " + (prox.label || "outra") + ". Se não ler, toque de novo em Trocar de câmera.");
+  }catch(e){ status("Não consegui listar as câmeras: " + String(e && e.message || e).slice(0, 80), "aviso"); }
+};
 
 // Plano B: foto tirada pela câmera do próprio celular (foca melhor que o vídeo ao vivo)
+// O iPhone tira fotos de 12 a 48 milhões de pixels (HEIC): grandes demais para o leitor e para o navegador.
+// Reduzimos a foto em vários tamanhos (e girada) e tentamos ler cada um até acertar.
+async function variantesDaFoto(f){
+  let bmp;
+  try{ bmp = await createImageBitmap(f, {imageOrientation:"from-image"}); }
+  catch(e){
+    bmp = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = URL.createObjectURL(f); });
+  }
+  const w = bmp.width || bmp.naturalWidth, h = bmp.height || bmp.naturalHeight, saida = [];
+  const gerar = async (lado, giro) => {
+    const k = Math.min(1, lado / Math.max(w, h)), c = document.createElement("canvas");
+    const cw = Math.round(w * k), ch = Math.round(h * k), x = c.getContext("2d");
+    if(giro){ c.width = ch; c.height = cw; x.translate(ch, 0); x.rotate(Math.PI / 2); } else { c.width = cw; c.height = ch; }
+    x.drawImage(bmp, 0, 0, cw, ch);
+    const b = await new Promise(r => c.toBlob(r, "image/jpeg", 0.92));
+    c.width = c.height = 0;
+    return b ? new File([b], "foto-" + lado + (giro ? "r" : "") + ".jpg", {type:"image/jpeg"}) : null;
+  };
+  for(const [lado, giro] of [[1600, 0], [1000, 0], [2200, 0], [1400, 1], [700, 0]]){
+    try{ const a = await gerar(lado, giro); if(a) saida.push(a); }catch(e){}
+  }
+  return saida;
+}
 $("#f-foto").addEventListener("change", async e => {
   const f = e.target.files[0]; e.target.value = ""; if(!f) return;
   status("Lendo a foto…");
   const arq = new Html5Qrcode("leitor-arq", {formatsToSupport: FORMATOS(), experimentalFeatures:{useBarCodeDetectorIfSupported:true}, verbose:false});
+  let errado = "", lido = "";
   try{
-    const t = String(await arq.scanFile(f, false)).trim();
-    if(!gs1Ok(t)){ status("Li “" + t + "”, mas parece errado. Tire outra foto, mais de perto e com o código reto.", "aviso"); return; }
-    bip(); status("Código lido: " + t); buscar(t, true);
-  }catch(err){
-    status("Não achei um código de barras na foto. Chegue mais perto, deixe as listras na horizontal e bem iluminadas.", "aviso");
+    let tentativas = [];
+    try{ tentativas = await variantesDaFoto(f); }catch(x){}
+    tentativas.push(f);                                   // por último, a foto original
+    for(const a of tentativas){
+      try{
+        const t = String(await arq.scanFile(a, false)).trim();
+        if(gs1Ok(t)){ lido = t; break; }
+        errado = errado || t;
+      }catch(err){ /* não achou neste tamanho: tenta o próximo */ }
+    }
   }finally{ try{ arq.clear(); }catch(x){} }
+  if(lido){ bip(); status("Código lido: " + lido); buscar(lido, true); return; }
+  if(errado) status("Li “" + errado + "”, mas parece errado. Tire outra foto, mais de perto e com o código reto.", "aviso");
+  else status("Não achei um código de barras na foto. Chegue mais perto (uns 10 a 15 cm), deixe as listras na horizontal e bem iluminadas, ou digite o código.", "aviso");
 });
 
 
