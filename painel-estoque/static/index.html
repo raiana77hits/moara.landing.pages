@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- tela-build: 9.0 -->
+<!-- tela-build: 9.1 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -264,7 +264,8 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
     <a class="btn pri" href="/conferir">Conferir prateleira</a>
     <details class="menu-loja" id="menu-loja"><summary class="btn pri">Loja online ▾</summary><div class="menu-itens">
       <button id="b-sync">Enviar estoque</button><button id="b-foto">Enviar fotos</button>
-      <button id="b-cad">Cadastrar produtos novos</button><button id="b-pub">Publicar produtos</button></div></details>
+      <button id="b-cad">Cadastrar produtos novos</button><button id="b-pub">Publicar produtos</button>
+      <button id="b-ifood">Planilha do iFood</button></div></details>
     <button id="b-org">Organizar categorias</button>
     <button id="b-mov">Notas e vendas</button>
     <button id="b-imp">Atualizar dados</button>
@@ -317,6 +318,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
         <h2>Ferramentas</h2>
         <button class="btn-lista" id="b-sync2"><span class="ic">🚚</span>Enviar estoque para a Nuvemshop</button>
         <button class="btn-lista" id="b-cad2"><span class="ic">🆕</span>Cadastrar produtos novos no site</button>
+        <button class="btn-lista" id="b-ifood2"><span class="ic">🍔</span>Planilha do iFood</button>
         <button class="btn-lista" id="b-pub2"><span class="ic">🟢</span>Publicar produtos no site</button>
         <button class="btn-lista" id="b-foto2"><span class="ic">📷</span>Enviar fotos para a Nuvemshop</button>
         <button class="btn-lista" id="b-org2"><span class="ic">🗂️</span>Organizar categorias dos produtos</button>
@@ -372,6 +374,11 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 <dialog id="dorg">
   <div class="topo"><h3>Organizar categorias</h3><button id="o-x">Fechar</button></div>
   <div class="corpo imp" id="o-corpo"></div>
+</dialog>
+
+<dialog id="difood">
+  <div class="topo"><h3>Planilha do iFood</h3><button id="if-x">Fechar</button></div>
+  <div class="corpo imp" id="if-corpo"></div>
 </dialog>
 
 <dialog id="dpub">
@@ -731,7 +738,7 @@ $("#s-x").onclick = () => $("#dsync").close();
 
 /* ------------------------------------------------ enviar estoque para a Nuvemshop */
 let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
-const BUILD = "9.0";
+const BUILD = "9.1";
 const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
 async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
 async function desenharSync(){
@@ -862,6 +869,41 @@ $("#i-nuvem").onclick = async () => {
     }
   }, 1500);
 };
+/* ------------------------------------------------ planilha do iFood */
+const ifd = {divisor:"0,70"};
+$("#b-ifood").onclick = () => abrirIfood(); $("#b-ifood2").onclick = () => abrirIfood();
+$("#if-x").onclick = () => $("#difood").close();
+async function abrirIfood(){
+  $("#difood").showModal(); const c = $("#if-corpo");
+  c.innerHTML = "<p>Calculando…</p>";
+  let p;
+  try{ p = await api("/api/ifood/previa?divisor=" + encodeURIComponent(ifd.divisor)); }
+  catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
+  const f = p.faltas, aviso = (k, t) => f[k] ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(f[k].n)} ficam de fora: ${t}<br><small>${f[k].nomes.map(esc).join(" · ")}${f[k].n > 8 ? " · …" : ""}</small></p>` : "";
+  const q = "divisor=" + encodeURIComponent(ifd.divisor);
+  c.innerHTML = `<section><b>1. Catálogo do iFood</b>
+      <p>${p.catalogo_lido ? `Catálogo lido em ${data(p.catalogo_em)}.` : "Ainda não li o catálogo do iFood."} Envie a planilha exportada do portal do iFood (a que tem as colunas <i>ean_do_produto</i> e <i>em_venda</i>): é dela que o painel sabe quais itens estão em <b>ruptura</b> e quais já existem lá.</p>
+      <input type="file" id="if-cat" accept=".xlsx"><div id="if-cat-msg" role="status"></div></section>
+    <section><b>2. Regra de preço</b>
+      <p>Preço no iFood = preço do painel ÷ <input id="if-div" inputmode="decimal" value="${esc(ifd.divisor)}" style="width:70px;padding:6px;border:1px solid var(--line);border-radius:6px"> <button id="if-aplicar">Recalcular</button></p></section>
+    <section><b>3. O que vai na planilha</b>
+      <p><b>${num(p.total)}</b> produtos (${num(p.no_ifood)} já no iFood · ${num(p.novos_no_ifood)} novos para o iFood) · ${num(p.zerados)} com estoque 0, dos quais ${num(p.ruptura)} por ruptura no iFood.</p>
+      <p style="color:var(--muted);font-size:13px">Estoque = estimado do painel (contagem + notas − vendas). Item em ruptura no iFood vai com 0: é o estoque mais certo. Ativo = 1 quando tem estoque.</p>
+      ${aviso("sem_preco", "sem preço no painel.")}${aviso("sem_contagem", "cadastrado mas sem contagem.")}${aviso("sem_codigo", "sem código de barras válido.")}
+      ${p.revisar.length ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)"><b>${num(p.revisar.length)}</b> itens com conflito: ruptura no iFood, mas o painel tem estoque. Foram enviados com 0. Veja a lista para conferir.</p>` : ""}
+      ${p.itens.length ? `<div class="rolagem"><table class="mini"><thead><tr><th>Produto</th><th>Caixa</th><th>iFood</th><th>Estoque</th></tr></thead><tbody>${p.itens.map(i => `<tr><td>${esc(i.nome)}</td><td>${brl(i.caixa)}</td><td>${brl(i.preco)}</td><td>${i.qtd}${i.ruptura ? " (ruptura)" : ""}</td></tr>`).join("")}</tbody></table></div><small>Mostrando os 12 primeiros.</small>` : ""}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        ${p.total ? Array.from({length:p.arquivos}, (_, k) => `<a class="btn pri" href="/api/ifood/planilha?${q}&parte=${k + 1}">Baixar planilha${p.arquivos > 1 ? " " + (k + 1) + " de " + p.arquivos : ""}</a>`).join("") : ""}
+        <a class="btn" href="/api/ifood/revisar.csv?${q}">Baixar lista para conferir</a></div>
+      <p style="color:var(--muted);font-size:13px">A coluna <i>Canal</i> do modelo fica em branco. Depois de baixar, suba a planilha no portal do iFood (importação por planilha).</p></section>`;
+  $("#if-aplicar").onclick = () => { ifd.divisor = $("#if-div").value || "0,70"; abrirIfood(); };
+  $("#if-cat").onchange = async e => {
+    const f2 = e.target.files[0]; if(!f2) return; $("#if-cat-msg").textContent = "Lendo o catálogo…";
+    try{ const r = await api("/api/importar/ifood-catalogo", {method:"POST", body: await f2.arrayBuffer()}); $("#if-cat-msg").innerHTML = `<div class="ok-msg">Pronto: ${num(r.itens)} itens, ${num(r.em_venda)} em venda, ${num(r.ruptura)} em ruptura.</div>`; setTimeout(abrirIfood, 1200); }
+    catch(err){ $("#if-cat-msg").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
+  };
+}
+
 /* ------------------------------------------------ organizar categorias */
 const og = {conf:"alta", q:"", pagina:1, sel:new Map()};
 $("#b-org").onclick = () => abrirOrg(); $("#b-org2").onclick = () => abrirOrg();

@@ -36,6 +36,9 @@ import time
 import urllib.error
 import urllib.request
 import webbrowser
+import xml.etree.ElementTree as ET
+import zipfile
+from xml.sax.saxutils import escape as xml_escape
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
@@ -160,6 +163,12 @@ CREATE TABLE IF NOT EXISTS de_para (
     estado TEXT NOT NULL,    -- confirmado | ignorar
     quem TEXT, quando TEXT,
     PRIMARY KEY (cnpj, cod_fornecedor)
+);
+
+-- catálogo do iFood (planilha exportada do portal), para saber ruptura e o que já existe lá
+CREATE TABLE IF NOT EXISTS ifood_catalogo (
+    ean TEXT PRIMARY KEY,
+    nome TEXT, em_venda INTEGER, bloqueio TEXT, preco REAL, qtd REAL, dt TEXT
 );
 
 -- pedidos do site (lidos da Nuvemshop, só leitura)
@@ -1567,6 +1576,152 @@ def alterar(con, pid, dados):
     return detalhe(con, pid)
 
 
+# ------------------------------------------------------------- planilha do iFood
+
+MODELO_IFOOD = os.path.join(STATIC, "modelos", "ifood_planilha_modelo.xlsx")
+LINHAS_POR_PLANILHA = 999          # o modelo do iFood tem 999 linhas de dados
+
+
+def ler_xlsx(raw):
+    """Primeira aba de um .xlsx como lista de linhas (só a biblioteca padrão)."""
+    z = zipfile.ZipFile(io.BytesIO(raw))
+    ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+    textos = []
+    if "xl/sharedStrings.xml" in z.namelist():
+        for si in ET.fromstring(z.read("xl/sharedStrings.xml")).iter(ns + "si"):
+            textos.append("".join(t.text or "" for t in si.iter(ns + "t")))
+    abas = sorted(n for n in z.namelist() if n.startswith("xl/worksheets/sheet") and n.endswith(".xml"))
+    if not abas:
+        raise ValueError("Isso não parece uma planilha .xlsx.")
+    linhas = []
+    for row in ET.fromstring(z.read(abas[0])).iter(ns + "row"):
+        d = {}
+        for c in row.findall(ns + "c"):
+            letras = re.match(r"[A-Z]+", c.get("r")).group(0)
+            col = 0
+            for ch in letras:
+                col = col * 26 + ord(ch) - 64
+            v, t = c.find(ns + "v"), c.get("t")
+            if t == "s" and v is not None:
+                val = textos[int(v.text)]
+            elif t == "inlineStr":
+                val = "".join(x.text or "" for x in c.iter(ns + "t"))
+            else:
+                val = v.text if v is not None else None
+            d[col - 1] = val
+        linhas.append([d.get(i) for i in range(max(d) + 1)] if d else [])
+    return linhas
+
+
+def importar_ifood_catalogo(con, raw, quem="painel"):
+    linhas = ler_xlsx(raw)
+    if not linhas:
+        raise ValueError("A planilha está vazia.")
+    cab = [_cab(c) for c in linhas[0]]
+    ix = lambda *nomes: next((cab.index(n) for n in nomes if n in cab), None)
+    ie, inm, iv = ix("EAN DO PRODUTO", "EAN"), ix("NOME DO PRODUTO", "NOME"), ix("EM VENDA")
+    ib, ip, iq, idt = ix("MOTIVO BLOQUEIO REGRAS"), ix("PRECO INTEGRACAO"), ix("QTD ESTOQUE INTEGRACAO"), ix("DT")
+    if ie is None or iv is None:
+        raise ValueError("Não achei as colunas ean_do_produto e em_venda. É o catálogo exportado do portal do iFood?")
+    g = lambda l, i: (l[i] if i is not None and i < len(l) else None)
+    con.execute("DELETE FROM ifood_catalogo")
+    n = ruptura = em_venda = 0
+    for l in linhas[1:]:
+        ean = "".join(c for c in str(g(l, ie) or "") if c.isdigit())
+        if not ean:
+            continue
+        bloqueio = str(g(l, ib) or "")
+        venda = 1 if str(g(l, iv)).strip().lower() == "true" else 0
+        con.execute("INSERT OR REPLACE INTO ifood_catalogo(ean,nome,em_venda,bloqueio,preco,qtd,dt) VALUES(?,?,?,?,?,?,?)",
+                    (ean, g(l, inm), venda, bloqueio, num(g(l, ip)), num(g(l, iq)), str(g(l, idt) or "")))
+        n += 1
+        ruptura += "Ruptura" in bloqueio
+        em_venda += venda
+    set_meta(con, "ifood_catalogo_em", agora())
+    con.commit()
+    return {"itens": n, "em_venda": em_venda, "ruptura": ruptura}
+
+
+def _ean_ifood(v):
+    d = "".join(c for c in str(v or "") if c.isdigit())
+    return d if 8 <= len(d) <= 14 and not d.startswith("2") else ""     # 2xxxx são códigos internos do caixa
+
+
+def planilha_ifood(con, divisor=0.70):
+    """Produtos conferidos ou cadastrados no painel, prontos para a planilha de importação do iFood.
+    Preço = preço do painel / divisor. Estoque = estimado (ou contagem); ruptura no iFood = 0."""
+    if not 0.05 <= divisor <= 1.0:
+        raise ValueError("O divisor do preço precisa estar entre 0,05 e 1.")
+    catalogo = {r["ean"]: dict(r) for r in con.execute("SELECT * FROM ifood_catalogo")}
+    itens, falta, revisar, vistos = [], collections.defaultdict(list), [], set()
+    for p in con.execute("SELECT * FROM produtos WHERE estoque IS NOT NULL OR origem='manual' ORDER BY nome COLLATE NOCASE"):
+        ean = _ean_ifood(p["ean"])
+        if not ean:
+            falta["sem_codigo"].append(p["nome"])
+            continue
+        if ean in vistos:
+            continue
+        vistos.add(ean)
+        if not p["preco"] or p["preco"] <= 0:
+            falta["sem_preco"].append(p["nome"])
+            continue
+        if p["estoque"] is None:
+            falta["sem_contagem"].append(p["nome"])
+            continue
+        base = p["estimado"] if p["estimado"] is not None else p["estoque"]
+        qtd = max(0, int(math.floor(base)))
+        cat = catalogo.get(ean)
+        ruptura = bool(cat and "Ruptura" in (cat["bloqueio"] or ""))
+        if ruptura:                       # o iFood tirou o item do estoque por cancelamento: é o estoque mais certo
+            if qtd > 0:
+                revisar.append({"nome": p["nome"], "ean": ean, "motivo": "Ruptura no iFood, mas o painel tem estoque",
+                                "contagem": p["estoque"], "estimado": p["estimado"], "enviado": 0})
+            qtd = 0
+        preco = round(p["preco"] / divisor + 1e-9, 2)
+        itens.append({"ean": int(ean), "nome": p["nome"], "preco": preco, "qtd": qtd, "ativo": 1 if qtd > 0 else 0,
+                      "no_ifood": bool(cat), "ruptura": ruptura, "caixa": p["preco"]})
+    novos = sum(1 for i in itens if not i["no_ifood"])
+    return {"divisor": divisor, "total": len(itens), "no_ifood": len(itens) - novos, "novos_no_ifood": novos,
+            "zerados": sum(1 for i in itens if i["qtd"] == 0), "ruptura": sum(1 for i in itens if i["ruptura"]),
+            "catalogo_lido": bool(catalogo), "arquivos": max(1, math.ceil(len(itens) / LINHAS_POR_PLANILHA)),
+            "faltas": {k: {"n": len(v), "nomes": v[:8]} for k, v in falta.items()},
+            "revisar": revisar, "itens": itens}
+
+
+def xlsx_ifood(itens):
+    """Preenche o modelo do iFood (até 999 produtos) sem mexer no resto da planilha."""
+    if len(itens) > LINHAS_POR_PLANILHA:
+        raise ValueError("O modelo do iFood aceita até %d produtos por planilha." % LINHAS_POR_PLANILHA)
+    with open(MODELO_IFOOD, "rb") as f:
+        origem = zipfile.ZipFile(io.BytesIO(f.read()))
+    xml = origem.read("xl/worksheets/sheet1.xml").decode("utf-8")
+    num_ = lambda v: repr(float(v)).rstrip("0").rstrip(".") if isinstance(v, float) else str(v)
+    for n, i in enumerate(itens, start=2):
+        for col, valor in (("A", i["ean"]), ("C", i["preco"]), ("D", i["qtd"]), ("E", i["ativo"])):
+            xml, k = re.subn(rf'<c r="{col}{n}" s="(\d+)"/>', rf'<c r="{col}{n}" s="\1"><v>{num_(valor)}</v></c>', xml)
+            if not k:
+                raise ValueError("O modelo do iFood mudou de formato; envie o modelo atualizado.")
+        xml = re.sub(rf'<c r="B{n}" s="(\d+)"/>',
+                     lambda m: f'<c r="B{n}" s="{m.group(1)}" t="inlineStr"><is><t>{xml_escape(i["nome"])}</t></is></c>', xml)
+    saida = io.BytesIO()
+    with zipfile.ZipFile(saida, "w", zipfile.ZIP_DEFLATED) as z:
+        for item in origem.infolist():
+            z.writestr(item, xml.encode("utf-8") if item.filename == "xl/worksheets/sheet1.xml" else origem.read(item.filename))
+    return saida.getvalue()
+
+
+def revisar_ifood_csv(plano):
+    saida = io.StringIO()
+    w = csv.writer(saida, delimiter=";")
+    w.writerow(["situacao", "produto", "codigo_de_barras", "contagem_painel", "estimado_painel", "enviado_ao_ifood", "detalhe"])
+    for r in plano["revisar"]:
+        w.writerow(["conferir", r["nome"], r["ean"], r["contagem"], "" if r["estimado"] is None else r["estimado"], r["enviado"], r["motivo"]])
+    for k, rot in (("sem_preco", "sem preço no painel"), ("sem_codigo", "sem código de barras válido"), ("sem_contagem", "sem contagem")):
+        for nome in plano["faltas"].get(k, {}).get("nomes", []):
+            w.writerow(["ficou de fora", nome, "", "", "", "", rot])
+    return "\ufeff" + saida.getvalue()
+
+
 # ------------------------------------------------------ pedidos do site (só leitura)
 
 def sync_pedidos(con, progresso=None):
@@ -2443,6 +2598,31 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(listar_importacoes(con))
             if u.path == "/api/nuvemshop/previa":
                 return self._json(previa_nuvemshop(con, qs.get("modo", "zerar")))
+            if u.path in ("/api/ifood/previa", "/api/ifood/planilha", "/api/ifood/revisar.csv"):
+                try:
+                    divisor = float(str(qs.get("divisor", "0.70")).replace(",", "."))
+                except ValueError:
+                    raise ValueError("Divisor inválido.")
+                plano = planilha_ifood(con, divisor)
+                if u.path == "/api/ifood/previa":
+                    r = dict(plano)
+                    r["itens"] = plano["itens"][:12]
+                    r["catalogo_em"] = (con.execute("SELECT valor FROM meta WHERE chave='ifood_catalogo_em'").fetchone() or [None])[0]
+                    return self._json(r)
+                if u.path == "/api/ifood/revisar.csv":
+                    corpo = revisar_ifood_csv(plano).encode("utf-8")
+                    tipo, nome = "text/csv; charset=utf-8", "ifood_revisar.csv"
+                else:
+                    parte = max(1, int(qs.get("parte", 1)))
+                    corpo = xlsx_ifood(plano["itens"][(parte - 1) * LINHAS_POR_PLANILHA: parte * LINHAS_POR_PLANILHA])
+                    tipo, nome = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", f"ifood_planilha_{parte}.xlsx"
+                self.send_response(200)
+                self.send_header("Content-Type", tipo)
+                self.send_header("Content-Length", str(len(corpo)))
+                self.send_header("Content-Disposition", f'attachment; filename="{nome}"')
+                self.end_headers()
+                self.wfile.write(corpo)
+                return
             if u.path == "/api/categorias/sugestoes":
                 return self._json(listar_sugestoes(con, qs.get("confianca", "alta"), qs.get("q", ""),
                                                    max(1, int(qs.get("pagina", 1)))))
@@ -2592,6 +2772,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(criar_produto_manual(con, json.loads(self._corpo() or b"{}")))
             if u.path == "/api/sem-cadastro":
                 return self._json(registrar_sem_cadastro(con, json.loads(self._corpo() or b"{}")))
+            if u.path == "/api/importar/ifood-catalogo":
+                return self._json(importar_ifood_catalogo(con, self._corpo()))
             if u.path == "/api/importar/vendas":
                 qp = {k: v[0] for k, v in parse_qs(u.query).items()}
                 return self._json(importar_vendas(con, self._corpo(), qp.get("inicio"), qp.get("fim"),
