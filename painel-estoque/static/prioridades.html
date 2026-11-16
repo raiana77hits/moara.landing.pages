@@ -40,7 +40,7 @@
   </div>
   <div class="tabela"><table>
     <thead><tr><th>Produto</th><th>Motivo</th><th class="n">Estoque</th><th class="n">Vende/dia</th>
-    <th class="n">Cobertura</th><th class="n">Comprar (30 d)</th><th class="n">Vendas R$</th></tr></thead>
+    <th class="n">Cobertura</th><th class="n">Entrou (60 d)</th><th>Site</th><th class="n">Comprar (30 d)</th><th class="n">Vendas R$</th></tr></thead>
     <tbody id="lista"></tbody>
   </table></div>
   <div class="pg"><button class="btn" id="ant">Anterior</button><span class="mut" id="pg"></span><button class="btn" id="prox">Próxima</button></div>
@@ -56,7 +56,7 @@ async function carregar(){
   if(r.status===401){location="/login";return}
   const d=await r.json(); total=d.total||0;
   if(!d.periodo){$("#sub").textContent=d.aviso;$("#lista").innerHTML="";return}
-  $("#sub").textContent=`Vendas de ${d.periodo[0]} a ${d.periodo[1]} (${d.dias} dias). ${d.para_contar||0} produtos que vendem bem e nunca foram contados: comece por eles. Estimativa é alerta, não contagem.`;
+  $("#sub").innerHTML=`Vendas de ${d.periodo[0]} a ${d.periodo[1]} (${d.dias} dias). ${d.para_contar||0} produtos que vendem bem e nunca foram contados: comece por eles. Estimativa é alerta, não contagem.`+(d.notas_sem_vinculo?` <b>${d.notas_sem_vinculo} itens de notas ainda sem vínculo com um produto:</b> enquanto não forem vinculados (Notas e vendas, "Itens das notas"), o painel não sabe que eles entraram.`:"");
   const cs=[["","Todos"],...Object.keys(NOMES).map(k=>[k,`${NOMES[k]} (${d.resumo[k]||0})`])];
   $("#chips").innerHTML=cs.map(([k,t])=>`<button class="chip ${k===cor?"on":""}" data-k="${k}">${k?`<span class="dot ${k}"></span>`:""}${t}</button>`).join("");
   $("#lista").innerHTML=d.itens.map(i=>`<tr>
@@ -64,6 +64,8 @@ async function carregar(){
     <td>${esc(i.motivo)}</td>
     <td class="n">${fmt(i.estimado??i.estoque)}${i.estimado!=null?'<div class="mut">estimado</div>':i.estoque!=null?'<div class="mut">contado</div>':""}</td>
     <td class="n">${fmt(i.por_dia)}</td><td class="n">${i.cobertura_dias==null?"—":fmt(i.cobertura_dias)+" d"}</td>
+    <td class="n">${i.entrada_60d?fmt(i.entrada_60d)+' un<div class="mut">'+esc(i.ultima_entrada||"")+'</div>':"—"}</td>
+    <td>${i.nuvemshop?"✔":'<span class="tag">falta cadastrar</span>'}</td>
     <td class="n">${i.comprar_30d==null?"—":i.comprar_30d}</td><td class="n">${fmt(i.vendas_valor)}</td></tr>`).join("");
   const pgs=Math.max(1,Math.ceil(total/50));$("#pg").textContent=`${pagina} de ${pgs}`;
   $("#ant").disabled=pagina<=1;$("#prox").disabled=pagina>=pgs;

@@ -2316,6 +2316,19 @@ def prioridades(con, cor="", q="", pagina=1, por_pagina=50, tudo=False):
         abc[cod] = "A" if acum < 0.8 * total_v else ("B" if acum < 0.95 * total_v else "C")
         acum += d["v"]
     hoje = datetime.now().strftime("%Y-%m-%d")
+    corte = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
+    entr = {}
+    for r in con.execute(
+            "SELECT d.produto_id pid, MAX(n.emissao) ult, "
+            "SUM(CASE WHEN n.emissao>=? THEN n.quantidade*d.fator ELSE 0 END) u60 "
+            "FROM notas_itens n JOIN de_para d ON d.cnpj=n.cnpj AND d.cod_fornecedor=n.cod_fornecedor "
+            "WHERE d.estado='confirmado' AND d.produto_id IS NOT NULL GROUP BY d.produto_id", (corte,)):
+        entr[r["pid"]] = (r["ult"], r["u60"] or 0)
+    no_site = {r[0] for r in con.execute("SELECT DISTINCT produto_id FROM canais WHERE canal='nuvemshop'")}
+    sem_vinculo = con.execute(
+        "SELECT COUNT(*) FROM (SELECT DISTINCT n.cnpj, n.cod_fornecedor FROM notas_itens n "
+        "LEFT JOIN de_para d ON d.cnpj=n.cnpj AND d.cod_fornecedor=n.cod_fornecedor "
+        "WHERE d.cnpj IS NULL)").fetchone()[0]
     itens = []
     for p in con.execute("SELECT id, sku, gz_codigo, ean, nome, grupo, estoque, estimado, est_aviso, conferido_em, "
                          "ultima_compra, situacao FROM produtos WHERE ativo IS NOT 0"):
@@ -2329,12 +2342,14 @@ def prioridades(con, cor="", q="", pagina=1, por_pagina=50, tudo=False):
         cob = (base / taxa) if (base is not None and taxa) else None
         classe = abc.get(cod, "-")
         dias_compra = None
-        if p["ultima_compra"]:
-            try:
-                dias_compra = (datetime.strptime(hoje, "%Y-%m-%d") -
-                               datetime.strptime(p["ultima_compra"][:10], "%Y-%m-%d")).days
-            except ValueError:
-                pass
+        ult_ent, un60 = entr.get(p["id"], (None, 0))
+        for ref in (p["ultima_compra"], ult_ent):          # vale a compra mais recente (Gestor Z ou nota)
+            if ref:
+                try:
+                    dd = (datetime.strptime(hoje, "%Y-%m-%d") - datetime.strptime(str(ref)[:10], "%Y-%m-%d")).days
+                    dias_compra = dd if dias_compra is None else min(dias_compra, dd)
+                except ValueError:
+                    pass
         if not d:
             sem, why = "cinza", "Sem venda no período"
         elif base is not None and base <= 0:
@@ -2349,15 +2364,18 @@ def prioridades(con, cor="", q="", pagina=1, por_pagina=50, tudo=False):
             sem, why = "amarelo", "Vende bem e nunca foi contado"
         else:
             sem, why = "verde", "Sem alerta"
+        if un60 and not contado and sem in ("vermelho", "amarelo") and d:
+            sem, why = "amarelo", f"Entrou nota em {ult_ent[8:10]}/{ult_ent[5:7]} ({un60:g} un): confira a prateleira antes de comprar"
         sugerir = None
         if taxa and sem in ("vermelho", "amarelo"):
-            sugerir = max(0, round(taxa * 30 - (base or 0)))
+            sugerir = max(0, round(taxa * 30 - (base if base is not None else 0) - (0 if contado else un60)))
         itens.append({"id": p["id"], "sku": p["sku"], "nome": p["nome"], "grupo": p["grupo"], "classe": classe,
                       "cor": sem, "motivo": why, "estoque": p["estoque"], "estimado": p["estimado"],
                       "peso": bool(d and d["kg"]), "vendas_qtd": round(d["q"], 2) if d else 0,
                       "vendas_valor": round(d["v"], 2) if d else 0, "por_dia": round(taxa, 2) if taxa else None,
                       "cobertura_dias": round(cob, 1) if cob is not None else None,
-                      "ultima_compra": p["ultima_compra"], "contar": (not contado) and classe in ("A", "B"),
+                      "ultima_compra": p["ultima_compra"], "ultima_entrada": ult_ent, "entrada_60d": round(un60, 2),
+                      "nuvemshop": p["id"] in no_site, "contar": (not contado) and classe in ("A", "B"),
                       "comprar_30d": sugerir})
     ordem = {"vermelho": 0, "amarelo": 1, "verde": 2, "cinza": 3}
     resumo = collections.Counter(i["cor"] for i in itens)
@@ -2372,7 +2390,7 @@ def prioridades(con, cor="", q="", pagina=1, por_pagina=50, tudo=False):
     if not tudo:
         itens = itens[(pagina - 1) * por_pagina: pagina * por_pagina]
     return {"periodo": [per["i"], per["f"]], "dias": dias, "resumo": dict(resumo), "total": total,
-            "para_contar": fila, "itens": itens}
+            "para_contar": fila, "itens": itens, "notas_sem_vinculo": sem_vinculo}
 
 
 def prioridades_csv(con, cor=""):
@@ -2380,12 +2398,13 @@ def prioridades_csv(con, cor=""):
     saida = io.StringIO()
     w = csv.writer(saida, delimiter=";")
     w.writerow(["cor", "classe", "sku", "produto", "grupo", "motivo", "estoque_oficial", "estoque_estimado",
-                "vendas_qtd", "vendas_valor", "por_dia", "cobertura_dias", "ultima_compra", "contar", "comprar_30d"])
+                "vendas_qtd", "vendas_valor", "por_dia", "cobertura_dias", "ultima_compra", "ultima_entrada_nota", "entrou_60d", "na_nuvemshop", "contar", "comprar_30d"])
     f = lambda x: "" if x is None else str(x).replace(".", ",")
     for i in r["itens"]:
         w.writerow([i["cor"], i["classe"], i["sku"] or "", i["nome"], i["grupo"] or "", i["motivo"],
                     f(i["estoque"]), f(i["estimado"]), f(i["vendas_qtd"]), f(i["vendas_valor"]), f(i["por_dia"]),
-                    f(i["cobertura_dias"]), i["ultima_compra"] or "", "sim" if i["contar"] else "",
+                    f(i["cobertura_dias"]), i["ultima_compra"] or "", i["ultima_entrada"] or "", f(i["entrada_60d"]),
+                    "sim" if i["nuvemshop"] else "não", "sim" if i["contar"] else "",
                     "" if i["comprar_30d"] is None else i["comprar_30d"]])
     return "﻿" + saida.getvalue()
 
