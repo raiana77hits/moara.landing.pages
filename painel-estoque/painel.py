@@ -584,10 +584,10 @@ def conectar_nuvemshop(token, loja):
 
 def previa_nuvemshop(con, modo="zerar"):
     """O que mudaria no site com base no estoque contado. Não altera nada."""
-    modo = "repor" if modo == "repor" else "zerar"
-    itens, ja_igual, varias = [], 0, {}
+    modo = modo if modo in ("repor", "estimado") else "zerar"
+    itens, ja_igual, varias, conferir = [], 0, {}, 0
     for r in con.execute(
-            "SELECT p.id pid, p.nome, p.sku, p.estoque, k.id_externo prod_site, k.id_variacao var_site, "
+            "SELECT p.id pid, p.nome, p.sku, p.estoque, p.estimado, k.id_externo prod_site, k.id_variacao var_site, "
             "k.estoque site, k.status, m.n FROM produtos p JOIN canais k ON k.produto_id=p.id "
             "AND k.canal='nuvemshop' JOIN (SELECT produto_id, COUNT(*) n FROM canais WHERE canal='nuvemshop' "
             "GROUP BY produto_id) m ON m.produto_id=p.id WHERE p.estoque IS NOT NULL ORDER BY p.nome"):
@@ -597,7 +597,19 @@ def previa_nuvemshop(con, modo="zerar"):
             varias[r["pid"]] = r["nome"]
             continue
         site, contado = (r["site"] or "").strip(), r["estoque"]
-        if contado == 0:
+        if modo == "estimado":
+            # estimado = contagem + notas - vendas. Só vale se houve movimento; nunca zera o site por estimativa.
+            est = r["estimado"]
+            if est is None or round(est) == contado:
+                alvo, motivo = None, None
+            elif est <= 0:
+                conferir += 1                     # estimado zerou: confira na prateleira antes de mexer no site
+                alvo, motivo = None, None
+            elif site != str(round(est)):
+                alvo, motivo = int(round(est)), f"estimado (contado {contado}, hoje {round(est)})"
+            else:
+                alvo, motivo = None, None
+        elif contado == 0:
             alvo, motivo = (None, None) if site == "0" else (0, "acabou na prateleira")
         elif modo == "repor" and site != str(contado):
             alvo, motivo = contado, "quantidade contada"
@@ -612,7 +624,8 @@ def previa_nuvemshop(con, modo="zerar"):
     conferidos = con.execute("SELECT COUNT(*) FROM produtos WHERE estoque IS NOT NULL").fetchone()[0]
     sem_loja = con.execute("SELECT COUNT(*) FROM produtos p WHERE p.estoque IS NOT NULL AND NOT EXISTS "
                            "(SELECT 1 FROM canais k WHERE k.produto_id=p.id AND k.canal='nuvemshop')").fetchone()[0]
-    return {"modo": modo, "conferidos": conferidos, "mudancas": len(itens), "ja_certos": ja_igual,
+    return {"modo": modo, "conferir_estimado_zerado": conferir, "conferidos": conferidos,
+            "mudancas": len(itens), "ja_certos": ja_igual,
             "sem_loja": sem_loja, "varias_variacoes": len(varias), "revisar": sorted(varias.values())[:15],
             "limite": MAX_POR_ENVIO, "itens": itens}
 
@@ -2186,6 +2199,21 @@ NOTA_COLS = {"emissao": ("EMISSAO", "DATA"), "fornecedor": ("FORNECEDOR", "EMITE
              "cfop": ("CFOP",), "ncm": ("NCM",)}
 
 
+def _resumo_chegada(con, imp):
+    """O que a importação trouxe: quanto já está ligado a produto, quanto falta ligar e o que vende."""
+    base = "FROM notas_itens n LEFT JOIN de_para d ON d.cnpj=n.cnpj AND d.cod_fornecedor=n.cod_fornecedor WHERE n.imp_id=?"
+    sem = con.execute("SELECT COUNT(*) FROM (SELECT DISTINCT n.cnpj, n.cod_fornecedor " + base +
+                      " AND d.cnpj IS NULL)", (imp,)).fetchone()[0]
+    ligados = con.execute(
+        "SELECT p.nome, p.gz_codigo, SUM(n.quantidade*d.fator) un FROM notas_itens n JOIN de_para d "
+        "ON d.cnpj=n.cnpj AND d.cod_fornecedor=n.cod_fornecedor AND d.estado='confirmado' "
+        "JOIN produtos p ON p.id=d.produto_id WHERE n.imp_id=? GROUP BY p.id", (imp,)).fetchall()
+    vend = {r[0]: r[1] or 0 for r in con.execute("SELECT gz_codigo, SUM(valor) FROM vendas_gz GROUP BY gz_codigo")}
+    vendem = sorted([(vend.get(str(r["gz_codigo"] or ""), 0), r["nome"], r["un"]) for r in ligados], reverse=True)
+    return {"sem_vinculo": sem, "produtos_ligados": len(ligados),
+            "vendem": [{"nome": n, "unidades": round(u, 2)} for v, n, u in vendem if v > 0][:8]}
+
+
 def importar_notas(con, raw, arquivo="", quem="painel"):
     """Itens das notas de entrada. Reimportar o mesmo arquivo não duplica nada."""
     cab, linhas = _ler_csv(raw, [("EMISSAO", "DATA"), ("QUANTIDADE", "QTD", "QTDE")])
@@ -2225,7 +2253,8 @@ def importar_notas(con, raw, arquivo="", quem="painel"):
         con.execute("DELETE FROM importacoes WHERE id=?", (imp,))
     con.commit()
     recalcular(con)
-    return {"ok": True, "linhas": total, "novas": novas, "repetidas": total - novas}
+    return {"ok": True, "linhas": total, "novas": novas, "repetidas": total - novas,
+            "chegada": _resumo_chegada(con, imp) if novas else None}
 
 
 def _remover_importacao(con, imp_id):

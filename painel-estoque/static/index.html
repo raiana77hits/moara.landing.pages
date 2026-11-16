@@ -765,6 +765,7 @@ async function desenharSync(){
       <p>Primeiro você vê o que vai mudar. Só grava quando você confirmar, e sempre guarda um backup para desfazer.</p>
       <label class="op"><input type="radio" name="modo" value="zerar" checked><span><b>Só zerar o que acabou</b> (recomendado)<br><small>Produtos contados com 0 passam a aparecer sem estoque no site.</small></span></label>
       <label class="op"><input type="radio" name="modo" value="repor"><span><b>Zerar e repor as quantidades contadas</b><br><small>Também grava no site a quantidade contada dos outros produtos, e o site passa a controlar o estoque deles.</small></span></label>
+      <label class="op"><input type="radio" name="modo" value="estimado"><span><b>Enviar o estoque estimado</b> (contagem + notas − vendas)<br><small>Só dos produtos já contados que tiveram nota ou venda depois. É uma estimativa, não contagem. Nunca zera o site: se o estimado chegou a zero, o item vai para conferência na prateleira. Você marca o que quer enviar.</small></span></label>
       <button class="pri" id="s-ver">Ver o que vai mudar</button></section>
     <div id="s-previa"></div><div id="s-andamento" role="status"></div>
     <section><b>Desfazer uma gravação</b>${bk.length ? bk.map(b => `<div class="bk"><span>${data(b.quando)} · ${b.itens} produtos</span><button data-bk="${esc(b.arquivo)}">Desfazer</button></div>`).join("") : "<p>Nenhuma gravação para desfazer.</p>"}</section>`;
@@ -1268,7 +1269,10 @@ function desenharImportar(){
     $("#m-msg").textContent = "Importando…";
     try{
       const r = await api("/api/importar/notas?" + new URLSearchParams({arquivo:f.name}), {method:"POST", body: await f.arrayBuffer(), headers:{"X-Quem":encodeURIComponent(quemContando())}});
-      $("#m-msg").innerHTML = `<div class="ok-msg">Pronto: ${num(r.novas)} itens novos de nota${r.repetidas ? " (" + num(r.repetidas) + " já estavam)" : ""}. Agora ligue cada item ao produto na aba “Itens das notas”.</div>`;
+      const ch = r.chegada;
+      $("#m-msg").innerHTML = `<div class="ok-msg">Pronto: ${num(r.novas)} itens novos de nota${r.repetidas ? " (" + num(r.repetidas) + " já estavam)" : ""}.` +
+        (ch ? `<br><b>Chegou:</b> ${num(ch.produtos_ligados)} produtos já ligados entram no estoque estimado. ${ch.sem_vinculo ? `<b>${num(ch.sem_vinculo)} itens ainda sem ligação</b>: ligue na aba “Itens das notas” (ou use “Vincular os seguros” em Prioridades) para o painel saber que entraram.` : ""}` +
+        ((ch.vendem || []).length ? `<br><b>Itens que vendem e chegaram:</b> ${ch.vendem.map(v => esc(v.nome) + " (+" + v.unidades + ")").join(" · ")}` : "") : "") + `</div>`;
       carregarResumo();
     }catch(err){ $("#m-msg").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
     e.target.value = "";
