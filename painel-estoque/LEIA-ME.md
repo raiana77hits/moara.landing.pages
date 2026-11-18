@@ -107,7 +107,9 @@ Tela `/prioridades` (Início, Ferramentas, "Prioridades"). Usa só os dados que 
 Início, Ferramentas, **iFood (API): conectar e testar**. Guarda o ID e o segredo do iFood neste computador
 (`config.json`) e confere a conexão, **sem enviar nada**. Há dois ambientes: **loja de teste** (para gravar
 os vídeos de homologação) e **loja real** (só depois da homologação). Se o ID e o segredo estiverem
-trocados, o painel acerta sozinho. Enquanto o aplicativo não for homologado, a loja real responde
+trocados, o painel acerta sozinho. Na loja de teste também dá para enviar produtos:
+**criar/atualizar tudo** (POST), **só preço, promoção e estoque** (PATCH) e **carga completa** (`reset=true`, pede
+digitar RESET). O iFood responde 202 (recebido) e processa depois. A loja real fica bloqueada. Enquanto o aplicativo não for homologado, a loja real responde
 "sem permissão liberada": é esperado.
 
 ## Acesso à Nuvemshop

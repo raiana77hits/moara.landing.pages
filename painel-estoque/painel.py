@@ -765,7 +765,23 @@ def ifood_item_corpo(p, divisor=0.70):
 MAX_IFOOD_TESTE = 20
 
 
-def previa_ifood_item(con, ids, divisor=0.70):
+def _ifood_parcial(corpo, promo=None):
+    """PATCH: só barcode e name (obrigatórios) + o que muda (preço, promoção, estoque)."""
+    p = {"barcode": corpo["barcode"], "name": corpo["name"]}
+    if "prices" in corpo:
+        p["prices"] = dict(corpo["prices"])
+    if promo is not None:
+        base = (p.get("prices") or {}).get("price")
+        if base is None or not 0 < promo < base:
+            raise ValueError("O preço promocional precisa ser maior que zero e menor que o preço de venda.")
+        p.setdefault("prices", {})["promotionPrice"] = round(promo, 2)
+    if "inventory" in corpo:
+        p["inventory"] = dict(corpo["inventory"])
+    return p
+
+
+def previa_ifood_item(con, ids, divisor=0.70, modo="post", promo=None):
+    modo = modo if modo in ("post", "patch", "reset") else "post"
     ids = [int(i) for i in ids][:MAX_IFOOD_TESTE]
     itens = []
     for pid in ids:
@@ -773,10 +789,20 @@ def previa_ifood_item(con, ids, divisor=0.70):
         if not p:
             continue
         corpo, avisos = ifood_item_corpo(p, divisor)
+        if modo == "patch":
+            corpo = _ifood_parcial(corpo, promo)
+        elif promo is not None:
+            corpo = dict(corpo)
+            base = (corpo.get("prices") or {}).get("price")
+            if base is None or not 0 < promo < base:
+                raise ValueError("O preço promocional precisa ser maior que zero e menor que o preço de venda.")
+            corpo["prices"] = dict(corpo["prices"], promotionPrice=round(promo, 2))
         itens.append({"pid": pid, "nome": p["nome"], "avisos": avisos, "corpo": corpo,
                       "bloqueia": any(a.startswith("sem código de barras") for a in avisos)})
-    return {"endereco": "POST /item/v1.0/ingestion/{loja}?reset=false", "itens": itens,
-            "enviaveis": sum(1 for i in itens if not i["bloqueia"])}
+    end = {"post": "POST /item/v1.0/ingestion/{loja}?reset=false  (cria ou atualiza tudo)",
+           "patch": "PATCH /item/v1.0/ingestion/{loja}  (só preço, promoção e estoque)",
+           "reset": "POST /item/v1.0/ingestion/{loja}?reset=true  (CARGA COMPLETA: substitui o catálogo da loja de teste)"}[modo]
+    return {"endereco": end, "modo": modo, "itens": itens, "enviaveis": sum(1 for i in itens if not i["bloqueia"])}
 
 
 def _ifood_loja_teste():
@@ -789,32 +815,43 @@ def _ifood_loja_teste():
     raise ValueError("Informe o ID da loja de teste na tela de conexão do iFood.")
 
 
-def enviar_ifood_item(con, ids, ambiente="teste", quem="painel"):
-    """Envia produtos para a LOJA DE TESTE do iFood (reset=false: só cria/atualiza, não apaga nada).
-    A loja real fica bloqueada até a homologação ser aprovada."""
+def enviar_ifood_item(con, ids, ambiente="teste", quem="painel", modo="post", promo=None, confirmo_reset=False):
+    """Envia produtos para a LOJA DE TESTE do iFood. A loja real fica bloqueada até a homologação.
+    post = cria/atualiza (reset=false) | patch = só preço, promoção e estoque | reset = carga completa."""
     if ambiente != "teste":
         raise ValueError("O envio para a loja real está bloqueado até o iFood aprovar a homologação.")
-    pre = previa_ifood_item(con, ids)
+    modo = modo if modo in ("post", "patch", "reset") else "post"
+    if modo == "reset" and not confirmo_reset:
+        raise ValueError("A carga completa (reset=true) substitui o catálogo da loja de teste. Confirme digitando RESET.")
+    pre = previa_ifood_item(con, ids, modo=modo, promo=promo)
     itens = [i for i in pre["itens"] if not i["bloqueia"]]
     if not itens:
         raise ValueError("Nenhum produto pode ser enviado (todos estão sem código de barras válido).")
     loja = _ifood_loja_teste()
     token = ifood_token("teste")
     corpo = [i["corpo"] for i in itens]
-    codigo, resp = _ifood_http("POST", f"/item/v1.0/ingestion/{loja}?reset=false", corpo=corpo, token=token)
+    metodo, caminho = ("PATCH", f"/item/v1.0/ingestion/{loja}") if modo == "patch" else \
+        ("POST", f"/item/v1.0/ingestion/{loja}?reset={'true' if modo == 'reset' else 'false'}")
+    espera = 5
+    for tentativa in range(4):                       # 429 = muitas requisições: espera e tenta de novo
+        codigo, resp = _ifood_http(metodo, caminho, corpo=corpo, token=token)
+        if codigo != 429 or tentativa == 3:
+            break
+        time.sleep(espera)
+        espera *= 2
     os.makedirs(backups_dir(), exist_ok=True)
-    nome = f"ifood_api_teste_{datetime.now():%Y%m%d_%H%M%S}.json"
+    nome = f"ifood_api_teste_{modo}_{datetime.now():%Y%m%d_%H%M%S}.json"
     with open(os.path.join(backups_dir(), nome), "w", encoding="utf-8") as f:
-        json.dump({"quando": agora(), "quem": quem, "loja_fim": loja[-6:], "endereco": "POST ingestion reset=false",
-                   "status": codigo, "enviado": corpo, "resposta": resp}, f, ensure_ascii=False, indent=2)
+        json.dump({"quando": agora(), "quem": quem, "loja_fim": loja[-6:], "endereco": f"{metodo} {caminho.split('/')[-1]}",
+                   "modo": modo, "status": codigo, "enviado": corpo, "resposta": resp}, f, ensure_ascii=False, indent=2)
     if 200 <= codigo < 300:
         for i in itens:
             con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
-                        (i["pid"], agora(), "iFood (loja de teste)", "", "enviado pela API", quem))
+                        (i["pid"], agora(), "iFood (loja de teste)", "", f"enviado pela API ({modo})", quem))
         con.commit()
     msg = str((resp.get("error") or {}).get("message") or "")[:200] if isinstance(resp, dict) else ""
-    return {"ok": 200 <= codigo < 300, "status": codigo, "enviados": len(itens), "resposta": resp if isinstance(resp, (dict, list)) else str(resp)[:300],
-            "mensagem": msg, "backup": nome}
+    return {"ok": 200 <= codigo < 300, "status": codigo, "enviados": len(itens), "modo": modo,
+            "resposta": resp if isinstance(resp, (dict, list)) else str(resp)[:300], "mensagem": msg, "backup": nome}
 
 
 def previa_nuvemshop(con, modo="zerar"):
@@ -3401,7 +3438,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"total": len(lista), "amostra": lista[:15]})
             if u.path == "/api/ifood-api/previa":
                 ids = [x for x in qs.get("ids", "").split(",") if x.strip().isdigit()]
-                return self._json(previa_ifood_item(con, ids))
+                try:
+                    promo = float(qs["promo"].replace(",", ".")) if qs.get("promo") else None
+                    return self._json(previa_ifood_item(con, ids, modo=qs.get("modo", "post"), promo=promo))
+                except ValueError as e:
+                    return self._json({"erro": str(e)}, 400)
             if u.path == "/api/ifood-api/estado":
                 return self._json(estado_ifood())
             if u.path == "/api/central":
@@ -3582,8 +3623,11 @@ class Handler(BaseHTTPRequestHandler):
             if u.path == "/api/ifood-api/enviar":
                 try:
                     d = json.loads(self._corpo() or b"{}")
+                    promo = float(str(d["promo"]).replace(",", ".")) if d.get("promo") not in (None, "") else None
                     return self._json(enviar_ifood_item(con, d.get("ids") or [], d.get("ambiente") or "teste",
-                                                        unquote(self.headers.get("X-Quem") or "painel")[:40]))
+                                                        unquote(self.headers.get("X-Quem") or "painel")[:40],
+                                                        modo=d.get("modo") or "post", promo=promo,
+                                                        confirmo_reset=(str(d.get("confirmo") or "").strip().upper() == "RESET")))
                 except ValueError as e:
                     return self._json({"erro": str(e)}, 400)
             if u.path == "/api/ifood-api/testar":
