@@ -281,6 +281,63 @@ $("#b-trocar").onclick = async () => {
   }catch(e){ status("Não consegui listar as câmeras: " + String(e && e.message || e).slice(0, 80), "aviso"); }
 };
 
+// ---------- leitor de números impressos (OCR no próprio aparelho; os arquivos vêm do painel, nada vai para a internet)
+let ocrPronto = null, ocrWorker = null;
+function carregarOcr(){
+  if(ocrPronto) return ocrPronto;
+  ocrPronto = new Promise((ok, no) => {
+    const s = document.createElement("script"); s.src = "/vendor/ocr/tesseract.min.js";
+    s.onload = async () => {
+      try{
+        ocrWorker = await Tesseract.createWorker("eng", 1, {workerPath:"/vendor/ocr/worker.min.js", corePath:"/vendor/ocr/", langPath:"/vendor/ocr/", gzip:true, workerBlobURL:false});
+        await ocrWorker.setParameters({tessedit_char_whitelist:"0123456789", tessedit_pageseg_mode:"11"});
+        ok(ocrWorker);
+      }catch(e){ ocrPronto = null; no(e); }
+    };
+    s.onerror = () => { ocrPronto = null; no(new Error("não carregou o leitor de números")); };
+    document.head.appendChild(s);
+  });
+  return ocrPronto;
+}
+// desenha a foto (inteira ou um pedaço) em tons de cinza; canal vermelho deixa listras verdes bem escuras
+async function imagemParaOcr(bmp, fx, fy, fw, fh, lado, canal){
+  const w = bmp.width || bmp.naturalWidth, h = bmp.height || bmp.naturalHeight;
+  const sx = Math.round(fx * w), sy = Math.round(fy * h), sw = Math.round(fw * w), sh = Math.round(fh * h);
+  const k = Math.min(1, lado / Math.max(sw, sh)), cw = Math.max(1, Math.round(sw * k)), ch = Math.max(1, Math.round(sh * k));
+  const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+  const x = cv.getContext("2d"); x.drawImage(bmp, sx, sy, sw, sh, 0, 0, cw, ch);
+  const d = x.getImageData(0, 0, cw, ch), p = d.data; let mn = 255, mx = 0;
+  for(let i = 0; i < p.length; i += 4){ const v = canal === "r" ? p[i] : (p[i] * .3 + p[i + 1] * .59 + p[i + 2] * .11) | 0; p[i] = v; if(v < mn) mn = v; if(v > mx) mx = v; }
+  const f = mx > mn ? 255 / (mx - mn) : 1;
+  for(let i = 0; i < p.length; i += 4){ const v = Math.max(0, Math.min(255, (p[i] - mn) * f)) | 0; p[i] = p[i + 1] = p[i + 2] = v; }
+  x.putImageData(d, 0, 0); return cv;
+}
+// procura, no texto lido, um número de código de barras com dígito verificador certo
+function codigosNoTexto(t){
+  const achados = [];
+  const limpo = String(t).replace(/[Oo]/g, "0").replace(/[Il|]/g, "1");
+  for(const m of limpo.matchAll(/\d[\d\s]{6,20}\d/g)){
+    const d = m[0].replace(/\D/g, "");
+    for(const n of [13, 12, 8, 14]) for(let i = 0; i + n <= d.length; i++){ const s = d.slice(i, i + n); if(gs1Ok(s) && !achados.includes(s)) achados.push(s); }
+  }
+  return achados;
+}
+async function lerNumerosDaFoto(file, aoProgredir){
+  const w = await carregarOcr();
+  let bmp; try{ bmp = await createImageBitmap(file, {imageOrientation:"from-image"}); }
+  catch(e){ bmp = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = URL.createObjectURL(file); }); }
+  const planos = [[0, 0, 1, 1, 1800, "r"], [0, 0, 1, 1, 1800, "g"], [.1, .2, .8, .6, 2000, "r"], [0, 0, 1, 1, 1100, "r"]];
+  let n = 0;
+  for(const [fx, fy, fw, fh, lado, canal] of planos){
+    if(aoProgredir) aoProgredir(++n, planos.length);
+    const cv = await imagemParaOcr(bmp, fx, fy, fw, fh, lado, canal);
+    const r = await w.recognize(cv); cv.width = cv.height = 0;
+    const a = codigosNoTexto(r.data.text || ""); if(a.length) return a[0];
+  }
+  return "";
+}
+window.__ocrTeste = lerNumerosDaFoto;
+
 // iPhone Pro: a lente principal só foca a uns 12 a 15 cm; a ultra-angular é a macro (foca a 2 cm), como o app do banco usa
 $("#b-perto").onclick = async () => {
   try{
@@ -356,8 +413,14 @@ $("#f-foto").addEventListener("change", async e => {
     (falhaVar ? "\nErro ao preparar: " + falhaVar : "") + "\n" + infoNavegador() +
     "\n" + Object.entries(errosFoto).slice(0, 3).map(([k, v]) => v + "x " + k).join("\n"));
   if(lido){ bip(); status("Código lido: " + lido); buscar(lido, true); return; }
+  // listras não saíram: tenta ler o número impresso embaixo delas (OCR) e coloca na barra de busca
+  try{
+    status("Não li as listras. Lendo o número impresso… (na primeira vez demora alguns segundos)");
+    const num = await lerNumerosDaFoto(f, (i, t) => status("Lendo o número impresso… " + i + " de " + t));
+    if(num){ $("#cod").value = num; ultimoAuto = num; bip(); status("Número lido: " + num); buscar(num, true); return; }
+  }catch(er){ detalhe("Leitor de números: " + String(er && er.message || er).slice(0, 100)); }
   if(errado) status("Li “" + errado + "”, mas parece errado. Tire outra foto, mais de perto e com o código reto.", "aviso");
-  else{ status("Não achei o código de barras na foto (plástico brilhante atrapalha). Use “Ler os números”: o iPhone lê o número impresso embaixo das listras e o painel procura o produto.", "aviso"); const d = $("#dica-ios"); if(!d.hidden) d.scrollIntoView({block:"center"}); }
+  else status("Não consegui ler nem as listras nem o número. Chegue mais perto, deixe o número nítido e tire outra foto, ou use “Ler os números”.", "aviso");
 });
 
 

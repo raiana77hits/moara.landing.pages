@@ -3086,6 +3086,10 @@ def buscar_codigo(con, codigo):
     return [detalhe(con, i) for i in ids[:10]]
 
 
+# leitor de números (OCR) que roda no próprio navegador: arquivos locais, nada sai da sua rede
+OCR_ARQUIVOS = {"tesseract.min.js", "worker.min.js", "tesseract-core-simd-lstm.wasm.js", "tesseract-core-lstm.wasm.js", "eng.traineddata.gz"}
+
+
 def criar_produto_manual(con, d, quem=None):
     """Cadastro na hora, pela tela de conferência. Fica só no painel: não cria SKU
     (o SKU vem do Gestor Z) e não envia nada para as lojas."""
@@ -3415,6 +3419,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._arquivo("login.html", "text/html; charset=utf-8")
         if u.path == "/vendor/html5-qrcode.min.js":
             return self._arquivo("vendor/html5-qrcode.min.js", "text/javascript; charset=utf-8")
+        if u.path.startswith("/vendor/ocr/") and u.path[12:] in OCR_ARQUIVOS:
+            return self._arquivo("vendor/ocr/" + u.path[12:], "application/octet-stream" if u.path.endswith(".gz") else "text/javascript; charset=utf-8")
         con = conectar()
         try:
             if not self._logado(con):
