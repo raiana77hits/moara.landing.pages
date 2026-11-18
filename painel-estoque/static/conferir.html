@@ -77,6 +77,25 @@ li small{color:var(--muted);white-space:nowrap}
 .btn-foto{display:block;text-align:center;font:600 16px inherit;font-family:inherit;padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer}
 .btn-foto:focus-within{outline:3px solid var(--kraft);outline-offset:2px}
 [hidden]{display:none!important}
+
+.qp{display:grid;grid-template-columns:1.25fr 1fr;gap:12px;align-items:start}
+.qp .blk>label{display:block;font-weight:700;margin-bottom:5px}
+.qp .qtd{grid-template-columns:44px 1fr 44px}
+.qp .qtd input{font-size:22px;padding:8px 4px;min-width:0}
+.qp .preco-in{width:100%;box-sizing:border-box;padding:9px 8px;border:1px solid var(--line);border-radius:6px;font:700 20px ui-monospace,Menlo,Consolas,monospace;text-align:right;background:var(--surface);color:var(--ink)}
+.qp .preco-in.mudou{border-color:var(--kraft);background:var(--kraft-soft)}
+.nota-preco{color:var(--muted);font-size:12px;margin-top:4px;line-height:1.25}
+li.clicavel{cursor:pointer;flex-wrap:wrap}
+li.clicavel:hover{background:#FAFBFA}
+li .seta{color:var(--muted);font-style:normal;font-size:15px}
+li .ed{flex:1 1 100%;cursor:default;margin-top:6px;padding-top:10px;border-top:1px dashed var(--line);display:grid;gap:8px}
+li .ed label{display:block;font-weight:600;font-size:13px}
+li .ed input,li .ed select{width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:16px;background:var(--surface);color:var(--ink);margin-top:3px}
+li .ed .lin2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+li .ed .btns{display:grid;grid-template-columns:1fr 1.4fr;gap:8px}
+li .ed .btns button{padding:14px;font-size:16px}
+li .ed .msg{font-size:13px;min-height:1em}
+li .ed .msg.erro{color:var(--bad)}
 </style>
 </head>
 <body>
@@ -421,23 +440,41 @@ function cartao(p){
     <div class="pills">${pills}</div>
     <div id="foto-acao"></div>
     <div>${p.estoque == null ? "Ainda não conferido." : `Última contagem: <b>${p.estoque}</b> em ${hora(p.conferido_em)}`}</div>
-    <label for="qtd"><b>Quantos tem na prateleira?</b></label>
-    <div class="qtd"><button type="button" id="menos" aria-label="Menos um">−</button>
-      <input id="qtd" type="number" inputmode="numeric" min="0" step="1" value="${p.estoque ?? ""}">
-      <button type="button" id="mais" aria-label="Mais um">+</button></div>
+    <div class="qp">
+      <div class="blk"><label for="qtd">Quantos tem na prateleira?</label>
+        <div class="qtd"><button type="button" id="menos" aria-label="Menos um">−</button>
+          <input id="qtd" type="number" inputmode="numeric" min="0" step="1" value="${p.estoque ?? ""}">
+          <button type="button" id="mais" aria-label="Mais um">+</button></div></div>
+      <div class="blk"><label for="preco-in">Preço (R$)</label>
+        <input id="preco-in" class="preco-in" inputmode="decimal" autocomplete="off" placeholder="sem preço" value="${p.preco != null ? Number(p.preco).toFixed(2).replace(".", ",") : ""}">
+        <div class="nota-preco">Preço do caixa. Muda só aqui no painel.</div></div>
+    </div>
     <div class="dois"><button class="zero" id="b-zero">Não tem (0)</button><button class="pri" id="b-salvar">Salvar</button></div>
     <button id="b-pular">Pular sem salvar</button>
     <div id="c-erro" class="aviso a-bad" hidden></div>
   </div>`;
   desenharFoto(p);
   const q = $("#qtd");
+  $("#preco-in").addEventListener("input", () => {
+    const pr = ($("#preco-in").value || "").trim().replace(",", ".");
+    const antes = p.preco != null ? Number(p.preco).toFixed(2) : "";
+    $("#preco-in").classList.toggle("mudou", pr !== "" && !isNaN(Number(pr)) && Number(pr).toFixed(2) !== antes);
+  });
+  $("#preco-in").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); salvar(q.value); } });
   $("#menos").onclick = () => q.value = Math.max(0, (parseInt(q.value) || 0) - 1);
   $("#mais").onclick = () => q.value = (parseInt(q.value) || 0) + 1;
   const salvar = async valor => {
     if(valor === "" || isNaN(parseInt(valor)) || parseInt(valor) < 0){ $("#c-erro").hidden = false; $("#c-erro").textContent = "Digite a quantidade."; return; }
+    const corpo = {estoque: parseInt(valor), quem};
+    const pr = ($("#preco-in").value || "").trim().replace(",", ".");
+    const antes = p.preco != null ? Number(p.preco).toFixed(2) : "";
+    if(pr !== "" && (isNaN(Number(pr)) || Number(pr) < 0)){ $("#c-erro").hidden = false; $("#c-erro").textContent = "Preço inválido. Use números, por exemplo 12,50."; return; }
+    const depois = pr === "" ? "" : Number(pr).toFixed(2);
+    const mudouPreco = depois !== antes;
+    if(mudouPreco) corpo.preco = depois;
     try{
-      await api("/api/produto/" + p.id, {method:"POST", body:JSON.stringify({estoque: parseInt(valor), quem})});
-      $("#resultado").innerHTML = `<div class="aviso a-ok">Salvo: <b>${parseInt(valor)}</b> × ${esc(p.nome)}</div>`;
+      await api("/api/produto/" + p.id, {method:"POST", body:JSON.stringify(corpo)});
+      $("#resultado").innerHTML = `<div class="aviso a-ok">Salvo: <b>${parseInt(valor)}</b> × ${esc(p.nome)}${mudouPreco ? " · preço agora R$ " + (depois === "" ? "(vazio)" : depois.replace(".", ",")) : ""}</div>`;
       ultimas(); seguir();
     }catch(e){ $("#c-erro").hidden = false; $("#c-erro").textContent = e.message; }
   };
@@ -481,11 +518,63 @@ async function ultimas(){
     if(r.servidor !== "9") status("⚠️ O painel no computador está desatualizado. Feche a janela preta do painel e abra o iniciar.bat de novo.", "aviso");
     $("#tot").textContent = "· " + r.total + (r.total === 1 ? " produto já conferido" : " produtos já conferidos");
     $("#ultimas").innerHTML = r.itens.length ? r.itens.map(h =>
-      `<li><b>${esc(h.para || "—")}</b><span>${esc(h.nome)}</span><small>${hora(h.quando)}${h.origem && h.origem !== "painel" ? " · " + esc(h.origem) : ""}</small></li>`).join("")
+      `<li class="clicavel" data-id="${h.id}" tabindex="0" title="Toque para editar"><b>${esc(h.para || "—")}</b><span>${esc(h.nome)}</span><small>${hora(h.quando)}${h.origem && h.origem !== "painel" ? " · " + esc(h.origem) : ""}</small><i class="seta">✎</i></li>`).join("")
       : "<li><span>Nenhuma contagem ainda.</span></li>";
   }catch(e){}
 }
 ultimas();
+
+// ---------- editar um produto direto na lista "Últimas contagens"
+const num2 = v => { const s = String(v ?? "").trim().replace(",", "."); return s === "" ? "" : Number(s).toFixed(2); };
+async function abrirEdicao(li){
+  const aberto = li.querySelector(".ed");
+  document.querySelectorAll("#ultimas .ed").forEach(x => x.remove());
+  if(aberto) return;                                   // tocar de novo fecha
+  const id = li.dataset.id;
+  const ed = document.createElement("div"); ed.className = "ed"; ed.textContent = "Carregando…"; li.appendChild(ed);
+  let p, cats = [];
+  try{ [p, cats] = await Promise.all([api("/api/produto/" + id), carregarGrupos()]); }
+  catch(e){ ed.textContent = "Não consegui abrir: " + e.message; return; }
+  ed.innerHTML = `
+    <label>Nome<input class="e-nome" value="${esc(p.nome)}" maxlength="150"></label>
+    <div class="lin2">
+      <label>Preço (R$)<input class="e-preco" inputmode="decimal" value="${p.preco != null ? Number(p.preco).toFixed(2).replace(".", ",") : ""}" placeholder="sem preço"></label>
+      <label>Quantidade contada<input class="e-qtd" type="number" inputmode="numeric" min="0" step="1" value="${p.estoque ?? ""}"></label>
+    </div>
+    <label>Categoria da loja<select class="e-cat"><option value="">— sem categoria —</option>${cats.map(g => `<option value="${esc(g.id)}" ${String(g.id) === String(p.categoria_id || "") ? "selected" : ""}>${esc(g.nome)}</option>`).join("")}</select></label>
+    <label>Código de barras<input class="e-ean" inputmode="numeric" value="${esc(p.ean || "")}"></label>
+    <div class="msg"></div>
+    <div class="btns"><button type="button" class="e-cancelar">Cancelar</button><button type="button" class="pri e-salvar">Salvar</button></div>`;
+  const msg = ed.querySelector(".msg");
+  ed.querySelector(".e-cancelar").onclick = () => ed.remove();
+  ed.querySelector(".e-salvar").onclick = async () => {
+    const corpo = {quem}, v = s => ed.querySelector(s).value;
+    if(v(".e-nome").trim() !== p.nome) corpo.nome = v(".e-nome");
+    const np = num2(v(".e-preco")), pa = p.preco != null ? Number(p.preco).toFixed(2) : "";
+    if(np !== "" && isNaN(Number(np))){ msg.className = "msg erro"; msg.textContent = "Preço inválido."; return; }
+    if(np !== pa) corpo.preco = np;
+    const q = v(".e-qtd").trim();
+    if(q !== String(p.estoque ?? "")){
+      if(q === "" || isNaN(parseInt(q)) || parseInt(q) < 0){ msg.className = "msg erro"; msg.textContent = "A quantidade precisa ser um número, zero ou mais."; return; }
+      corpo.estoque = parseInt(q);
+    }
+    if(String(v(".e-cat")) !== String(p.categoria_id || "")) corpo.categoria_id = v(".e-cat");
+    if(v(".e-ean").replace(/\D/g, "") !== (p.ean || "")) corpo.ean = v(".e-ean");
+    if(Object.keys(corpo).length === 1){ msg.className = "msg"; msg.textContent = "Nada mudou."; return; }
+    msg.className = "msg"; msg.textContent = "Salvando…";
+    try{
+      await api("/api/produto/" + id, {method:"POST", body:JSON.stringify(corpo)});
+      await ultimas();
+    }catch(e){ msg.className = "msg erro"; msg.textContent = e.message; }
+  };
+}
+$("#ultimas").addEventListener("click", e => {
+  if(e.target.closest(".ed")) return;
+  const li = e.target.closest("li.clicavel"); if(li) abrirEdicao(li);
+});
+$("#ultimas").addEventListener("keydown", e => {
+  if((e.key === "Enter" || e.key === " ") && e.target.matches("li.clicavel")){ e.preventDefault(); abrirEdicao(e.target); }
+});
 </script>
 </body>
 </html>

@@ -251,6 +251,80 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
   .op{font-size:17px}.pv{font-size:16px}.bk button{padding:12px 16px}
   label.pv input{width:26px;height:26px}.sel-barra button{padding:13px 16px}
 }
+
+/* ======================= blocos que abrem e fecham (celular e computador) ======================= */
+.bloco h2{cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.bloco h2::after{content:"▾";font-size:.75em;color:var(--muted);flex:none;padding:2px 8px;border-radius:8px}
+.bloco h2:hover::after{background:var(--idle-bg)}
+.bloco.fechado h2::after{content:"▸"}
+.bloco.fechado > :not(h2){display:none!important}
+
+/* ======================= computador: página de cartões, igual ao celular ======================= */
+@media (min-width:901px){
+  body{padding-top:62px}
+  header{display:none}
+  #alerta-versao{top:62px}
+  .tabbar{display:flex;position:fixed;top:0;left:0;right:0;z-index:40;height:62px;align-items:center;gap:6px;padding:0 24px;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:0 2px 10px rgba(0,0,0,.05)}
+  .tabbar::before{content:"Painel de Estoque";margin-right:auto;font-weight:800;font-size:18px;color:var(--kraft)}
+  .tabbar a{display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:12px;text-decoration:none;color:var(--muted);font-weight:700;font-size:16px}
+  .tabbar a .ic{font-size:22px;line-height:1}
+  .tabbar a:hover{background:var(--idle-bg)}
+  .tabbar a.on{color:var(--kraft);background:var(--kraft-soft)}
+
+  body[data-v="inicio"] .tela-inicio{display:block}
+  body[data-v="inicio"] .tela-produtos{display:none}
+  body[data-v="produtos"] .tela-inicio{display:none}
+  body[data-v="inicio"] #nav{display:none}
+  body[data-v="inicio"] .layout{display:block;max-width:1280px;padding:0 24px 40px}
+
+  .hero{background:linear-gradient(180deg,var(--kraft) 0%,var(--kraft-escuro) 100%);color:#fff;padding:34px 32px 32px;border-radius:0 0 32px 32px;display:grid;grid-template-columns:1fr 1.5fr;gap:18px 20px;align-items:stretch}
+  .hero-sup,.hero h1,.hero p{grid-column:1/-1}
+  .hero-sup{font-size:12px;letter-spacing:.14em;opacity:.85;font-weight:700}
+  .hero h1{font-size:44px;line-height:1.08;margin:0}
+  .hero p{margin:0 0 6px;font-size:18px;opacity:.92}
+  .btn-grande{display:flex;align-items:center;gap:16px;background:#fff;color:var(--kraft);border-radius:20px;padding:16px 20px;text-decoration:none;font-weight:800;font-size:22px;line-height:1.15;box-shadow:0 8px 20px rgba(0,0,0,.2)}
+  .btn-grande .ic{font-size:42px;line-height:1}
+  .btn-grande small{display:block;font-weight:500;font-size:15px;color:var(--muted);margin-top:3px}
+  .busca-grande{display:flex;gap:8px;margin:0}
+  .busca-grande input{flex:1;min-width:0;border:0;border-radius:16px;padding:0 20px;font-size:18px;background:#fff;color:var(--ink)}
+  .busca-grande button{border:0;border-radius:16px;background:rgba(255,255,255,.22);color:#fff;font-size:18px;padding:0 28px}
+
+  .bloco{padding:30px 0 0}
+  .bloco h2{font-size:22px;margin:0 0 14px;line-height:1.15}
+  .prog{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px 24px}
+  .prog-num{font-size:19px}
+  .prog-num b{font-size:40px;color:var(--kraft);line-height:1}
+  .barra{height:16px;background:var(--idle-bg);border-radius:999px;overflow:hidden;margin:14px 0 8px}
+  .barra i{display:block;height:100%;width:0;background:var(--kraft);border-radius:999px;transition:width .4s}
+  #p-pct{color:var(--muted);font-size:15px}
+
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  #cats.tiles{grid-template-columns:repeat(5,1fr)}
+  .tile{display:flex;flex-direction:column;align-items:flex-start;gap:8px;text-align:left;border-radius:20px;padding:18px 16px;min-height:120px;background:var(--surface);border:1px solid var(--line);font-weight:500;font-size:17px}
+  .tile .n{font-size:36px;font-weight:800;line-height:1}
+  .tile .l{font-size:16px;line-height:1.25;color:var(--ink);font-weight:600}
+  .tile .ic{font-size:38px;line-height:1}
+  .tile .n2{font-size:14px;color:var(--muted)}
+  .tile:hover{box-shadow:0 6px 16px rgba(0,0,0,.08);transform:translateY(-1px)}
+  .tile.ok{background:var(--ok-bg);border-color:#bddcc9}.tile.ok .n{color:var(--ok)}
+  .tile.bad{background:var(--bad-bg);border-color:#ecc3bd}.tile.bad .n{color:var(--bad)}
+  .tile.warn{background:var(--warn-bg);border-color:#ecdba5}.tile.warn .n{color:var(--warn)}
+
+  .lojas{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .loja{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px;display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center}
+  .loja .nm{font-size:21px;font-weight:800}
+  .loja .tx{color:var(--muted);font-size:15px}
+  .loja .big{font-size:40px;font-weight:800;color:var(--ok);line-height:1;text-align:right}
+  .loja-acoes{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  .loja-acoes button{border-radius:14px;padding:13px 8px;font-size:15px}
+
+  .bloco.ferramentas{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .bloco.ferramentas h2{grid-column:1/-1}
+  .btn-lista{display:flex;align-items:center;gap:14px;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;font-size:17px;font-weight:700;text-align:left;text-decoration:none;color:var(--ink);cursor:pointer}
+  .btn-lista:hover{background:var(--kraft-soft)}
+  .btn-lista .ic{font-size:30px;line-height:1}
+  .rodape{color:var(--muted);font-size:14px;padding:22px 20px 8px;text-align:center}
+}
 </style>
 </head>
 <body data-v="inicio">
@@ -314,7 +388,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
         <div class="tiles" id="cats"></div>
       </div>
 
-      <div class="bloco">
+      <div class="bloco ferramentas">
         <h2>Ferramentas</h2>
         <button class="btn-lista" id="b-sync2"><span class="ic">🚚</span>Enviar estoque para a Nuvemshop</button>
         <button class="btn-lista" id="b-cad2"><span class="ic">🆕</span>Cadastrar produtos novos no site</button>
@@ -482,6 +556,21 @@ function aplicarVista(){
   window.scrollTo({top:0});
 }
 window.addEventListener("hashchange", aplicarVista);
+
+/* blocos da tela inicial: seta para ocultar, lembra a escolha neste aparelho */
+document.querySelectorAll("#tela-inicio .bloco").forEach(b => {
+  const t = b.querySelector("h2"); if(!t) return;
+  const chave = "bloco:" + t.textContent.trim();
+  let fechado = false; try{ fechado = localStorage.getItem(chave) === "1"; }catch(e){}
+  b.classList.toggle("fechado", fechado);
+  t.setAttribute("role", "button"); t.tabIndex = 0; t.setAttribute("aria-expanded", String(!fechado));
+  const alternar = () => {
+    const f = b.classList.toggle("fechado"); t.setAttribute("aria-expanded", String(!f));
+    try{ localStorage.setItem(chave, f ? "1" : "0"); }catch(e){}
+  };
+  t.onclick = alternar;
+  t.onkeydown = e => { if(e.key === "Enter" || e.key === " "){ e.preventDefault(); alternar(); } };
+});
 function irPara(o){
   est.filtro = o.filtro || "todos"; est.grupo = o.grupo || ""; est.q = o.q || ""; est.pagina = 1;
   $("#q").value = est.q; $("#grupo").value = est.grupo;
