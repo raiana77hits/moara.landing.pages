@@ -108,7 +108,10 @@ li .ed .msg.erro{color:var(--bad)}
   <pre id="cam-det" class="aviso" hidden style="font-size:12px;white-space:pre-wrap;word-break:break-word"></pre>
   <button class="pri" id="b-cam">Abrir a câmera para bipar</button>
   <button id="b-trocar" hidden>🔄 Trocar de câmera</button>
-  <div id="dica-ios" class="aviso" hidden>No iPhone: se a câmera não ler, toque e segure no campo abaixo e escolha <b>“Digitalizar texto”</b> (ícone de câmera) e aponte para o <b>número impresso</b> embaixo das listras.</div>
+  <div id="dica-ios" class="aviso" hidden>
+    <b>Garrafa, plástico ou brilho que a câmera não lê?</b> Use o <b>número impresso</b> embaixo das listras:
+    <ol style="margin:6px 0 8px 18px;padding:0"><li>Toque em <b>“Ler os números”</b> abaixo.</li><li>Toque e segure no campo e escolha <b>“Digitalizar texto”</b> (ícone de câmera).</li><li>Aponte para os números: eles aparecem no campo e o painel já procura o produto.</li></ol>
+    <button type="button" class="pri" id="b-nums" style="width:100%">🔢 Ler os números</button></div>
   <label class="btn-foto" for="f-foto">📷 Tirar foto do código<input type="file" id="f-foto" accept="image/*" capture="environment" hidden></label>
   <div id="leitor-arq" hidden></div>
   <form class="linha" id="f-cod">
@@ -239,7 +242,7 @@ async function abrirCamera(){
     clearTimeout(dica);
     dica = setTimeout(() => {
       if(lendo && $("#caixa").hidden === false){
-        status("Ainda não li nada. Afaste um pouco o celular até o código ficar nítido, ou use “Tirar foto do código”.", "aviso");
+        status("Ainda não li nada. Afaste um pouco o celular até o código ficar nítido, ou use “Tirar foto do código”. Se for garrafa ou plástico brilhante, use “Ler os números” (número impresso embaixo das listras).", "aviso");
         let r = ""; try{ const st = leitor.getRunningTrackSettings(); r = st.width + "×" + st.height + " a " + Math.round(st.frameRate || 0) + " fps"; }catch(e){}
         detalhe("Detalhes: " + quadros + " leituras tentadas em 12 s · vídeo " + r + "\n" + infoNavegador() + "\n" + Object.entries(errosLeitor).slice(0, 3).map(([k, v]) => v + "x " + k).join("\n"));
       }
@@ -337,7 +340,7 @@ $("#f-foto").addEventListener("change", async e => {
     "\n" + Object.entries(errosFoto).slice(0, 3).map(([k, v]) => v + "x " + k).join("\n"));
   if(lido){ bip(); status("Código lido: " + lido); buscar(lido, true); return; }
   if(errado) status("Li “" + errado + "”, mas parece errado. Tire outra foto, mais de perto e com o código reto.", "aviso");
-  else status("Não achei um código de barras na foto. Chegue mais perto (uns 10 a 15 cm), deixe as listras na horizontal e bem iluminadas, ou digite o código.", "aviso");
+  else{ status("Não achei o código de barras na foto (plástico brilhante atrapalha). Use “Ler os números”: o iPhone lê o número impresso embaixo das listras e o painel procura o produto.", "aviso"); const d = $("#dica-ios"); if(!d.hidden) d.scrollIntoView({block:"center"}); }
 });
 
 
@@ -511,6 +514,20 @@ function seguir(){
   pausar(false); ultimo = ""; $("#cod").value = "";
   if(!lendo) $("#cod").focus();   // leitor Bluetooth ou teclado: já fica pronto para o próximo
 }
+// Número vindo de "Digitalizar texto" do iPhone, colado ou digitado: acha o código no meio do texto e busca sozinho
+let ultimoAuto = "";
+function codigoNoTexto(t){
+  for(const m of String(t).matchAll(/\d[\d\s.\-]{6,20}\d/g)){
+    const d = m[0].replace(/\D/g, ""); if(gs1Ok(d)) return d;
+  }
+  return "";
+}
+$("#cod").addEventListener("input", () => {
+  const d = codigoNoTexto($("#cod").value);
+  if(d && d !== ultimoAuto){ ultimoAuto = d; $("#cod").value = d; bip(); status("Código lido: " + d); buscar(d, true); }
+  if(!d) ultimoAuto = "";
+});
+$("#b-nums").onclick = () => { const i = $("#cod"); i.value = ""; i.focus(); status("Agora toque e segure no campo e escolha “Digitalizar texto”.", "aviso"); };
 $("#f-cod").addEventListener("submit", e => { e.preventDefault(); buscar($("#cod").value); });
 
 async function ultimas(){
