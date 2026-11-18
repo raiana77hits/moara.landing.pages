@@ -82,6 +82,14 @@ select{padding:10px;border:1px solid var(--line);border-radius:6px;font:inherit;
 .pag{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin:12px 0 4px}
 
 dialog{border:1px solid var(--line);border-radius:10px;padding:0;width:min(720px,94vw);max-height:90vh;color:var(--ink);background:var(--surface)}
+#dcats{width:min(1000px,96vw)}
+#dcats .corpo{background:var(--bg,#f3f5f4)}
+#dcats #cats.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}
+#dcats .tile{display:flex;flex-direction:column;align-items:flex-start;gap:8px;text-align:left;border-radius:20px;padding:18px 16px;min-height:124px;background:var(--surface);border:1px solid var(--line);box-shadow:0 1px 3px rgba(0,0,0,.06);transition:transform .12s,box-shadow .12s}
+#dcats .tile:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(0,0,0,.1);border-color:var(--kraft)}
+#dcats .tile .ic{font-size:38px;line-height:1}
+#dcats .tile .l{font-size:16px;font-weight:700;line-height:1.25;color:var(--ink)}
+#dcats .tile .n2{font-size:13px;color:var(--muted);background:var(--kraft-soft);padding:2px 9px;border-radius:999px}
 dialog::backdrop{background:rgba(24,37,42,.45)}
 .topo{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start}
 .topo h3{margin:0;font-size:18px;flex:1;overflow-wrap:anywhere}
@@ -435,7 +443,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
   <a href="/conferir"><span class="ic">📷</span>Conferir</a>
 </div>
 
-<dialog id="dcats"><div class="topo"><h3>Categorias</h3><button id="c-x">Fechar</button></div><div class="corpo"><div class="tiles" id="cats"></div></div></dialog>
+<dialog id="dcats"><div class="topo"><h3>Categorias</h3><button id="cat-x">Fechar</button></div><div class="corpo"><div class="tiles" id="cats"></div></div></dialog>
 <dialog id="dlg"><div class="topo"><h3 id="d-nome"></h3><button id="d-x">Fechar</button></div><div class="corpo" id="d-corpo"></div></dialog>
 
 <dialog id="dsync">
@@ -810,7 +818,7 @@ $("#nav-lista").addEventListener("click", e => {
   est.filtro = b.dataset.f; est.pagina = 1; $("#nav").classList.remove("aberto"); recarregar(true);
 });
 $("#b-cats").onclick = () => $("#dcats").showModal();
-$("#c-x").onclick = () => $("#dcats").close();
+$("#cat-x").onclick = () => $("#dcats").close();
 $("#cats").addEventListener("click", e => {
   const b = e.target.closest("[data-g]"); if(!b) return;
   $("#dcats").close(); irPara({grupo: b.dataset.g});
