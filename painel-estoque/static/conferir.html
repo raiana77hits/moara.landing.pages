@@ -108,9 +108,10 @@ li .ed .msg.erro{color:var(--bad)}
   <pre id="cam-det" class="aviso" hidden style="font-size:12px;white-space:pre-wrap;word-break:break-word"></pre>
   <button class="pri" id="b-cam">Abrir a câmera para bipar</button>
   <button id="b-trocar" hidden>🔄 Trocar de câmera</button>
+  <button id="b-perto" hidden>🔍 Câmera de perto (lente macro)</button>
   <div id="dica-ios" class="aviso" hidden>
     <b>Garrafa, plástico ou brilho que a câmera não lê?</b> Use o <b>número impresso</b> embaixo das listras:
-    <ol style="margin:6px 0 8px 18px;padding:0"><li>Toque em <b>“Ler os números”</b> abaixo.</li><li>Toque e segure no campo e escolha <b>“Digitalizar texto”</b> (ícone de câmera).</li><li>Aponte para os números: eles aparecem no campo e o painel já procura o produto.</li></ol>
+    <div style="margin:6px 0 8px">1) Toque em <b>“Ler os números”</b> abaixo.<br>2) Toque e segure no campo e escolha <b>“Digitalizar texto”</b> (ícone de câmera).<br>3) Aponte para os números: eles aparecem no campo e o painel já procura o produto.</div>
     <button type="button" class="pri" id="b-nums" style="width:100%">🔢 Ler os números</button></div>
   <label class="btn-foto" for="f-foto">📷 Tirar foto do código<input type="file" id="f-foto" accept="image/*" capture="environment" hidden></label>
   <div id="leitor-arq" hidden></div>
@@ -193,7 +194,7 @@ function msgErro(e){
 }
 let leitor = null, lendo = false, ultimo = "", ultimoEm = 0, descartes = 0, dica = null;
 const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-if(IOS) $("#dica-ios").hidden = false;
+if(IOS){ $("#dica-ios").hidden = false; $("#b-perto").hidden = false; }
 const guardado = k => { try{ return localStorage.getItem(k) || ""; }catch(e){ return ""; } };
 const guardar = (k, v) => { try{ localStorage.setItem(k, v); }catch(e){} };
 let camId = guardado("camId");
@@ -278,6 +279,22 @@ $("#b-trocar").onclick = async () => {
     await fecharCamera(); await abrirCamera();
     status("Câmera: " + (prox.label || "outra") + ". Se não ler, toque de novo em Trocar de câmera.");
   }catch(e){ status("Não consegui listar as câmeras: " + String(e && e.message || e).slice(0, 80), "aviso"); }
+};
+
+// iPhone Pro: a lente principal só foca a uns 12 a 15 cm; a ultra-angular é a macro (foca a 2 cm), como o app do banco usa
+$("#b-perto").onclick = async () => {
+  try{
+    try{ const t = await navigator.mediaDevices.getUserMedia({video:true}); t.getTracks().forEach(x => x.stop()); }catch(e){}
+    const todas = await Html5Qrcode.getCameras();
+    const macro = todas.find(c => /ultra/i.test(c.label || ""));
+    if(!macro){
+      status("Não achei a lente de perto. Câmeras vistas: " + (todas.map(c => c.label || "sem nome").join(" | ") || "nenhuma"), "aviso"); return;
+    }
+    camId = macro.id; guardar("camId", camId);
+    if(lendo) await fecharCamera();
+    await abrirCamera();
+    status("Lente de perto ligada (" + (macro.label || "ultra-angular") + "). Chegue bem perto (3 a 8 cm) e deixe as listras ocupando a faixa.");
+  }catch(e){ status("Não consegui trocar de lente: " + String(e && e.message || e).slice(0, 80), "aviso"); }
 };
 
 // Plano B: foto tirada pela câmera do próprio celular (foca melhor que o vídeo ao vivo)
