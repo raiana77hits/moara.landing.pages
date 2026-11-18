@@ -729,7 +729,13 @@ def ifood_item_corpo(p, divisor=0.70):
     plu = str(p["sku"] or p["gz_codigo"] or "").strip()
     if plu:
         corpo["plu"] = plu
-    base = p["estimado"] if p["estimado"] is not None else p["estoque"]
+    est, cont = p["estimado"], p["estoque"]
+    if est is not None and est <= 0 and cont is not None and cont > 0:
+        # a estimativa zerou, mas a contagem diz que há estoque: o mais provável é erro no período das vendas
+        avisos.append(f"estimado zerou ({est:g}) mas a contagem é {cont}: enviando a contagem. Confira o período das vendas importadas")
+        base = cont
+    else:
+        base = est if est is not None else cont
     qtd = None if base is None else max(0, int(math.floor(base)))
     corpo["active"] = True if qtd is None else qtd > 0
     if p["preco"] and p["preco"] > 0:
@@ -797,8 +803,14 @@ def previa_ifood_item(con, ids, divisor=0.70, modo="post", promo=None):
             if base is None or not 0 < promo < base:
                 raise ValueError("O preço promocional precisa ser maior que zero e menor que o preço de venda.")
             corpo["prices"] = dict(corpo["prices"], promotionPrice=round(promo, 2))
-        itens.append({"pid": pid, "nome": p["nome"], "avisos": avisos, "corpo": corpo,
-                      "bloqueia": any(a.startswith("sem código de barras") for a in avisos)})
+        bloqueia = any(a.startswith("sem código de barras") for a in avisos)
+        if modo in ("post", "reset") and "prices" not in corpo:
+            avisos.append("sem preço: o iFood não consegue vender; cadastre o preço antes de enviar")
+            bloqueia = True
+        if modo == "patch" and "prices" not in corpo and "inventory" not in corpo:
+            avisos.append("nada para atualizar (sem preço e sem estoque)")
+            bloqueia = True
+        itens.append({"pid": pid, "nome": p["nome"], "avisos": avisos, "corpo": corpo, "bloqueia": bloqueia})
     end = {"post": "POST /item/v1.0/ingestion/{loja}?reset=false  (cria ou atualiza tudo)",
            "patch": "PATCH /item/v1.0/ingestion/{loja}  (só preço, promoção e estoque)",
            "reset": "POST /item/v1.0/ingestion/{loja}?reset=true  (CARGA COMPLETA: substitui o catálogo da loja de teste)"}[modo]
@@ -826,7 +838,7 @@ def enviar_ifood_item(con, ids, ambiente="teste", quem="painel", modo="post", pr
     pre = previa_ifood_item(con, ids, modo=modo, promo=promo)
     itens = [i for i in pre["itens"] if not i["bloqueia"]]
     if not itens:
-        raise ValueError("Nenhum produto pode ser enviado (todos estão sem código de barras válido).")
+        raise ValueError("Nenhum produto pode ser enviado: " + "; ".join(sorted({a for i in pre["itens"] for a in i["avisos"] if a.startswith(("sem ", "nada "))}))[:220])
     loja = _ifood_loja_teste()
     token = ifood_token("teste")
     corpo = [i["corpo"] for i in itens]
@@ -2595,6 +2607,8 @@ def recalcular(con, ids=None):
             v += sum(q for d, q in sitev.get(p["id"], []) if d > dia)
             if aviso != "peso":
                 est = round(p["estoque"] + e - v, 2)
+                if est < 0:
+                    aviso = "negativo"          # vendas descontadas maiores que a contagem: confira o período importado
         con.execute("UPDATE produtos SET estimado=?, est_aviso=? WHERE id=?", (est, aviso, p["id"]))
     con.commit()
 
@@ -2680,6 +2694,8 @@ def prioridades(con, cor="", q="", pagina=1, por_pagina=50, tudo=False):
                     pass
         if not d:
             sem, why = "cinza", "Sem venda no período"
+        elif base is not None and base <= 0 and p["est_aviso"] == "negativo":
+            sem, why = "amarelo", "Estimativa negativa: confira o período das vendas importadas e a contagem"
         elif base is not None and base <= 0:
             sem, why = "vermelho", "Estoque estimado zerado"
         elif cob is not None and cob < 7:
