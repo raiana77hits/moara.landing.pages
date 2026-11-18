@@ -1010,7 +1010,36 @@ async function abrirIfoodApi(){
     <label class="campo">Client Secret<input id="if-sec" type="password" autocomplete="off"></label>
     <label class="campo">ID da loja (merchant)<input id="if-loja" autocomplete="off" placeholder="opcional"></label>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="pri" id="if-salvar">Salvar e testar</button><button id="if-testar">Só testar</button></div>
-    </section><div id="if-res" role="status"></div>`;
+    </section><div id="if-res" role="status"></div>
+    <section><b>Enviar produtos para a loja de teste do iFood</b>
+      <p>Só na <b>loja de teste</b>. Cria ou atualiza o produto (sem apagar nada). Primeiro você vê o que seria enviado.</p>
+      <input class="busca-lista" id="if-q" type="search" placeholder="Buscar produto pelo nome ou código de barras" aria-label="Buscar produto">
+      <div id="if-lista"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button id="if-ver">Ver o que seria enviado</button><button class="pri" id="if-env">Enviar para a loja de teste</button></div>
+      <pre id="if-prev" style="white-space:pre-wrap;font-size:12px;max-height:40vh;overflow:auto" hidden></pre>
+    </section><div id="if-env-res" role="status"></div>`;
+  const marcados = new Set();
+  let tq; $("#if-q").oninput = () => { clearTimeout(tq); tq = setTimeout(async () => {
+    const q = $("#if-q").value.trim(); if(q.length < 2){ $("#if-lista").innerHTML = ""; return; }
+    const r = await api("/api/produtos?por_pagina=8&q=" + encodeURIComponent(q));
+    $("#if-lista").innerHTML = r.itens.map(i => `<label class="pv" style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-i="${i.id}" ${marcados.has(i.id) ? "checked" : ""}><span>${esc(i.nome)}<br><small>${esc(i.ean || "sem código")} · estoque ${i.estoque ?? "—"}</small></span></label>`).join("");
+  }, 300); };
+  $("#if-lista").onchange = e => { const x = e.target.closest("input[data-i]"); if(x) x.checked ? marcados.add(+x.dataset.i) : marcados.delete(+x.dataset.i); };
+  $("#if-ver").onclick = async () => {
+    if(!marcados.size){ alert("Marque ao menos um produto."); return; }
+    const p = await api("/api/ifood-api/previa?ids=" + [...marcados].join(","));
+    const pv = $("#if-prev"); pv.hidden = false;
+    pv.textContent = p.endereco + "\n\n" + p.itens.map(i => (i.avisos.length ? "⚠ " + i.nome + ": " + i.avisos.join("; ") + "\n" : "") + JSON.stringify(i.corpo, null, 2)).join("\n\n");
+  };
+  $("#if-env").onclick = async () => {
+    if(!marcados.size){ alert("Marque ao menos um produto."); return; }
+    if(!confirm("Enviar " + marcados.size + " produto(s) para a LOJA DE TESTE do iFood? (nada vai para a loja real)")) return;
+    $("#if-env-res").textContent = "Enviando…";
+    try{
+      const r = await api("/api/ifood-api/enviar", {method:"POST", body:JSON.stringify({ids:[...marcados], ambiente:"teste"}), headers:{"X-Quem":encodeURIComponent(quemContando())}});
+      $("#if-env-res").innerHTML = `<div class="${r.ok ? "ok-msg" : "erro-msg"}">${r.ok ? "O iFood aceitou" : "O iFood recusou"} (código ${r.status}) · ${r.enviados} produto(s). ${esc(r.mensagem || "")}<br><small>Resposta guardada em backups/${esc(r.backup)}</small><pre style="white-space:pre-wrap;font-size:12px;max-height:30vh;overflow:auto">${esc(JSON.stringify(r.resposta, null, 2))}</pre></div>`;
+    }catch(err){ $("#if-env-res").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
+  };
   const amb = () => document.querySelector("input[name=if-amb]:checked").value;
   const mostrar = (r) => { $("#if-res").innerHTML = r.erro ? `<div class="erro-msg">${esc(r.erro)}</div>` :
     `<div class="ok-msg"><b>Conexão com o iFood ok</b> (${esc(r.ambiente)}).${(r.lojas||[]).length ? "<br>Lojas que a chave enxerga: " + r.lojas.map(l => esc(l.nome) + " (…" + esc(l.id_fim) + ")").join("; ") : ""}${r.aviso_lojas ? "<br>" + esc(r.aviso_lojas) : ""}${r.loja_configurada_aparece === false ? "<br><b>Atenção:</b> o ID da loja salvo não está entre as lojas que essa chave enxerga." : ""}</div>`; };

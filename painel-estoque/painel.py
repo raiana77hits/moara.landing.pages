@@ -711,6 +711,107 @@ def testar_ifood(amb):
     return r
 
 
+def ifood_item_corpo(p, divisor=0.70):
+    """Um produto do painel no formato da API de Item do iFood (POST /item/v1.0/ingestion).
+    Devolve (corpo, avisos). Campos: barcode e name são obrigatórios; o resto é opcional."""
+    avisos = []
+    ean = "".join(c for c in str(p["ean"] or "") if c.isdigit())
+    if not 6 <= len(ean) <= 14:
+        avisos.append("sem código de barras válido")
+    elif ean.startswith("2"):
+        avisos.append("código interno do caixa (começa com 2): confirme se serve de código de barras no iFood")
+    corpo = {"barcode": ean, "name": " ".join(str(p["nome"] or "").split())[:150]}
+    plu = str(p["sku"] or p["gz_codigo"] or "").strip()
+    if plu:
+        corpo["plu"] = plu
+    base = p["estimado"] if p["estimado"] is not None else p["estoque"]
+    qtd = None if base is None else max(0, int(math.floor(base)))
+    corpo["active"] = True if qtd is None else qtd > 0
+    if p["preco"] and p["preco"] > 0:
+        corpo["prices"] = {"price": round(p["preco"] / divisor + 1e-9, 2)}
+    else:
+        avisos.append("sem preço")
+    det = {}
+    if p["foto_url"]:
+        det["imageUrl"] = p["foto_url"]
+    det["description"] = corpo["name"]
+    un = str(p["unidade"] or "").strip().upper()
+    if un in ("UN", "KG", "G", "L", "ML"):
+        det["unit"] = un
+    cat = {}
+    if p["grupo"]:
+        cat["department"] = str(p["grupo"]).title()[:60]
+    if p["categoria_nome"]:
+        partes = [x.strip() for x in str(p["categoria_nome"]).split(">")]
+        cat["category"] = partes[-1][:60]
+        if len(partes) > 2:
+            cat["subCategory"] = partes[-1][:60]
+            cat["category"] = partes[-2][:60]
+    if cat:
+        det["categorization"] = cat
+    corpo["details"] = det
+    if qtd is not None:
+        corpo["inventory"] = {"stock": qtd}
+    else:
+        avisos.append("sem contagem (o estoque não vai no envio)")
+    return corpo, avisos
+
+
+MAX_IFOOD_TESTE = 20
+
+
+def previa_ifood_item(con, ids, divisor=0.70):
+    ids = [int(i) for i in ids][:MAX_IFOOD_TESTE]
+    itens = []
+    for pid in ids:
+        p = con.execute("SELECT * FROM produtos WHERE id=?", (pid,)).fetchone()
+        if not p:
+            continue
+        corpo, avisos = ifood_item_corpo(p, divisor)
+        itens.append({"pid": pid, "nome": p["nome"], "avisos": avisos, "corpo": corpo,
+                      "bloqueia": any(a.startswith("sem código de barras") for a in avisos)})
+    return {"endereco": "POST /item/v1.0/ingestion/{loja}?reset=false", "itens": itens,
+            "enviaveis": sum(1 for i in itens if not i["bloqueia"])}
+
+
+def _ifood_loja_teste():
+    cfg = ifood_config("teste")
+    if cfg["merchant_id"]:
+        return cfg["merchant_id"]
+    codigo, lojas = _ifood_http("GET", "/merchant/v1.0/merchants", token=ifood_token("teste"))
+    if codigo == 200 and isinstance(lojas, list) and len(lojas) == 1:
+        return str(lojas[0]["id"])
+    raise ValueError("Informe o ID da loja de teste na tela de conexão do iFood.")
+
+
+def enviar_ifood_item(con, ids, ambiente="teste", quem="painel"):
+    """Envia produtos para a LOJA DE TESTE do iFood (reset=false: só cria/atualiza, não apaga nada).
+    A loja real fica bloqueada até a homologação ser aprovada."""
+    if ambiente != "teste":
+        raise ValueError("O envio para a loja real está bloqueado até o iFood aprovar a homologação.")
+    pre = previa_ifood_item(con, ids)
+    itens = [i for i in pre["itens"] if not i["bloqueia"]]
+    if not itens:
+        raise ValueError("Nenhum produto pode ser enviado (todos estão sem código de barras válido).")
+    loja = _ifood_loja_teste()
+    token = ifood_token("teste")
+    corpo = [i["corpo"] for i in itens]
+    codigo, resp = _ifood_http("POST", f"/item/v1.0/ingestion/{loja}?reset=false", corpo=corpo, token=token)
+    os.makedirs(backups_dir(), exist_ok=True)
+    nome = f"ifood_api_teste_{datetime.now():%Y%m%d_%H%M%S}.json"
+    with open(os.path.join(backups_dir(), nome), "w", encoding="utf-8") as f:
+        json.dump({"quando": agora(), "quem": quem, "loja_fim": loja[-6:], "endereco": "POST ingestion reset=false",
+                   "status": codigo, "enviado": corpo, "resposta": resp}, f, ensure_ascii=False, indent=2)
+    if 200 <= codigo < 300:
+        for i in itens:
+            con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                        (i["pid"], agora(), "iFood (loja de teste)", "", "enviado pela API", quem))
+        con.commit()
+    msg = str((resp.get("error") or {}).get("message") or "")[:200] if isinstance(resp, dict) else ""
+    return {"ok": 200 <= codigo < 300, "status": codigo, "enviados": len(itens), "resposta": resp if isinstance(resp, (dict, list)) else str(resp)[:300],
+            "mensagem": msg, "backup": nome}
+
+
 def previa_nuvemshop(con, modo="zerar"):
     """O que mudaria no site com base no estoque contado. Não altera nada."""
     modo = modo if modo in ("repor", "estimado") else "zerar"
@@ -3293,6 +3394,9 @@ class Handler(BaseHTTPRequestHandler):
             if u.path == "/api/cadastrar/so-nota":
                 lista = itens_so_na_nota(con)
                 return self._json({"total": len(lista), "amostra": lista[:15]})
+            if u.path == "/api/ifood-api/previa":
+                ids = [x for x in qs.get("ids", "").split(",") if x.strip().isdigit()]
+                return self._json(previa_ifood_item(con, ids))
             if u.path == "/api/ifood-api/estado":
                 return self._json(estado_ifood())
             if u.path == "/api/central":
@@ -3468,6 +3572,13 @@ class Handler(BaseHTTPRequestHandler):
             if u.path == "/api/ifood-api/conectar":
                 try:
                     return self._json(conectar_ifood(json.loads(self._corpo() or b"{}")))
+                except ValueError as e:
+                    return self._json({"erro": str(e)}, 400)
+            if u.path == "/api/ifood-api/enviar":
+                try:
+                    d = json.loads(self._corpo() or b"{}")
+                    return self._json(enviar_ifood_item(con, d.get("ids") or [], d.get("ambiente") or "teste",
+                                                        unquote(self.headers.get("X-Quem") or "painel")[:40]))
                 except ValueError as e:
                     return self._json({"erro": str(e)}, 400)
             if u.path == "/api/ifood-api/testar":
