@@ -385,7 +385,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 
       <div class="bloco">
         <h2>Categorias</h2>
-        <div class="tiles" id="cats"></div>
+        <div class="tiles"><button class="tile" id="b-cats"><span class="ic">🗂️</span><span class="l">Categorias</span><span class="n2" id="n-cats"></span></button></div>
       </div>
 
       <div class="bloco ferramentas">
@@ -435,6 +435,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
   <a href="/conferir"><span class="ic">📷</span>Conferir</a>
 </div>
 
+<dialog id="dcats"><div class="topo"><h3>Categorias</h3><button id="c-x">Fechar</button></div><div class="corpo"><div class="tiles" id="cats"></div></div></dialog>
 <dialog id="dlg"><div class="topo"><h3 id="d-nome"></h3><button id="d-x">Fechar</button></div><div class="corpo" id="d-corpo"></div></dialog>
 
 <dialog id="dsync">
@@ -623,6 +624,7 @@ function desenharInicio(){
   if(aviso) aviso.remove();
   if(semSite) $("#cats").insertAdjacentHTML("beforebegin", `<div id="aviso-cats" class="aviso">Estas são as categorias do Gestor Z. Para usar as <b>categorias da loja</b>: <button id="b-lercats" class="pri" style="margin-left:6px">Ler categorias da loja</button></div>`);
   if(semSite) document.getElementById("b-lercats").onclick = e => lerCategorias(e.target, async () => { desenharInicio(); desenharChips(); });
+  $("#n-cats").textContent = num(listaCats().length) + " categorias · toque para ver";
   $("#cats").innerHTML = listaCats().map(x =>
     `<button class="tile" data-g="${esc(x.key)}"><span class="ic">${icone(curto(x.nome))}</span><span class="l">${esc(cap(curto(x.nome)))}</span><span class="n2">${num(x.n)} ${x.n === 1 ? "produto" : "produtos"}</span></button>`).join("");
 }
@@ -806,6 +808,12 @@ $("#chips").addEventListener("click", e => {
 $("#nav-lista").addEventListener("click", e => {
   const b = e.target.closest(".f"); if(!b) return;
   est.filtro = b.dataset.f; est.pagina = 1; $("#nav").classList.remove("aberto"); recarregar(true);
+});
+$("#b-cats").onclick = () => $("#dcats").showModal();
+$("#c-x").onclick = () => $("#dcats").close();
+$("#cats").addEventListener("click", e => {
+  const b = e.target.closest("[data-g]"); if(!b) return;
+  $("#dcats").close(); irPara({grupo: b.dataset.g});
 });
 $("#tela-inicio").addEventListener("click", e => {
   const b = e.target.closest("[data-f],[data-g]"); if(!b) return;

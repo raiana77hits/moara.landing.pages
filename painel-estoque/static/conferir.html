@@ -94,6 +94,7 @@ li .ed input,li .ed select{width:100%;box-sizing:border-box;padding:10px;border:
 li .ed .lin2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 li .ed .btns{display:grid;grid-template-columns:1fr 1.4fr;gap:8px}
 li .ed .btns button{padding:14px;font-size:16px}
+li .ed .e-foto{display:grid;grid-template-columns:104px 1fr;gap:10px;align-items:center}
 li .ed .msg{font-size:13px;min-height:1em}
 li .ed .msg.erro{color:var(--bad)}
 </style>
@@ -543,9 +544,20 @@ async function abrirEdicao(li){
     </div>
     <label>Categoria da loja<select class="e-cat"><option value="">— sem categoria —</option>${cats.map(g => `<option value="${esc(g.id)}" ${String(g.id) === String(p.categoria_id || "") ? "selected" : ""}>${esc(g.nome)}</option>`).join("")}</select></label>
     <label>Código de barras<input class="e-ean" inputmode="numeric" value="${esc(p.ean || "")}"></label>
+    <div class="e-foto"><div class="e-fprev">${p.foto ? `<img class="foto-c" src="${esc(mini(p.foto, 320))}" alt="">` : `<div class="foto-c sem">Sem foto</div>`}</div>
+      <label class="btn-foto ${p.foto ? "" : "destaque"}">${p.foto ? "📷 Trocar a foto" : "📷 Tirar foto do produto"}<input type="file" class="e-fin" accept="image/*" capture="environment" hidden></label></div>
     <div class="msg"></div>
     <div class="btns"><button type="button" class="e-cancelar">Cancelar</button><button type="button" class="pri e-salvar">Salvar</button></div>`;
   const msg = ed.querySelector(".msg");
+  ed.querySelector(".e-fin").onchange = async e => {
+    const f = e.target.files[0]; if(!f) return;
+    msg.className = "msg"; msg.textContent = "Enviando a foto…";
+    try{
+      const d = await enviarFoto(id, f);
+      ed.querySelector(".e-fprev").innerHTML = `<img class="foto-c" src="${esc(mini(d.foto, 320))}" alt="">`;
+      msg.textContent = "Foto salva.";
+    }catch(er){ msg.className = "msg erro"; msg.textContent = "Não consegui salvar a foto: " + er.message; }
+  };
   ed.querySelector(".e-cancelar").onclick = () => ed.remove();
   ed.querySelector(".e-salvar").onclick = async () => {
     const corpo = {quem}, v = s => ed.querySelector(s).value;
