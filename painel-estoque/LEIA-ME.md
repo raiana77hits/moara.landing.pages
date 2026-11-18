@@ -102,15 +102,54 @@ Tela `/prioridades` (Início, Ferramentas, "Prioridades"). Usa só os dados que 
 - Vendas e notas podem ser importadas em CSV ou Excel (.xlsx). Informe as datas certas do relatório.
 - Estoque estimado é alerta, não contagem.
 
-## iFood (API oficial): conectar e testar
+## iFood (API oficial)
 
-Início, Ferramentas, **iFood (API): conectar e testar**. Guarda o ID e o segredo do iFood neste computador
-(`config.json`) e confere a conexão, **sem enviar nada**. Há dois ambientes: **loja de teste** (para gravar
-os vídeos de homologação) e **loja real** (só depois da homologação). Se o ID e o segredo estiverem
-trocados, o painel acerta sozinho. Na loja de teste também dá para enviar produtos:
-**criar/atualizar tudo** (POST), **só preço, promoção e estoque** (PATCH) e **carga completa** (`reset=true`, pede
-digitar RESET). O iFood responde 202 (recebido) e processa depois. A loja real fica bloqueada. Enquanto o aplicativo não for homologado, a loja real responde
-"sem permissão liberada": é esperado.
+Início, Ferramentas, **iFood (API): conectar e testar**. O painel fala com o módulo **Item** da API do iFood
+(mercado/groceries), no mesmo estilo das outras telas: **prévia antes de enviar, confirmação e backup**.
+
+### Conectar
+- Escolha **Loja de teste** ou **Loja real**, cole o **Client ID** e o **Client Secret** do aplicativo e clique em
+  **Salvar e testar**. As chaves ficam só neste computador (`config.json`); a tela nunca as mostra de volta.
+- Use o aplicativo **centralizado** ("Teste (C)" para testes). Se o ID e o segredo estiverem trocados, o painel acerta sozinho.
+- A loja real responde "sem permissão liberada" até a homologação ser aprovada: é esperado.
+
+### Enviar produtos (só para a loja de teste)
+Na mesma tela, busque e marque produtos e escolha o tipo de envio. **Ver o que seria enviado** mostra o corpo exato.
+| Tipo | Chamada | Para quê |
+|---|---|---|
+| Criar ou atualizar tudo | `POST /item/v1.0/ingestion/{loja}?reset=false` | produto novo ou reenviar todos os dados |
+| Só preço, promoção e estoque | `PATCH /item/v1.0/ingestion/{loja}` | produto que já foi enviado (o PATCH não ativa produto) |
+| Carga completa | `POST ...?reset=true` | substitui o catálogo da loja de teste; pede digitar RESET |
+
+Regras do painel:
+- Campos enviados: `barcode` e `name` (obrigatórios), `plu` (SKU do Gestor Z), `active`, `prices.price`,
+  `prices.promotionPrice` (precisa ser menor que o preço), `details` (foto, descrição, unidade, categoria) e `inventory.stock`.
+- **Preço no iFood = preço do caixa dividido por 0,70** (mesma regra da planilha).
+- **Estoque:** usa o estimado; se o estimado zerou mas a contagem é maior que zero, envia a **contagem** e avisa na prévia.
+- **Sem preço ou sem código de barras:** o envio é bloqueado. Código que começa com 2 (interno do caixa) é avisado.
+- Produto pesável: o iFood aceita EAN fictício ou código interno no campo `barcode`.
+- Se o iFood responder 429 (muitas requisições), o painel espera e tenta de novo.
+- A resposta de cada envio fica em `backups/ifood_api_teste_<tipo>_<data>.json` (corpo enviado, código e `integrationUuid`).
+- **A loja real está bloqueada no código** até a homologação ser aprovada.
+
+### O que aprendemos com o iFood (suporte, 18/11/2026)
+- O iFood responde **202** e processa depois. **Não existe endpoint de consulta** do resultado: o 202 é a confirmação.
+- Para **groceries** só se usa a API **Item**. O **Catalog v2 fica com 0 produtos**: é esperado.
+- O menu "Logs da API, HTTP Requests" do portal pode não mostrar as chamadas de ingestion. A validação é feita **por chamado**.
+- Vídeos de homologação: grave a tela do painel fazendo POST (produto novo), PATCH (preço, promoção e estoque) e a carga `reset=true`.
+  O portal limita o tamanho dos anexos: reduza os vídeos (cerca de 500 KB) ou envie **links** (Drive) no próprio chamado.
+
+### Estado da homologação
+- Módulo a homologar: **somente Item**. Periodicidade informada: **até 3 vezes ao dia** (PATCH) e sob demanda para produtos novos.
+- Chamado de homologação **#36553470**: vídeos recebidos e registrados como evidência; caso em **validação técnica** pelo iFood.
+- Chamado de dúvida técnica **#36555112**: respondido (ver acima).
+- Falta: aguardar a validação; se o iFood pedir outro cenário ou evidência, grave de novo pelo painel (loja de teste).
+
+### Quando a homologação for aprovada
+1. Confirme no portal que o aplicativo **"Casa de Embalagens Cangaiba - Catalogo"** está homologado para o módulo Item.
+2. Na tela **iFood (API)**, salve as chaves da **loja real** (e o ID da loja real) e use **Só testar**.
+3. Liberar o envio para a loja real exige uma mudança no código (hoje `enviar_ifood_item` recusa qualquer ambiente que não seja o de teste).
+   Faça isso com cuidado: comece por **1 produto**, confira a prévia e **nunca use a carga completa** (`reset=true`) na loja real.
 
 ## Acesso à Nuvemshop
 
