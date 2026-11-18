@@ -632,7 +632,12 @@ def _ifood_http(metodo, caminho, corpo=None, token=None, form=None):
             bruto = resp.read()
             if resp.headers.get("Content-Encoding") == "gzip":
                 bruto = gzip.decompress(bruto)
-            return resp.status, (json.loads(bruto) if bruto.strip() else {})
+            if not bruto.strip():
+                return resp.status, {}
+            try:
+                return resp.status, json.loads(bruto)
+            except ValueError:                       # resposta em texto simples
+                return resp.status, {"texto": bruto[:500].decode("utf-8", "replace")}
     except urllib.error.HTTPError as e:
         bruto = e.read()
         try:
