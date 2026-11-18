@@ -323,6 +323,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
         <button class="btn-lista" id="b-foto2"><span class="ic">📷</span>Enviar fotos para a Nuvemshop</button>
         <button class="btn-lista" id="b-org2"><span class="ic">🗂️</span>Organizar categorias dos produtos</button>
         <a class="btn-lista" href="/prioridades"><span class="ic">🚦</span>Prioridades: o que contar e comprar</a>
+        <button class="btn-lista" id="b-ifa"><span class="ic">🍔</span>iFood (API): conectar e testar</button>
         <button class="btn-lista" id="b-mov2"><span class="ic">🧾</span>Notas e vendas (estoque estimado)</button>
         <button class="btn-lista" id="b-imp2"><span class="ic">🔄</span>Atualizar dados</button>
         <a class="btn-lista" id="b-exp2" href="#"><span class="ic">📄</span>Baixar lista (CSV)</a>
@@ -365,6 +366,11 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 <dialog id="dsync">
   <div class="topo"><h3>Enviar estoque para a Nuvemshop</h3><button id="s-x">Fechar</button></div>
   <div class="corpo imp" id="s-corpo"></div>
+</dialog>
+
+<dialog id="difa">
+  <div class="topo"><h3>iFood (API): conectar e testar</h3><button id="if-x">Fechar</button></div>
+  <div class="corpo imp" id="if-corpo"></div>
 </dialog>
 
 <dialog id="dcad">
@@ -989,6 +995,30 @@ document.addEventListener("click", e => {          // fecha o menu "Loja online"
 
 /* ------------------------------------------------ cadastrar produtos novos no site */
 const ca = {sel:new Set(), ultimo:""};
+$("#b-ifa").onclick = () => abrirIfoodApi();
+$("#if-x").onclick = () => $("#difa").close();
+async function abrirIfoodApi(){
+  $("#difa").showModal(); const c = $("#if-corpo");
+  const e = await api("/api/ifood-api/estado");
+  const ok = (x) => x ? "✔" : "—";
+  c.innerHTML = `<section><b>Conectar o painel à API do iFood</b>
+    <p>As chaves ficam só neste computador (no <code>config.json</code>). Aqui o painel só <b>confere a conexão</b>: não envia nada ao iFood.</p>
+    <label class="op"><input type="radio" name="if-amb" value="teste" ${e.ambiente !== "real" ? "checked" : ""}><span><b>Loja de teste</b> (para gravar os vídeos de homologação)<br><small>ID ${ok(e.teste.id)} · segredo ${ok(e.teste.segredo)}</small></span></label>
+    <label class="op"><input type="radio" name="if-amb" value="real" ${e.ambiente === "real" ? "checked" : ""}><span><b>Loja real</b> (só depois da homologação)<br><small>ID ${ok(e.real.id)} · segredo ${ok(e.real.segredo)} · loja ${ok(e.real.loja)}</small></span></label>
+    <p style="margin:10px 0 4px">Se já estiverem salvas, deixe em branco e clique em <b>Só testar</b>.</p>
+    <label class="campo">Client ID<input id="if-id" autocomplete="off" placeholder="código no formato 8-4-4-4-12"></label>
+    <label class="campo">Client Secret<input id="if-sec" type="password" autocomplete="off"></label>
+    <label class="campo">ID da loja (merchant)<input id="if-loja" autocomplete="off" placeholder="opcional"></label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="pri" id="if-salvar">Salvar e testar</button><button id="if-testar">Só testar</button></div>
+    </section><div id="if-res" role="status"></div>`;
+  const amb = () => document.querySelector("input[name=if-amb]:checked").value;
+  const mostrar = (r) => { $("#if-res").innerHTML = r.erro ? `<div class="erro-msg">${esc(r.erro)}</div>` :
+    `<div class="ok-msg"><b>Conexão com o iFood ok</b> (${esc(r.ambiente)}).${(r.lojas||[]).length ? "<br>Lojas que a chave enxerga: " + r.lojas.map(l => esc(l.nome) + " (…" + esc(l.id_fim) + ")").join("; ") : ""}${r.aviso_lojas ? "<br>" + esc(r.aviso_lojas) : ""}${r.loja_configurada_aparece === false ? "<br><b>Atenção:</b> o ID da loja salvo não está entre as lojas que essa chave enxerga." : ""}</div>`; };
+  const chamar = async (url, corpo) => { $("#if-res").textContent = "Conferindo com o iFood…";
+    try{ mostrar(await api(url, {method:"POST", body:JSON.stringify(corpo)})); }catch(err){ mostrar({erro: err.message}); } };
+  $("#if-salvar").onclick = () => chamar("/api/ifood-api/conectar", {ambiente: amb(), client_id: $("#if-id").value, client_secret: $("#if-sec").value, merchant_id: $("#if-loja").value});
+  $("#if-testar").onclick = () => chamar("/api/ifood-api/testar", {ambiente: amb()});
+}
 $("#b-cad").onclick = () => abrirCadastrar(); $("#b-cad2").onclick = () => abrirCadastrar();
 $("#c-x").onclick = () => { $("#dcad").close(); carregarResumo(); carregar(); };
 async function abrirCadastrar(){

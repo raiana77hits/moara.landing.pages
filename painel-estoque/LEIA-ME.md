@@ -102,6 +102,14 @@ Tela `/prioridades` (Início, Ferramentas, "Prioridades"). Usa só os dados que 
 - Vendas e notas podem ser importadas em CSV ou Excel (.xlsx). Informe as datas certas do relatório.
 - Estoque estimado é alerta, não contagem.
 
+## iFood (API oficial): conectar e testar
+
+Início, Ferramentas, **iFood (API): conectar e testar**. Guarda o ID e o segredo do iFood neste computador
+(`config.json`) e confere a conexão, **sem enviar nada**. Há dois ambientes: **loja de teste** (para gravar
+os vídeos de homologação) e **loja real** (só depois da homologação). Se o ID e o segredo estiverem
+trocados, o painel acerta sozinho. Enquanto o aplicativo não for homologado, a loja real responde
+"sem permissão liberada": é esperado.
+
 ## Acesso à Nuvemshop
 
 Copie `config.exemplo.json` para `config.json` e cole o token (a senha é criada por `definir-senha.bat`). O arquivo fica só neste computador.

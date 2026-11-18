@@ -34,6 +34,7 @@ import threading
 import unicodedata
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import webbrowser
 import xml.etree.ElementTree as ET
@@ -580,6 +581,134 @@ def conectar_nuvemshop(token, loja):
     except OSError:
         pass
     return {"loja": _texto(info.get("name")) or "loja conectada"}
+
+
+# ------------------------------------------------------------- iFood (API oficial)
+
+IFOOD_API = os.environ.get("IFOOD_API_BASE", "https://merchant-api.ifood.com.br").rstrip("/")
+_UUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+_IFOOD_TOKEN = {}
+
+
+def _ler_config_bruto():
+    if os.path.exists(CONFIG_PATH):
+        with open(CONFIG_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
+def ifood_config(ambiente):
+    """Chaves do iFood do ambiente 'teste' ou 'real'. O ID é sempre o código no formato 8-4-4-4-12; se o
+    ID e o segredo vierem trocados, o painel acerta sozinho."""
+    ambiente = "real" if ambiente == "real" else "teste"
+    cfg = _ler_config_bruto()
+    pre = "ifood_" + ambiente + "_"
+    a = cfg.get(pre + "client_id", "") or os.environ.get("IFOOD_CLIENT_ID" if ambiente == "real" else "IFOOD_TEST_CLIENT_ID", "")
+    b = cfg.get(pre + "client_secret", "") or os.environ.get("IFOOD_CLIENT_SECRET" if ambiente == "real" else "IFOOD_TEST_CLIENT_SECRET", "")
+    a, b = a.strip(), b.strip()
+    if b and _UUID.match(b) and not _UUID.match(a):
+        a, b = b, a                                    # vieram trocados
+    merchant = (cfg.get(pre + "merchant_id", "") or (os.environ.get("IFOOD_MERCHANT_ID", "") if ambiente == "real" else "")).strip()
+    return {"ambiente": ambiente, "client_id": a, "client_secret": b, "merchant_id": merchant}
+
+
+def _ifood_http(metodo, caminho, corpo=None, token=None, form=None):
+    import gzip
+    url = IFOOD_API + caminho
+    cab = {"Accept": "application/json", "Accept-Encoding": "gzip", "User-Agent": "Painel de Estoque"}
+    if form is not None:
+        dados = urllib.parse.urlencode(form).encode()
+        cab["Content-Type"] = "application/x-www-form-urlencoded"
+    elif corpo is not None:
+        dados = json.dumps(corpo).encode()
+        cab["Content-Type"] = "application/json"
+    else:
+        dados = None
+    if token:
+        cab["Authorization"] = "Bearer " + token
+    req = urllib.request.Request(url, data=dados, method=metodo, headers=cab)
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            bruto = resp.read()
+            if resp.headers.get("Content-Encoding") == "gzip":
+                bruto = gzip.decompress(bruto)
+            return resp.status, (json.loads(bruto) if bruto.strip() else {})
+    except urllib.error.HTTPError as e:
+        bruto = e.read()
+        try:
+            if e.headers.get("Content-Encoding") == "gzip":
+                bruto = gzip.decompress(bruto)
+            corpo_err = json.loads(bruto) if bruto.strip() else {}
+        except Exception:  # noqa: BLE001
+            corpo_err = {"texto": bruto[:200].decode("utf-8", "replace")}
+        return e.code, corpo_err
+
+
+def ifood_token(ambiente):
+    cfg = ifood_config(ambiente)
+    if not cfg["client_id"] or not cfg["client_secret"]:
+        raise ValueError("Falta o ID e o segredo do iFood (" + ambiente + ").")
+    ja = _IFOOD_TOKEN.get(ambiente)
+    if ja and ja["ate"] > time.time() + 60:
+        return ja["token"]
+    codigo, r = _ifood_http("POST", "/authentication/v1.0/oauth/token", form={
+        "grantType": "client_credentials", "clientId": cfg["client_id"], "clientSecret": cfg["client_secret"]})
+    if codigo != 200:
+        msg = str((r.get("error") or {}).get("message") or r)
+        if codigo == 403:
+            raise ValueError("O iFood conhece o aplicativo, mas ele ainda não tem permissão liberada "
+                             "(a homologação do módulo precisa ser aprovada). Resposta: " + msg[:120])
+        if codigo in (400, 401):
+            raise ValueError("O iFood recusou o ID/segredo. Confira se não estão trocados ou com espaço. Resposta: " + msg[:120])
+        raise ValueError(f"O iFood respondeu {codigo}: {msg[:150]}")
+    _IFOOD_TOKEN[ambiente] = {"token": r["accessToken"], "ate": time.time() + int(r.get("expiresIn", 3600))}
+    return r["accessToken"]
+
+
+def estado_ifood():
+    cfg_arquivo = _ler_config_bruto()
+    saida = {}
+    for amb in ("teste", "real"):
+        c = ifood_config(amb)
+        saida[amb] = {"id": bool(c["client_id"]), "segredo": bool(c["client_secret"]), "loja": bool(c["merchant_id"]),
+                      "loja_id_fim": c["merchant_id"][-6:] if c["merchant_id"] else ""}
+    saida["ambiente"] = "real" if cfg_arquivo.get("ifood_ambiente") == "real" else "teste"
+    return saida
+
+
+def conectar_ifood(d):
+    """Guarda as chaves no config.json (neste computador) e confere com o iFood. Só leitura."""
+    amb = "real" if d.get("ambiente") == "real" else "teste"
+    dados = _ler_config_bruto()
+    pre = "ifood_" + amb + "_"
+    for campo in ("client_id", "client_secret", "merchant_id"):
+        v = str(d.get(campo) or "").strip()
+        if v:
+            dados[pre + campo] = v
+    dados["ifood_ambiente"] = amb
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(dados, f, indent=2, ensure_ascii=False)
+    try:
+        os.chmod(CONFIG_PATH, 0o600)
+    except OSError:
+        pass
+    _IFOOD_TOKEN.pop(amb, None)
+    return testar_ifood(amb)
+
+
+def testar_ifood(amb):
+    amb = "real" if amb == "real" else "teste"
+    ifood_token(amb)                              # levanta ValueError com a explicação, se falhar
+    r = {"ok": True, "ambiente": amb, "token": "ok", "lojas": []}
+    codigo, lojas = _ifood_http("GET", "/merchant/v1.0/merchants", token=_IFOOD_TOKEN[amb]["token"])
+    if codigo == 200 and isinstance(lojas, list):
+        r["lojas"] = [{"id_fim": str(x.get("id", ""))[-6:], "nome": str(x.get("name") or "")[:60]} for x in lojas[:10]]
+    else:
+        r["aviso_lojas"] = f"Não consegui listar as lojas (o iFood respondeu {codigo})."
+    cfg = ifood_config(amb)
+    if cfg["merchant_id"] and r["lojas"]:
+        r["loja_configurada_aparece"] = any(cfg["merchant_id"].endswith(x["id_fim"]) for x in r["lojas"])
+    return r
 
 
 def previa_nuvemshop(con, modo="zerar"):
@@ -3164,6 +3293,8 @@ class Handler(BaseHTTPRequestHandler):
             if u.path == "/api/cadastrar/so-nota":
                 lista = itens_so_na_nota(con)
                 return self._json({"total": len(lista), "amostra": lista[:15]})
+            if u.path == "/api/ifood-api/estado":
+                return self._json(estado_ifood())
             if u.path == "/api/central":
                 return self._json(central(con))
             if u.path == "/api/entradas/auto-previa":
@@ -3334,6 +3465,16 @@ class Handler(BaseHTTPRequestHandler):
                 d = json.loads(self._corpo() or b"{}")
                 return self._json(enviar_produto_site(con, int(u.path.rsplit("/", 1)[1]), (d.get("quem") or "painel")[:40],
                                                       d.get("campos") or []))
+            if u.path == "/api/ifood-api/conectar":
+                try:
+                    return self._json(conectar_ifood(json.loads(self._corpo() or b"{}")))
+                except ValueError as e:
+                    return self._json({"erro": str(e)}, 400)
+            if u.path == "/api/ifood-api/testar":
+                try:
+                    return self._json(testar_ifood(json.loads(self._corpo() or b"{}").get("ambiente")))
+                except ValueError as e:
+                    return self._json({"erro": str(e)}, 400)
             if u.path == "/api/config/nuvemshop":
                 d = json.loads(self._corpo() or b"{}")
                 return self._json(conectar_nuvemshop(d.get("token"), d.get("loja")))
