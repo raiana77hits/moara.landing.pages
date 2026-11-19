@@ -1920,6 +1920,34 @@ def alterar(con, pid, dados):
     return detalhe(con, pid)
 
 
+def desfazer_contagem(con, pid, quem="painel"):
+    """Desfaz a ÚLTIMA contagem de um produto (volta ao valor e à data anteriores).
+    Só desfaz se o estoque ainda é o que essa contagem gravou. Fica só no painel."""
+    p = con.execute("SELECT * FROM produtos WHERE id=?", (pid,)).fetchone()
+    if not p:
+        raise ValueError("Produto não encontrado.")
+    ult = con.execute("SELECT * FROM historico WHERE produto_id=? AND campo='estoque' "
+                      "ORDER BY id DESC LIMIT 1", (pid,)).fetchone()
+    if not ult:
+        raise ValueError("Este produto não tem contagem para desfazer.")
+    atual = "" if p["estoque"] is None else str(p["estoque"])
+    if atual != (ult["para"] or ""):
+        raise ValueError("O estoque deste produto mudou depois dessa contagem. Não dá para desfazer sozinho; corrija o número.")
+    antes = ult["de"] if ult["de"] not in (None, "") else None
+    novo = int(float(antes)) if antes is not None else None
+    ant = con.execute("SELECT quando FROM historico WHERE produto_id=? AND campo='estoque' AND id<? "
+                      "ORDER BY id DESC LIMIT 1", (pid, ult["id"])).fetchone()
+    quando_ant = ant["quando"] if (ant and novo is not None) else None
+    con.execute("UPDATE produtos SET estoque=?, conferido_em=?, atualizado_em=? WHERE id=?",
+                (novo, quando_ant, agora(), pid))
+    con.execute("DELETE FROM historico WHERE id=?", (ult["id"],))
+    con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                (pid, agora(), "estoque_desfeito", ult["para"] or "", "" if novo is None else str(novo), quem))
+    con.commit()
+    recalcular(con, [pid])
+    return detalhe(con, pid)
+
+
 # ------------------------------------------------------------- planilha do iFood
 
 MODELO_IFOOD = os.path.join(STATIC, "modelos", "ifood_planilha_modelo.xlsx")
@@ -3653,6 +3681,10 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if not self._logado(con):
                 return self._json({"erro": "Entre com a senha.", "login": True}, 401)
+            if u.path.startswith("/api/produto/") and u.path.endswith("/desfazer-contagem"):
+                dados = json.loads(self._corpo() or b"{}")
+                return self._json(desfazer_contagem(con, int(u.path.split("/")[3]),
+                                                    (str(dados.get("quem") or "").strip() or "painel")[:40]))
             if u.path.startswith("/api/produto/"):
                 dados = json.loads(self._corpo() or b"{}")
                 return self._json(alterar(con, int(u.path.rsplit("/", 1)[1]), dados))

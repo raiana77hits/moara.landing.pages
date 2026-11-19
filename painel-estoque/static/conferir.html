@@ -542,13 +542,13 @@ function cartao(p){
     <div id="c-erro" class="aviso a-bad" hidden></div>
   </div>`;
   desenharFoto(p);
-  const q = $("#qtd");
+  const q = $("#qtd"), abriuEmP = Date.now();
   $("#preco-in").addEventListener("input", () => {
     const pr = ($("#preco-in").value || "").trim().replace(",", ".");
     const antes = p.preco != null ? Number(p.preco).toFixed(2) : "";
     $("#preco-in").classList.toggle("mudou", pr !== "" && !isNaN(Number(pr)) && Number(pr).toFixed(2) !== antes);
   });
-  $("#preco-in").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); salvar(q.value); } });
+  $("#preco-in").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); if(Date.now() - abriuEmP < 900) return; salvar(q.value); } });
   $("#menos").onclick = () => q.value = Math.max(0, (parseInt(q.value) || 0) - 1);
   $("#mais").onclick = () => q.value = (parseInt(q.value) || 0) + 1;
   const salvar = async valor => {
@@ -563,14 +563,20 @@ function cartao(p){
     if(mudouPreco) corpo.preco = depois;
     try{
       await api("/api/produto/" + p.id, {method:"POST", body:JSON.stringify(corpo)});
-      $("#resultado").innerHTML = `<div class="aviso a-ok">Salvo: <b>${parseInt(valor)}</b> × ${esc(p.nome)}${mudouPreco ? " · preço agora R$ " + (depois === "" ? "(vazio)" : depois.replace(".", ",")) : ""}</div>`;
+      $("#resultado").innerHTML = `<div class="aviso a-ok">Salvo: <b>${parseInt(valor)}</b> × ${esc(p.nome)}${mudouPreco ? " · preço agora R$ " + (depois === "" ? "(vazio)" : depois.replace(".", ",")) : ""} <button type="button" class="desf" data-id="${p.id}" style="margin-left:8px">↩ Desfazer contagem</button></div>`;
       ultimas(); seguir();
     }catch(e){ $("#c-erro").hidden = false; $("#c-erro").textContent = e.message; }
   };
   $("#b-salvar").onclick = () => salvar(q.value);
   $("#b-zero").onclick = () => salvar("0");
   $("#b-pular").onclick = () => { $("#resultado").innerHTML = ""; seguir(); };
-  q.addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); salvar(q.value); } });
+  const abriuEm = Date.now();
+  q.addEventListener("keydown", e => {
+    if(e.key !== "Enter") return;
+    e.preventDefault();
+    if(Date.now() - abriuEm < 900) return;   // o "Enter" final do leitor de código de barras não pode salvar sozinho
+    salvar(q.value);
+  });
   q.focus(); q.select();
 }
 function desenharFoto(p){
@@ -600,7 +606,7 @@ function seguir(){
   if(!lendo) $("#cod").focus();   // leitor Bluetooth ou teclado: já fica pronto para o próximo
 }
 // Número vindo de "Digitalizar texto" do iPhone, colado ou digitado: acha o código no meio do texto e busca sozinho
-let ultimoAuto = "";
+let ultimoAuto = "", ultimoAutoEm = 0;
 function codigoNoTexto(t){
   for(const m of String(t).matchAll(/\d[\d\s.\-]{6,20}\d/g)){
     const d = m[0].replace(/\D/g, ""); if(gs1Ok(d)) return d;
@@ -609,11 +615,15 @@ function codigoNoTexto(t){
 }
 $("#cod").addEventListener("input", () => {
   const d = codigoNoTexto($("#cod").value);
-  if(d && d !== ultimoAuto){ ultimoAuto = d; $("#cod").value = d; bip(); status("Código lido: " + d); buscar(d, true); }
+  if(d && d !== ultimoAuto){ ultimoAuto = d; ultimoAutoEm = Date.now(); $("#cod").value = d; bip(); status("Código lido: " + d); buscar(d, true); }
   if(!d) ultimoAuto = "";
 });
 $("#b-nums").onclick = () => { const i = $("#cod"); i.value = ""; i.focus(); status("Agora toque e segure no campo e escolha “Digitalizar texto”.", "aviso"); };
-$("#f-cod").addEventListener("submit", e => { e.preventDefault(); buscar($("#cod").value); });
+$("#f-cod").addEventListener("submit", e => {
+  e.preventDefault();
+  if(codigoNoTexto($("#cod").value) === ultimoAuto && Date.now() - ultimoAutoEm < 2000) return;   // a busca automática já foi feita
+  buscar($("#cod").value);
+});
 
 async function ultimas(){
   try{
@@ -626,6 +636,21 @@ async function ultimas(){
   }catch(e){}
 }
 ultimas();
+
+// ---------- desfazer a última contagem de um produto (volta ao número e à data de antes; o preço não muda)
+async function desfazerContagem(id){
+  if(!confirm("Desfazer a última contagem deste produto? O estoque volta ao número de antes (o preço não muda).")) return null;
+  const d = await api("/api/produto/" + id + "/desfazer-contagem", {method:"POST", body:JSON.stringify({quem})});
+  await ultimas();
+  return d;
+}
+$("#resultado").addEventListener("click", async e => {
+  const b = e.target.closest(".desf"); if(!b) return;
+  try{
+    const d = await desfazerContagem(b.dataset.id); if(!d) return;
+    $("#resultado").innerHTML = `<div class="aviso a-ok">Contagem desfeita: ${esc(d.nome)} voltou para <b>${d.estoque == null ? "sem contagem" : d.estoque}</b>.</div>`;
+  }catch(er){ $("#resultado").innerHTML = `<div class="aviso a-bad">${esc(er.message)}</div>`; }
+});
 
 // ---------- editar um produto direto na lista "Últimas contagens"
 const num2 = v => { const s = String(v ?? "").trim().replace(",", "."); return s === "" ? "" : Number(s).toFixed(2); };
@@ -649,6 +674,7 @@ async function abrirEdicao(li){
     <div class="e-foto"><div class="e-fprev">${p.foto ? `<img class="foto-c" src="${esc(mini(p.foto, 320))}" alt="">` : `<div class="foto-c sem">Sem foto</div>`}</div>
       <label class="btn-foto ${p.foto ? "" : "destaque"}">${p.foto ? "📷 Trocar a foto" : "📷 Tirar foto do produto"}<input type="file" class="e-fin" accept="image/*" capture="environment" hidden></label></div>
     <div class="msg"></div>
+    <button type="button" class="e-desfazer">↩ Desfazer a última contagem</button>
     <div class="btns"><button type="button" class="e-cancelar">Cancelar</button><button type="button" class="pri e-salvar">Salvar</button></div>`;
   const msg = ed.querySelector(".msg");
   ed.querySelector(".e-fin").onchange = async e => {
@@ -661,6 +687,10 @@ async function abrirEdicao(li){
     }catch(er){ msg.className = "msg erro"; msg.textContent = "Não consegui salvar a foto: " + er.message; }
   };
   ed.querySelector(".e-cancelar").onclick = () => ed.remove();
+  ed.querySelector(".e-desfazer").onclick = async () => {
+    try{ const d = await desfazerContagem(id); if(d) ed.remove(); }
+    catch(er){ msg.className = "msg erro"; msg.textContent = er.message; }
+  };
   ed.querySelector(".e-salvar").onclick = async () => {
     const corpo = {quem}, v = s => ed.querySelector(s).value;
     if(v(".e-nome").trim() !== p.nome) corpo.nome = v(".e-nome");
