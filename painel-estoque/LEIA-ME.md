@@ -199,3 +199,12 @@ Para enviar, escolha **Loja REAL** na seção "Enviar produtos ao iFood". Travas
 - cada envio guarda a resposta em `backups/ifood_api_real_...json` e registra no histórico do produto.
 
 Lembre: o iFood aceita (resposta 202) e processa depois; não há consulta do resultado. Confira o produto no portal do parceiro.
+
+
+## Cruzamento de dados (preços)
+
+Em **Ferramentas > Cruzamento de dados (preços)**: o **preço oficial é o do Gestor Z** (o painel guarda ele à parte, em "preço oficial", que só muda quando você importa o cadastro do Gestor Z). Esperado: **Nuvemshop = preço do Gestor Z**; **iFood e 99Food = preço do Gestor Z ÷ 0,70**. Diferenças de até R$ 0,05 não contam.
+
+A tela mostra, por produto, o que está diferente no painel, no site, no catálogo do iFood e no da 99 (os dois últimos vêm das planilhas de catálogo que você importa), e lista os produtos **sem preço oficial** (cadastrados à mão, sem correspondente no Gestor Z), com sugestões de preços parecidos. O botão **Aplicar o preço oficial no painel** só corrige o painel; depois você leva o preço certo às lojas pelas ferramentas de envio. Nada é enviado por essa tela.
+
+As listas e planilhas do iFood e da 99 passam a usar sempre o preço oficial quando ele existe. Depois de instalar esta versão, **importe o cadastro do Gestor Z de novo** para o painel gravar o preço oficial de todos os produtos.

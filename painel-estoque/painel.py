@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS produtos (
     grupo TEXT,
     unidade TEXT,
     custo REAL,
-    preco REAL,              -- preço de venda no caixa (base das regras de preço)
+    preco REAL,              -- preço de venda no painel (pode ser editado à mão)
     ativo INTEGER DEFAULT 1,
     origem TEXT,             -- gestorz | painel | nuvemshop
     estoque INTEGER,         -- estoque oficial; NULL = ainda não conferido
@@ -233,6 +233,10 @@ def conectar():
     colunas = {r["name"] for r in con.execute("PRAGMA table_info(produtos)")}
     if "foto_url" not in colunas:          # banco criado por uma versão anterior
         con.execute("ALTER TABLE produtos ADD COLUMN foto_url TEXT")
+    if "preco_gz" not in colunas:           # preço OFICIAL: só muda quando o cadastro do Gestor Z é importado
+        con.execute("ALTER TABLE produtos ADD COLUMN preco_gz REAL")
+        con.execute("UPDATE produtos SET preco_gz=preco WHERE origem='gestorz' AND preco > 0")
+        con.commit()
     for col, tipo in (("estimado", "REAL"), ("est_aviso", "TEXT"), ("categoria_id", "TEXT"),
                       ("categoria_nome", "TEXT"), ("ifood_depto", "TEXT"), ("ifood_cat", "TEXT")):
         if col not in colunas:
@@ -250,6 +254,20 @@ def num(v):
     try:
         return float(str(v).replace(",", "."))
     except (TypeError, ValueError):
+        return None
+
+
+def preco_efetivo(p):
+    """O preço que vale: o do Gestor Z (oficial) quando existe; senão o que está no painel."""
+    try:
+        oficial = p["preco_gz"]
+    except (IndexError, KeyError):
+        oficial = None
+    if oficial and oficial > 0:
+        return oficial
+    try:
+        return p["preco"]
+    except (IndexError, KeyError):
         return None
 
 
@@ -300,7 +318,7 @@ def importar_gestorz(con, origem):
             ean=(l.get("gtin") or "").strip(), ean_norm=norm_ean(l.get("gtin")),
             nome=(l.get("descricao") or "").strip(), grupo=(l.get("grupo") or "").strip(),
             unidade=(l.get("un") or "").strip(), custo=num(l.get("custo")),
-            preco=num(l.get("venda")), ativo=0 if (l.get("ativo") or "S").upper() == "N" else 1,
+            preco=num(l.get("venda")), preco_gz=num(l.get("venda")), ativo=0 if (l.get("ativo") or "S").upper() == "N" else 1,
             atualizado_em=agora())
         r = con.execute("SELECT id FROM produtos WHERE sku=?", (sku,)).fetchone()
         if r is None and campos["gz_codigo"]:
@@ -747,8 +765,9 @@ def ifood_item_corpo(p, divisor=0.70):
         base = est if est is not None else cont
     qtd = None if base is None else max(0, int(math.floor(base)))
     corpo["active"] = True if qtd is None else qtd > 0
-    if p["preco"] and p["preco"] > 0:
-        corpo["prices"] = {"price": round(p["preco"] / divisor + 1e-9, 2)}
+    pe = preco_efetivo(p)
+    if pe and pe > 0:
+        corpo["prices"] = {"price": round(pe / divisor + 1e-9, 2)}
     else:
         avisos.append("sem preço")
     det = {}
@@ -828,7 +847,7 @@ def candidatos_ifood(con, lista, divisor=0.70, mostrar_enviados=False):
     itens = []
     for p in linhas[:LIMITE_LISTA_IFOOD]:
         corpo, avisos = ifood_item_corpo(p, divisor)
-        itens.append({"id": p["id"], "nome": p["nome"], "ean": p["ean"], "preco": p["preco"],
+        itens.append({"id": p["id"], "nome": p["nome"], "ean": p["ean"], "preco": preco_efetivo(p),
                       "preco_ifood": (corpo.get("prices") or {}).get("price"), "estoque": p["estoque"],
                       "estimado": p["estimado"], "conferido_em": p["conferido_em"], "site": bool(p["f_site"]),
                       "ifood": bool(p["f_ifood"]), "n99": bool(p["f_99"]), "avisos": avisos,
@@ -2037,6 +2056,79 @@ def alterar(con, pid, dados):
     return detalhe(con, pid)
 
 
+# ------------------------------------------------------------- cruzamento de preços (Gestor Z manda)
+
+TOLERANCIA_PRECO = 0.05
+TIPOS_CRUZAMENTO = {
+    "painel": "Painel diferente do Gestor Z",
+    "site": "Site (Nuvemshop) diferente",
+    "ifood": "iFood diferente",
+    "n99": "99Food diferente",
+    "sem_oficial": "Sem preço oficial no Gestor Z",
+}
+
+
+def cruzamento_precos(con, tipo="", divisor=0.70, limite=400):
+    """Compara o preço oficial (Gestor Z) com o painel, o site, o catálogo do iFood e o da 99Food.
+    Site = preço do Gestor Z. iFood e 99Food = preço do Gestor Z ÷ 0,70. Só leitura."""
+    ifood = {norm_ean(r["ean"]): r["preco"] for r in con.execute("SELECT ean, preco FROM ifood_catalogo") if norm_ean(r["ean"])}
+    n99 = {norm_ean(r["ean"]): r["preco"] for r in con.execute("SELECT ean, preco FROM n99_catalogo") if norm_ean(r["ean"])}
+    site = {}
+    for r in con.execute("SELECT produto_id, preco FROM canais WHERE canal='nuvemshop'"):
+        site.setdefault(r["produto_id"], []).append(r["preco"])
+    contagens = {k: 0 for k in TIPOS_CRUZAMENTO}
+    linhas = []
+    dif = lambda atual, esperado: atual is not None and esperado is not None and abs(atual - esperado) > TOLERANCIA_PRECO
+    for p in con.execute("SELECT * FROM produtos ORDER BY nome COLLATE NOCASE"):
+        ean = norm_ean(p["ean"])
+        oficial = p["preco_gz"] if p["preco_gz"] and p["preco_gz"] > 0 else None
+        esp_ap = round(oficial / divisor + 1e-9, 2) if oficial else None
+        pi, p9 = ifood.get(ean) if ean else None, n99.get(ean) if ean else None
+        ps = site.get(p["id"])
+        ps = ps[0] if ps and len(ps) == 1 else None
+        painel = p["preco"] if p["preco"] and p["preco"] > 0 else None
+        em_algum = p["estoque"] is not None or pi is not None or p9 is not None or ps is not None or p["id"] in site
+        flags = []
+        if oficial is None:
+            if em_algum:
+                flags.append("sem_oficial")
+        else:
+            if painel is None or dif(painel, oficial):
+                flags.append("painel")
+            if dif(ps, oficial):
+                flags.append("site")
+            if dif(pi, esp_ap):
+                flags.append("ifood")
+            if dif(p9, esp_ap):
+                flags.append("n99")
+        for f in flags:
+            contagens[f] += 1
+        if flags and (not tipo or tipo in flags):
+            linhas.append({"id": p["id"], "nome": p["nome"], "ean": p["ean"], "contado": p["estoque"], "oficial": oficial,
+                           "esperado_apps": esp_ap, "painel": painel, "site": ps, "ifood": pi, "n99": p9, "flags": flags})
+    meta = {k: (con.execute("SELECT valor FROM meta WHERE chave=?", (k,)).fetchone() or [None])[0]
+            for k in ("gestorz_importado_em", "nuvemshop_sync_em", "ifood_catalogo_em", "n99_catalogo_em")}
+    return {"contagens": contagens, "tipos": TIPOS_CRUZAMENTO, "itens": linhas[:limite], "total": len(linhas),
+            "cortou": len(linhas) > limite, "tolerancia": TOLERANCIA_PRECO, "divisor": divisor, "quando": meta}
+
+
+def aplicar_preco_oficial(con, ids, quem="painel"):
+    """Põe no painel o preço oficial do Gestor Z nos produtos marcados. Não envia nada às lojas."""
+    feitos = 0
+    for pid in [int(i) for i in ids][:500]:
+        p = con.execute("SELECT id, preco, preco_gz FROM produtos WHERE id=?", (pid,)).fetchone()
+        if not p or not p["preco_gz"] or p["preco_gz"] <= 0:
+            continue
+        if p["preco"] is not None and abs(p["preco"] - p["preco_gz"]) <= 0.004:
+            continue
+        con.execute("UPDATE produtos SET preco=?, atualizado_em=? WHERE id=?", (p["preco_gz"], agora(), pid))
+        con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                    (pid, agora(), "preco", "" if p["preco"] is None else f"{p['preco']:.2f}", f"{p['preco_gz']:.2f}", quem + " (preço oficial)"))
+        feitos += 1
+    con.commit()
+    return {"aplicados": feitos}
+
+
 def sugestoes_preco(con, pid):
     """Produto sem preço: procura no cadastro do Gestor Z (a tabela oficial de preços) os produtos de nome mais
     parecido, para você escolher. Só leitura; quem grava o preço é você, no botão da sugestão."""
@@ -2205,7 +2297,8 @@ def planilha_ifood(con, divisor=0.70, so_novos=None):
         if ean in vistos:
             continue
         vistos.add(ean)
-        if not p["preco"] or p["preco"] <= 0:
+        pe = preco_efetivo(p)
+        if not pe or pe <= 0:
             falta["sem_preco"].append(p["nome"])
             continue
         if p["estoque"] is None:
@@ -2215,9 +2308,9 @@ def planilha_ifood(con, divisor=0.70, so_novos=None):
         qtd = max(0, int(math.floor(base)))
         cat = catalogo.get(ean)
         ruptura = bool(cat and "Ruptura" in (cat["bloqueio"] or ""))
-        preco = round(p["preco"] / divisor + 1e-9, 2)
+        preco = round(pe / divisor + 1e-9, 2)
         itens.append({"ean": int(ean), "nome": p["nome"], "preco": preco, "qtd": qtd, "ativo": 1 if qtd > 0 else 0,
-                      "no_ifood": bool(cat), "ruptura": ruptura, "caixa": p["preco"]})
+                      "no_ifood": bool(cat), "ruptura": ruptura, "caixa": pe})
     enviados = {str(i["ean"]) for i in itens}
     for e, cat in catalogo.items():              # em ruptura no iFood e sem contagem: não dá para mandar estoque
         if "Ruptura" in (cat["bloqueio"] or "") and e not in enviados:
@@ -3898,6 +3991,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json(candidatos_ifood(con, qs.get("lista", ""), mostrar_enviados=qs.get("todos") == "1"))
                 except ValueError as e:
                     return self._json({"erro": str(e)}, 400)
+            if u.path == "/api/cruzamento":
+                return self._json(cruzamento_precos(con, qs.get("tipo", "")))
             if u.path == "/api/ifood-api/comparar":
                 return self._json(comparar_canais(con))
             if u.path == "/api/ifood-api/estado":
@@ -4072,6 +4167,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if not self._logado(con):
                 return self._json({"erro": "Entre com a senha.", "login": True}, 401)
+            if u.path == "/api/cruzamento/aplicar":
+                d = json.loads(self._corpo() or b"{}")
+                return self._json(aplicar_preco_oficial(con, d.get("ids") or [], unquote(self.headers.get("X-Quem") or "painel")[:40]))
             if u.path == "/api/envio/marcar":
                 return self._json(marcar_envio(con, str(json.loads(self._corpo() or b"{}").get("destino") or "")))
             if u.path.startswith("/api/produto/") and u.path.endswith("/desfazer-contagem"):

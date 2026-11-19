@@ -409,6 +409,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
         <a class="btn-lista" href="/prioridades"><span class="ic">🚦</span>Prioridades: o que contar e comprar</a>
         <button class="btn-lista" id="b-ifa"><span class="ic">🍔</span>iFood (API): conectar e testar</button>
         <button class="btn-lista" id="b-mov2"><span class="ic">🧾</span>Notas e vendas (estoque estimado)</button>
+        <button class="btn-lista" id="b-cruz"><span class="ic">🔀</span>Cruzamento de dados (preços)</button>
         <button class="btn-lista" id="b-imp2"><span class="ic">🔄</span>Atualizar dados</button>
         <a class="btn-lista" id="b-exp2" href="#"><span class="ic">📄</span>Baixar lista (CSV)</a>
         <a class="btn-lista" id="b-zip" href="/api/fotos.zip"><span class="ic">🖼️</span><span id="t-zip">Baixar fotos tiradas</span></a>
@@ -445,6 +446,10 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
   <a href="/conferir"><span class="ic">📷</span>Conferir</a>
 </div>
 
+<dialog id="dcruz">
+  <div class="topo"><h3>Cruzamento de dados: preços</h3><button id="cz-x">Fechar</button></div>
+  <div class="corpo imp" id="cz-corpo"></div>
+</dialog>
 <dialog id="dcats"><div class="topo"><h3>Categorias</h3><button id="cat-x">Fechar</button></div><div class="corpo"><div class="tiles" id="cats"></div></div></dialog>
 <dialog id="dlg"><div class="topo"><h3 id="d-nome"></h3><button id="d-x">Fechar</button></div><div class="corpo" id="d-corpo"></div></dialog>
 
@@ -1005,6 +1010,69 @@ $("#i-nuvem").onclick = async () => {
     }
   }, 1500);
 };
+
+/* ------------------------------------------------ cruzamento de preços (o Gestor Z manda) */
+const cz = {tipo:"", marcados:new Set(), dados:null};
+$("#b-cruz").onclick = () => abrirCruzamento();
+$("#cz-x").onclick = () => $("#dcruz").close();
+async function abrirCruzamento(tipo){
+  if(tipo !== undefined) cz.tipo = tipo;
+  $("#dcruz").showModal(); const c = $("#cz-corpo");
+  c.innerHTML = "<p>Cruzando os preços…</p>";
+  let d;
+  try{ d = await api("/api/cruzamento" + (cz.tipo ? "?tipo=" + cz.tipo : "")); }
+  catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
+  cz.dados = d;
+  const br = v => v == null ? "—" : "R$ " + Number(v).toFixed(2).replace(".", ",");
+  const q = d.quando || {}, tx = (k, n) => q[k] ? n + " " + esc(data(q[k])) : n + " nunca";
+  const ruim = (i, f) => i.flags.includes(f) ? ' style="background:var(--bad-bg,#fde8e6);font-weight:700"' : "";
+  const aplicaveis = d.itens.filter(i => i.oficial);
+  c.innerHTML = `<section><b>O preço oficial é o do Gestor Z.</b>
+    <p style="font-size:13px">Esperado: <b>Site = preço do Gestor Z</b> · <b>iFood e 99Food = preço do Gestor Z ÷ ${String(d.divisor).replace(".", ",")}</b> · diferenças de até ${br(d.tolerancia)} não contam.</p>
+    <p style="font-size:12px;color:var(--muted)">Dados usados: ${tx("gestorz_importado_em", "Gestor Z")} · ${tx("nuvemshop_sync_em", "Nuvemshop lida em")} · ${tx("ifood_catalogo_em", "catálogo iFood de")} · ${tx("n99_catalogo_em", "catálogo 99 de")}. Para o cruzamento valer, importe o Gestor Z e os catálogos de novo.</p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${Object.entries(d.tipos).map(([k, n]) => `<button type="button" class="${cz.tipo === k ? "pri" : ""}" data-t="${k}">${esc(n)} (${num(d.contagens[k])})</button>`).join("")}<button type="button" class="${cz.tipo === "" ? "pri" : ""}" data-t="">Tudo com alerta</button></div></section>
+    <section>${d.itens.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><button type="button" id="cz-todos">Marcar todos desta lista</button><button type="button" id="cz-nenhum">Desmarcar</button><button type="button" class="pri" id="cz-aplicar">Aplicar o preço oficial no painel (<span id="cz-n">0</span>)</button><button type="button" id="cz-csv">Baixar esta lista (CSV)</button></div>
+      <p style="font-size:12px;color:var(--muted)">“Aplicar” só muda o preço <b>no painel</b>. Depois use as ferramentas de envio (iFood API: “Só atualizar preço…”, Planilhas dos apps, Nuvemshop) para levar o preço certo às lojas. Nada é enviado por aqui.${d.cortou ? " Mostrando só os primeiros " + d.itens.length + " de " + d.total + "." : ""}</p>
+      <div class="rolagem"><table class="mini"><thead><tr><th></th><th>Produto</th><th>Oficial</th><th>Apps ÷</th><th>Painel</th><th>Site</th><th>iFood</th><th>99Food</th></tr></thead><tbody>${d.itens.map(i => `<tr data-id="${i.id}"><td>${i.oficial ? `<input type="checkbox" data-i="${i.id}" ${cz.marcados.has(i.id) ? "checked" : ""}>` : ""}</td><td>${esc(i.nome)}<br><small style="color:var(--muted)">${esc(i.ean || "sem código")}${i.contado != null ? " · contado " + i.contado : ""}</small></td><td><b>${br(i.oficial)}</b>${i.oficial ? "" : `<br><button type="button" class="cz-sug" data-i="${i.id}" style="font-size:12px">ver sugestões</button><div class="cz-sug-box" data-i="${i.id}"></div>`}</td><td>${br(i.esperado_apps)}</td><td${ruim(i, "painel")}>${br(i.painel)}</td><td${ruim(i, "site")}>${br(i.site)}</td><td${ruim(i, "ifood")}>${br(i.ifood)}</td><td${ruim(i, "n99")}>${br(i.n99)}</td></tr>`).join("")}</tbody></table></div>` : "<p>Nada com alerta nesta lista. 👍</p>"}</section>
+    <div id="cz-res" role="status"></div>`;
+  const cont = () => { const n = $("#cz-n"); if(n) n.textContent = cz.marcados.size; };
+  cont();
+  c.onclick = async e => {
+    const t = e.target.closest("button[data-t]"); if(t){ cz.marcados.clear(); abrirCruzamento(t.dataset.t); return; }
+    if(e.target.closest("#cz-todos")){ aplicaveis.forEach(i => cz.marcados.add(i.id)); abrirCruzamento(); return; }
+    if(e.target.closest("#cz-nenhum")){ cz.marcados.clear(); abrirCruzamento(); return; }
+    const s = e.target.closest(".cz-sug");
+    if(s){
+      const box = c.querySelector(`.cz-sug-box[data-i="${s.dataset.i}"]`); box.textContent = "procurando…";
+      try{ const r = await api("/api/produto/" + s.dataset.i + "/sugestoes-preco");
+        box.innerHTML = r.itens.length ? r.itens.map(x => `<button type="button" class="cz-usar" data-i="${s.dataset.i}" data-p="${x.preco}" style="font-size:12px;display:block;margin-top:3px" title="${esc(x.nome)}">Usar ${br(x.preco)} · ${esc(x.nome.slice(0, 28))}</button>`).join("") : "<small>nenhum parecido</small>";
+      }catch(er){ box.textContent = er.message; }
+      return;
+    }
+    const us = e.target.closest(".cz-usar");
+    if(us){
+      try{ await api("/api/produto/" + us.dataset.i, {method:"POST", body:JSON.stringify({preco: us.dataset.p, quem: quemContando()})}); abrirCruzamento(); }
+      catch(er){ alert(er.message); }
+      return;
+    }
+    if(e.target.closest("#cz-aplicar")){
+      if(!cz.marcados.size){ alert("Marque ao menos um produto."); return; }
+      if(!confirm("Colocar no PAINEL o preço oficial do Gestor Z em " + cz.marcados.size + " produto(s)? Isso não envia nada às lojas.")) return;
+      try{ const r = await api("/api/cruzamento/aplicar", {method:"POST", body:JSON.stringify({ids:[...cz.marcados]}), headers:{"X-Quem":encodeURIComponent(quemContando())}});
+        cz.marcados.clear(); await abrirCruzamento(); $("#cz-res").innerHTML = `<div class="ok-msg">${num(r.aplicados)} preço(s) corrigido(s) no painel. Agora leve para as lojas pelas ferramentas de envio.</div>`; carregarResumo(); }
+      catch(er){ alert(er.message); }
+      return;
+    }
+    if(e.target.closest("#cz-csv")){
+      const q2 = t => '"' + String(t ?? "").replace(/"/g, '""') + '"', n2 = v => v == null ? "" : String(v).replace(".", ",");
+      const linhas = [["Produto", "Código", "Contado", "Preço oficial (Gestor Z)", "Esperado iFood/99", "Painel", "Site", "iFood", "99Food", "Alertas"].map(q2).join(";")]
+        .concat(cz.dados.itens.map(i => [i.nome, i.ean, i.contado, n2(i.oficial), n2(i.esperado_apps), n2(i.painel), n2(i.site), n2(i.ifood), n2(i.n99), i.flags.map(f => cz.dados.tipos[f]).join(" | ")].map(q2).join(";")));
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + linhas.join("\r\n")], {type:"text/csv;charset=utf-8"}));
+      a.download = "cruzamento_precos.csv"; a.click();
+    }
+  };
+  c.onchange = e => { const x = e.target.closest("input[data-i]"); if(x){ x.checked ? cz.marcados.add(+x.dataset.i) : cz.marcados.delete(+x.dataset.i); cont(); } };
+}
 /* ------------------------------------------------ planilha do iFood */
 const ifd = {divisor:"0,70", canal:"shop", aba:"ifood", novos:false};
 $("#b-ifood").onclick = () => abrirIfood(); $("#b-ifood2").onclick = () => abrirIfood();
