@@ -797,11 +797,17 @@ def listas_ifood():
         "site_sem_ifood": ("Estão no site e não estão no iFood", f"{_FLAG_SITE} AND NOT {_FLAG_IFOOD}"),
         "ifood_sem_99": ("Estão no iFood e não estão na 99Food", f"{_FLAG_IFOOD} AND NOT {_FLAG_99}"),
         "sem_ifood": ("Não estão no iFood (qualquer origem)", f"NOT {_FLAG_IFOOD}"),
+        "zerados": ("Estoque zero: desativar no iFood", f"p.estoque = 0 AND {_FLAG_IFOOD}"),
     }
 LIMITE_LISTA_IFOOD = 300
 
 
-def candidatos_ifood(con, lista, divisor=0.70):
+# produto que já subiu à loja real depois da última contagem: não precisa subir de novo
+_JA_ENVIADO = ("EXISTS (SELECT 1 FROM historico h WHERE h.produto_id=p.id AND h.campo='iFood (loja real)' "
+               "AND h.quando >= COALESCE(p.conferido_em,''))")
+
+
+def candidatos_ifood(con, lista, divisor=0.70, mostrar_enviados=False):
     """Produtos de uma lista rápida (ou de uma combinação de canais 'combo:SIN', ex.: combo:101 = site e 99, sem iFood),
     com o que falta para ir ao iFood. Só leitura: não envia nada."""
     if lista.startswith("combo:") and len(lista) == 9 and set(lista[6:]) <= {"0", "1"}:
@@ -812,6 +818,10 @@ def candidatos_ifood(con, lista, divisor=0.70):
         nome, cond = listas_ifood()[lista]
     else:
         raise ValueError("Lista desconhecida.")
+    escondidos = 0
+    if not mostrar_enviados:
+        escondidos = con.execute(f"SELECT COUNT(*) FROM produtos p WHERE ({cond}) AND {_JA_ENVIADO}").fetchone()[0]
+        cond = f"({cond}) AND NOT {_JA_ENVIADO}"
     linhas = con.execute(
         f"SELECT p.*, {_FLAG_SITE} AS f_site, {_FLAG_IFOOD} AS f_ifood, {_FLAG_99} AS f_99 FROM produtos p "
         f"WHERE ({cond}) ORDER BY p.conferido_em DESC, p.nome COLLATE NOCASE LIMIT ?", (LIMITE_LISTA_IFOOD + 1,)).fetchall()
@@ -823,7 +833,7 @@ def candidatos_ifood(con, lista, divisor=0.70):
                       "estimado": p["estimado"], "conferido_em": p["conferido_em"], "site": bool(p["f_site"]),
                       "ifood": bool(p["f_ifood"]), "n99": bool(p["f_99"]), "avisos": avisos,
                       "pronto": not any(a.startswith(("sem preço", "sem código")) for a in avisos)})
-    return {"lista": lista, "nome": nome, "itens": itens, "cortou": len(linhas) > LIMITE_LISTA_IFOOD}
+    return {"lista": lista, "nome": nome, "itens": itens, "cortou": len(linhas) > LIMITE_LISTA_IFOOD, "escondidos": escondidos}
 
 
 def comparar_canais(con):
@@ -849,15 +859,24 @@ def _ifood_parcial(corpo, promo=None):
     return p
 
 
-def previa_ifood_item(con, ids, divisor=0.70, modo="post", promo=None):
-    modo = modo if modo in ("post", "patch", "reset") else "post"
-    ids = [int(i) for i in ids][:MAX_IFOOD_TESTE]
+def previa_ifood_item(con, ids, divisor=0.70, modo="post", promo=None, limite=None):
+    modo = modo if modo in ("post", "patch", "reset", "desativar") else "post"
+    ids = list(dict.fromkeys(int(i) for i in ids))
+    limite = limite or LIMITE_IFOOD_REAL
+    if len(ids) > limite:      # antes o painel cortava a lista em 20 sem avisar
+        raise ValueError(f"Marque no máximo {limite} produtos por vez (você marcou {len(ids)}). Envie em lotes.")
     itens = []
     for pid in ids:
         p = con.execute("SELECT * FROM produtos WHERE id=?", (pid,)).fetchone()
         if not p:
             continue
         corpo, avisos = ifood_item_corpo(p, divisor)
+        desativar_bloqueia = False
+        if modo == "desativar":
+            if p["estoque"] != 0:
+                avisos.append("só desativa produto contado com estoque 0 (este não está zerado)")
+                desativar_bloqueia = True
+            corpo = dict(corpo, active=False, inventory={"stock": 0})
         if modo == "patch":
             corpo = _ifood_parcial(corpo, promo)
         elif promo is not None:
@@ -866,8 +885,8 @@ def previa_ifood_item(con, ids, divisor=0.70, modo="post", promo=None):
             if base is None or not 0 < promo < base:
                 raise ValueError("O preço promocional precisa ser maior que zero e menor que o preço de venda.")
             corpo["prices"] = dict(corpo["prices"], promotionPrice=round(promo, 2))
-        bloqueia = any(a.startswith("sem código de barras") for a in avisos)
-        if modo in ("post", "reset") and "prices" not in corpo:
+        bloqueia = desativar_bloqueia or any(a.startswith("sem código de barras") for a in avisos)
+        if modo in ("post", "reset", "desativar") and "prices" not in corpo and modo != "desativar":
             avisos.append("sem preço: o iFood não consegue vender; cadastre o preço antes de enviar")
             bloqueia = True
         if modo == "patch" and "prices" not in corpo and "inventory" not in corpo:
@@ -882,7 +901,8 @@ def previa_ifood_item(con, ids, divisor=0.70, modo="post", promo=None):
                                  "subcategoria": cz.get("subCategory", ""), "ja_no_ifood": ja}})
     end = {"post": "POST /item/v1.0/ingestion/{loja}?reset=false  (cria ou atualiza tudo)",
            "patch": "PATCH /item/v1.0/ingestion/{loja}  (só preço, promoção e estoque)",
-           "reset": "POST /item/v1.0/ingestion/{loja}?reset=true  (CARGA COMPLETA: substitui o catálogo da loja de teste)"}[modo]
+           "reset": "POST /item/v1.0/ingestion/{loja}?reset=true  (CARGA COMPLETA: substitui o catálogo da loja de teste)",
+           "desativar": "POST /item/v1.0/ingestion/{loja}?reset=false  (DESATIVAR: estoque 0 e produto inativo)"}[modo]
     return {"endereco": end, "modo": modo, "itens": itens, "enviaveis": sum(1 for i in itens if not i["bloqueia"])}
 
 
@@ -908,7 +928,7 @@ def enviar_ifood_item(con, ids, ambiente="teste", quem="painel", modo="post", pr
     post = cria/atualiza (reset=false) | patch = só preço, promoção e estoque | reset = carga completa (só teste)."""
     if ambiente not in ("teste", "real"):
         raise ValueError("Ambiente desconhecido.")
-    modo = modo if modo in ("post", "patch", "reset") else "post"
+    modo = modo if modo in ("post", "patch", "reset", "desativar") else "post"
     real = ambiente == "real"
     if real:
         if modo == "reset":
@@ -925,7 +945,7 @@ def enviar_ifood_item(con, ids, ambiente="teste", quem="painel", modo="post", pr
                              + (" (o primeiro envio é de 1 produto só, para conferir no iFood antes de enviar mais)." if primeiro else "."))
     if modo == "reset" and not confirmo_reset:
         raise ValueError("A carga completa (reset=true) substitui o catálogo da loja de teste. Confirme digitando RESET.")
-    pre = previa_ifood_item(con, ids, modo=modo, promo=promo)
+    pre = previa_ifood_item(con, ids, modo=modo, promo=promo, limite=(LIMITE_IFOOD_REAL if real else MAX_IFOOD_TESTE))
     itens = [i for i in pre["itens"] if not i["bloqueia"]]
     if not itens:
         raise ValueError("Nenhum produto pode ser enviado: " + "; ".join(sorted({a for i in pre["itens"] for a in i["avisos"] if a.startswith(("sem ", "nada "))}))[:220])
@@ -2015,6 +2035,30 @@ def alterar(con, pid, dados):
     con.commit()
     recalcular(con, [pid])
     return detalhe(con, pid)
+
+
+def sugestoes_preco(con, pid):
+    """Produto sem preço: procura no cadastro do Gestor Z (a tabela oficial de preços) os produtos de nome mais
+    parecido, para você escolher. Só leitura; quem grava o preço é você, no botão da sugestão."""
+    p = con.execute("SELECT id, nome, ean_norm FROM produtos WHERE id=?", (pid,)).fetchone()
+    if not p:
+        raise ValueError("Produto não encontrado.")
+    limpa = lambda t: re.sub(r"[^a-z0-9 ]+", " ", _sem_acento(t).lower()).split()
+    alvo = limpa(p["nome"])
+    if not alvo:
+        return []
+    achados = []
+    for r in con.execute("SELECT id, nome, preco, ean FROM produtos WHERE origem='gestorz' AND preco > 0 AND id<>?", (pid,)):
+        outro = limpa(r["nome"])
+        if not outro:
+            continue
+        comum = len(set(alvo) & set(outro)) / max(1, len(set(alvo) | set(outro)))
+        if comum < 0.34:
+            continue
+        sim = difflib.SequenceMatcher(None, " ".join(alvo), " ".join(outro)).ratio()
+        achados.append((0.5 * comum + 0.5 * sim, r))
+    achados.sort(key=lambda x: -x[0])
+    return [{"id": r["id"], "nome": r["nome"], "preco": r["preco"], "ean": r["ean"], "parecido": round(sc, 2)} for sc, r in achados[:4]]
 
 
 def desfazer_contagem(con, pid, quem="painel"):
@@ -3851,7 +3895,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json({"erro": str(e)}, 400)
             if u.path == "/api/ifood-api/candidatos":
                 try:
-                    return self._json(candidatos_ifood(con, qs.get("lista", "")))
+                    return self._json(candidatos_ifood(con, qs.get("lista", ""), mostrar_enviados=qs.get("todos") == "1"))
                 except ValueError as e:
                     return self._json({"erro": str(e)}, 400)
             if u.path == "/api/ifood-api/comparar":
@@ -3978,6 +4022,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(corpo)
                 return
+            if u.path.startswith("/api/produto/") and u.path.endswith("/sugestoes-preco"):
+                return self._json({"itens": sugestoes_preco(con, int(u.path.split("/")[3]))})
             if u.path.startswith("/api/produto/"):
                 d = detalhe(con, int(u.path.rsplit("/", 1)[1]))
                 return self._json(d or {"erro": "Produto não encontrado."}, 200 if d else 404)
