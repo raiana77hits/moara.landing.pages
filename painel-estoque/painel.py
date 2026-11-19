@@ -2259,6 +2259,29 @@ def aplicar_sugestoes(con, pares, quem="painel"):
     return {"aplicados": feitos}
 
 
+def definir_preco_oficial(con, pares, quem="painel"):
+    """Define à mão o preço oficial de produtos que não têm preço no Gestor Z (par = [id, preço]).
+    Grava no painel (preço e preço oficial). Não envia nada às lojas."""
+    feitos = 0
+    for par in pares[:500]:
+        pid = int(par[0])
+        try:
+            preco = round(float(str(par[1]).replace(",", ".")), 2)
+        except ValueError:
+            raise ValueError("Preço inválido. Use só números, por exemplo 12,50.") from None
+        if not 0 < preco <= 100000:
+            raise ValueError("Preço fora do normal.")
+        p = con.execute("SELECT id, preco FROM produtos WHERE id=?", (pid,)).fetchone()
+        if not p:
+            continue
+        con.execute("UPDATE produtos SET preco=?, preco_gz=?, atualizado_em=? WHERE id=?", (preco, preco, agora(), pid))
+        con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                    (pid, agora(), "preco", "" if p["preco"] is None else f"{p['preco']:.2f}", f"{preco:.2f}", quem + " (preço oficial definido à mão)"))
+        feitos += 1
+    con.commit()
+    return {"aplicados": feitos}
+
+
 def aplicar_preco_oficial(con, ids, quem="painel"):
     """Põe no painel o preço oficial do Gestor Z nos produtos marcados. Não envia nada às lojas."""
     feitos = 0
@@ -4316,6 +4339,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if not self._logado(con):
                 return self._json({"erro": "Entre com a senha.", "login": True}, 401)
+            if u.path == "/api/cruzamento/definir":
+                d = json.loads(self._corpo() or b"{}")
+                return self._json(definir_preco_oficial(con, d.get("pares") or [], unquote(self.headers.get("X-Quem") or "painel")[:40]))
             if u.path == "/api/cruzamento/aplicar-sugestoes":
                 d = json.loads(self._corpo() or b"{}")
                 return self._json(aplicar_sugestoes(con, d.get("pares") or [], unquote(self.headers.get("X-Quem") or "painel")[:40]))
