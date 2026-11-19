@@ -1157,7 +1157,10 @@ async function abrirIfoodApi(){
       <label class="op"><input type="radio" name="if-modo" value="patch"><span><b>Só preço, promoção e estoque</b> (PATCH)<br><small>Para produto que já foi enviado. O iFood não aceita ativar produto por aqui.</small></span></label>
       <label class="op"><input type="radio" name="if-modo" value="reset"><span><b>Carga completa</b> (reset=true) <b style="color:var(--warn,#b54708)">cuidado</b><br><small>Substitui o catálogo inteiro da loja de TESTE pelos produtos marcados. O iFood só recomenda em caso de extrema necessidade.</small></span></label>
       <label class="campo">Preço promocional (opcional, para todos os marcados)<input id="if-promo" inputmode="decimal" placeholder="ex.: 9,90 (precisa ser menor que o preço)"></label>
-      <input class="busca-lista" id="if-q" type="search" placeholder="Buscar produto pelo nome ou código de barras" aria-label="Buscar produto">
+      <div id="if-rapidas" style="margin:10px 0"></div>
+      <div id="if-comp"></div>
+      <input class="busca-lista" id="if-q" type="search" placeholder="Ou busque pelo nome ou código de barras" aria-label="Buscar produto">
+      <div id="if-cab"></div>
       <div id="if-lista"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button id="if-ver">Ver o que seria enviado</button><button class="pri" id="if-env">Enviar</button></div>
       <pre id="if-prev" style="white-space:pre-wrap;font-size:12px;max-height:40vh;overflow:auto" hidden></pre>
@@ -1171,6 +1174,49 @@ async function abrirIfoodApi(){
     $("#if-lista").innerHTML = r.itens.map(i => `<label class="pv" style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-i="${i.id}" ${marcados.has(i.id) ? "checked" : ""}><span>${esc(i.nome)}<br><small>${esc(i.ean || "sem código")} · estoque ${i.estoque ?? "—"}</small></span></label>`).join("");
   }, 300); };
   $("#if-lista").onchange = e => { const x = e.target.closest("input[data-i]"); if(x) x.checked ? marcados.add(+x.dataset.i) : marcados.delete(+x.dataset.i); };
+  // ---- listas rápidas: escolher o que subir sem digitar nome de produto
+  let ultimaLista = null;
+  const brl2 = v => v == null ? "—" : "R$ " + Number(v).toFixed(2).replace(".", ",");
+  const contaMarcados = () => { const el = $("#if-cont"); if(el) el.textContent = marcados.size + " marcado(s)"; };
+  const pintarLista = () => {
+    if(!ultimaLista) return;
+    const L = ultimaLista, prontos = L.itens.filter(i => i.pronto).length;
+    $("#if-cab").innerHTML = `<div class="aviso" style="margin:8px 0"><b>${esc(L.nome)}</b>: ${L.itens.length}${L.cortou ? "+ (mostrando os primeiros " + L.itens.length + ")" : ""} produtos · <b>${prontos}</b> prontos para o iFood
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button type="button" id="if-todos">Marcar todos os prontos</button><button type="button" id="if-nenhum">Desmarcar</button><button type="button" id="if-csv">Baixar esta lista (CSV)</button><span id="if-cont" style="align-self:center;color:var(--muted)"></span></div></div>`;
+    $("#if-lista").innerHTML = L.itens.map(i => `<label class="pv" style="display:flex;gap:8px;align-items:flex-start;${i.pronto ? "" : "opacity:.75"}"><input type="checkbox" data-i="${i.id}" ${marcados.has(i.id) ? "checked" : ""} ${i.pronto ? "" : "disabled"}><span>${esc(i.nome)}<br><small>${esc(i.ean || "sem código")} · painel ${brl2(i.preco)} → iFood ${brl2(i.preco_ifood)} · contado ${i.estoque ?? "—"}${i.estimado != null && Math.round(i.estimado) !== i.estoque ? " (estimado " + Math.round(i.estimado) + ")" : ""}${i.conferido_em ? " em " + esc(data(i.conferido_em)) : ""}<br>Site ${i.site ? "✔" : "—"} · iFood ${i.ifood ? "✔" : "—"} · 99Food ${i.n99 ? "✔" : "—"}${i.avisos.length ? '<br><span style="color:var(--warn)">' + i.avisos.map(esc).join("; ") + "</span>" : ""}</small></span></label>`).join("");
+    contaMarcados();
+  };
+  const carregarLista = async chave => {
+    $("#if-cab").innerHTML = "<p>Carregando…</p>"; $("#if-lista").innerHTML = "";
+    try{ ultimaLista = await api("/api/ifood-api/candidatos?lista=" + encodeURIComponent(chave)); pintarLista(); }
+    catch(err){ $("#if-cab").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
+  };
+  try{
+    const rap = await api("/api/ifood-api/comparar");
+    $("#if-rapidas").innerHTML = `<b>Escolher sem digitar</b><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">` +
+      rap.listas.map(l => `<button type="button" data-l="${l.chave}">${esc(l.nome)}</button>`).join("") +
+      `<button type="button" id="if-comparar" class="pri">📊 Comparar Site × iFood × 99</button></div>`;
+    $("#if-comparar").onclick = async () => {
+      const c2 = await api("/api/ifood-api/comparar");
+      const sn = x => x ? "✔" : "—";
+      $("#if-comp").innerHTML = `<div class="rolagem"><table class="mini"><thead><tr><th>Site</th><th>iFood</th><th>99Food</th><th>Produtos</th><th></th></tr></thead><tbody>` +
+        c2.combinacoes.sort((a, b) => b.n - a.n).map(r => `<tr><td>${sn(r.site)}</td><td>${sn(r.ifood)}</td><td>${sn(r.n99)}</td><td>${num(r.n)}</td><td><button type="button" data-l="combo:${r.site ? 1 : 0}${r.ifood ? 1 : 0}${r.n99 ? 1 : 0}">Ver</button></td></tr>`).join("") +
+        `</tbody></table></div><small style="color:var(--muted)">"iFood ✔" inclui o que você já enviou pela API. Quem entrou direto pelo portal do iFood só aparece se você importou o catálogo.</small>`;
+    };
+  }catch(err){ $("#if-rapidas").innerHTML = ""; }
+  $("#difa").onclick = e => {
+    const b = e.target.closest("button[data-l]"); if(b) carregarLista(b.dataset.l);
+    if(e.target.closest("#if-todos") && ultimaLista){ ultimaLista.itens.filter(i => i.pronto).forEach(i => marcados.add(i.id)); pintarLista(); }
+    if(e.target.closest("#if-nenhum")){ marcados.clear(); pintarLista(); }
+    if(e.target.closest("#if-csv") && ultimaLista){
+      const q = t => '"' + String(t ?? "").replace(/"/g, '""') + '"';
+      const linhas = [["Produto", "Código de barras", "Preço no painel", "Preço no iFood", "Contado", "Estimado", "Contado em", "Site", "iFood", "99Food", "Avisos"].map(q).join(";")]
+        .concat(ultimaLista.itens.map(i => [i.nome, i.ean, i.preco, i.preco_ifood, i.estoque, i.estimado, i.conferido_em, i.site ? "sim" : "não", i.ifood ? "sim" : "não", i.n99 ? "sim" : "não", i.avisos.join(" | ")].map(q).join(";")));
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + linhas.join("\r\n")], {type:"text/csv;charset=utf-8"}));
+      a.download = "ifood_" + ultimaLista.lista.replace(/[^a-z0-9]+/gi, "_") + ".csv"; a.click();
+    }
+  };
+  $("#if-lista").addEventListener("change", contaMarcados);
   $("#if-ver").onclick = async () => {
     if(!marcados.size){ alert("Marque ao menos um produto."); return; }
     let p;

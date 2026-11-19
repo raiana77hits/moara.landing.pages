@@ -772,6 +772,58 @@ def ifood_item_corpo(p, divisor=0.70):
 
 MAX_IFOOD_TESTE = 20
 
+# --- listas rápidas e comparação de canais (para escolher o que subir sem digitar nome de produto)
+_FLAG_SITE = "EXISTS (SELECT 1 FROM canais c WHERE c.produto_id=p.id AND c.canal='nuvemshop')"
+_FLAG_IFOOD = ("(EXISTS (SELECT 1 FROM canais c WHERE c.produto_id=p.id AND c.canal='ifood') OR EXISTS "
+               "(SELECT 1 FROM historico h WHERE h.produto_id=p.id AND h.campo LIKE 'iFood (loja real)%'))")
+_FLAG_99 = "EXISTS (SELECT 1 FROM canais c WHERE c.produto_id=p.id AND c.canal='99food')"
+def listas_ifood():
+    return {
+        "contados_hoje": ("Contados hoje", "p.estoque IS NOT NULL AND substr(p.conferido_em,1,10)=date('now','localtime')"),
+        "novos_ifood": ("Contados desde o último envio ao iFood", FILTROS["novo_ifood"]),
+        "cadastrados": ("Cadastrados à mão no painel", "p.origem='manual'"),
+        "movimento": ("Estoque mudou por nota ou venda depois da contagem",
+                      "p.estoque IS NOT NULL AND p.estimado IS NOT NULL AND CAST(round(p.estimado) AS INTEGER) <> p.estoque"),
+        "contados": ("Todos os contados", "p.estoque IS NOT NULL"),
+        "site_sem_ifood": ("Estão no site e não estão no iFood", f"{_FLAG_SITE} AND NOT {_FLAG_IFOOD}"),
+        "ifood_sem_99": ("Estão no iFood e não estão na 99Food", f"{_FLAG_IFOOD} AND NOT {_FLAG_99}"),
+        "sem_ifood": ("Não estão no iFood (qualquer origem)", f"NOT {_FLAG_IFOOD}"),
+    }
+LIMITE_LISTA_IFOOD = 300
+
+
+def candidatos_ifood(con, lista, divisor=0.70):
+    """Produtos de uma lista rápida (ou de uma combinação de canais 'combo:SIN', ex.: combo:101 = site e 99, sem iFood),
+    com o que falta para ir ao iFood. Só leitura: não envia nada."""
+    if lista.startswith("combo:") and len(lista) == 9 and set(lista[6:]) <= {"0", "1"}:
+        b = lista[6:]
+        nome = "Site " + ("sim" if b[0] == "1" else "não") + " · iFood " + ("sim" if b[1] == "1" else "não") + " · 99Food " + ("sim" if b[2] == "1" else "não")
+        cond = " AND ".join((f, f"NOT {f}")[x == "0"] for f, x in ((_FLAG_SITE, b[0]), (_FLAG_IFOOD, b[1]), (_FLAG_99, b[2])))
+    elif lista in listas_ifood():
+        nome, cond = listas_ifood()[lista]
+    else:
+        raise ValueError("Lista desconhecida.")
+    linhas = con.execute(
+        f"SELECT p.*, {_FLAG_SITE} AS f_site, {_FLAG_IFOOD} AS f_ifood, {_FLAG_99} AS f_99 FROM produtos p "
+        f"WHERE ({cond}) ORDER BY p.conferido_em DESC, p.nome COLLATE NOCASE LIMIT ?", (LIMITE_LISTA_IFOOD + 1,)).fetchall()
+    itens = []
+    for p in linhas[:LIMITE_LISTA_IFOOD]:
+        corpo, avisos = ifood_item_corpo(p, divisor)
+        itens.append({"id": p["id"], "nome": p["nome"], "ean": p["ean"], "preco": p["preco"],
+                      "preco_ifood": (corpo.get("prices") or {}).get("price"), "estoque": p["estoque"],
+                      "estimado": p["estimado"], "conferido_em": p["conferido_em"], "site": bool(p["f_site"]),
+                      "ifood": bool(p["f_ifood"]), "n99": bool(p["f_99"]), "avisos": avisos,
+                      "pronto": not any(a.startswith(("sem preço", "sem código")) for a in avisos)})
+    return {"lista": lista, "nome": nome, "itens": itens, "cortou": len(linhas) > LIMITE_LISTA_IFOOD}
+
+
+def comparar_canais(con):
+    """Quantos produtos estão em cada combinação de Nuvemshop / iFood / 99Food (só leitura)."""
+    r = con.execute(f"SELECT {_FLAG_SITE} a, {_FLAG_IFOOD} b, {_FLAG_99} c, COUNT(*) n FROM produtos p GROUP BY a, b, c").fetchall()
+    return {"combinacoes": [{"codigo": f"{x['a']}{x['b']}{x['c']}", "site": bool(x["a"]), "ifood": bool(x["b"]),
+                             "n99": bool(x["c"]), "n": x["n"]} for x in r],
+            "listas": [{"chave": k, "nome": v[0]} for k, v in listas_ifood().items()]}
+
 
 def _ifood_parcial(corpo, promo=None):
     """PATCH: só barcode e name (obrigatórios) + o que muda (preço, promoção, estoque)."""
@@ -3553,6 +3605,13 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json(previa_ifood_item(con, ids, modo=qs.get("modo", "post"), promo=promo))
                 except ValueError as e:
                     return self._json({"erro": str(e)}, 400)
+            if u.path == "/api/ifood-api/candidatos":
+                try:
+                    return self._json(candidatos_ifood(con, qs.get("lista", "")))
+                except ValueError as e:
+                    return self._json({"erro": str(e)}, 400)
+            if u.path == "/api/ifood-api/comparar":
+                return self._json(comparar_canais(con))
             if u.path == "/api/ifood-api/estado":
                 return self._json(estado_ifood())
             if u.path == "/api/central":
