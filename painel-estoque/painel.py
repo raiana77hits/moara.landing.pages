@@ -1725,6 +1725,10 @@ FILTROS = {
 FILTROS["est_negativo"] = "p.estimado IS NOT NULL AND p.estimado < 0"
 FILTROS["est_baixo"] = "p.estimado IS NOT NULL AND p.estimado >= 0 AND p.estimado <= 3"
 FILTROS["tem_estimado"] = "p.estimado IS NOT NULL"
+DESTINOS_ENVIO = {"anota": "Anota Aí", "ifood": "iFood", "n99": "99Food", "site": "Site (Nuvemshop)"}
+for _d in DESTINOS_ENVIO:   # contados depois da última vez que você marcou "já enviei" para esse destino
+    FILTROS["novo_" + _d] = ("p.estoque IS NOT NULL AND COALESCE(p.conferido_em,'') > "
+                             f"COALESCE((SELECT valor FROM meta WHERE chave='envio_{_d}_em'),'')")
 for _c in CANAIS:
     FILTROS["no_" + _c] = f"EXISTS (SELECT 1 FROM canais c WHERE c.produto_id=p.id AND c.canal='{_c}')"
     FILTROS["fora_" + _c] = (f"NOT EXISTS (SELECT 1 FROM canais c WHERE c.produto_id=p.id "
@@ -2032,7 +2036,17 @@ def _ean_ifood(v):
     return d if 8 <= len(d) <= 14 and not d.startswith("2") else ""     # 2xxxx são códigos internos do caixa
 
 
-def planilha_ifood(con, divisor=0.70):
+def marcar_envio(con, destino):
+    """Anota que você acabou de subir os contados para esse destino. Depois disso, só o que for contado
+    de novo aparece como 'ainda não enviado'. Não envia nada: só guarda a data."""
+    if destino not in DESTINOS_ENVIO:
+        raise ValueError("Destino desconhecido.")
+    set_meta(con, f"envio_{destino}_em", agora())
+    con.commit()
+    return {"ok": True, "destino": destino, "em": agora()}
+
+
+def planilha_ifood(con, divisor=0.70, so_novos=None):
     """Produtos conferidos ou cadastrados no painel, prontos para a planilha de importação do iFood.
     Preço = preço do painel / divisor. Estoque = estimado (ou contagem). O iFood atualiza preço e estoque de
     quem já existe, cadastra sozinho quem não existe e destrava quem estava em ruptura quando a planilha traz
@@ -2041,7 +2055,12 @@ def planilha_ifood(con, divisor=0.70):
         raise ValueError("O divisor do preço precisa estar entre 0,05 e 1.")
     catalogo = {r["ean"]: dict(r) for r in con.execute("SELECT * FROM ifood_catalogo")}
     itens, falta, vistos = [], collections.defaultdict(list), set()
-    for p in con.execute("SELECT * FROM produtos WHERE estoque IS NOT NULL OR origem='manual' ORDER BY nome COLLATE NOCASE"):
+    consulta, args = "SELECT * FROM produtos WHERE (estoque IS NOT NULL OR origem='manual')", []
+    if so_novos in DESTINOS_ENVIO:      # só o contado depois do último envio marcado para esse destino
+        ult = (con.execute("SELECT valor FROM meta WHERE chave=?", (f"envio_{so_novos}_em",)).fetchone() or [""])[0] or ""
+        consulta += " AND COALESCE(conferido_em,'') > ?"
+        args.append(ult)
+    for p in con.execute(consulta + " ORDER BY nome COLLATE NOCASE", args):
         ean = _ean_ifood(p["ean"])
         if not ean:
             falta["sem_codigo"].append(p["nome"])
@@ -3197,7 +3216,7 @@ def registrar_sem_cadastro(con, dados):
     return {"ok": True}
 
 
-def conferidos_recentes(con, limite=30):
+def conferidos_recentes(con, limite=300):
     return [dict(r) for r in con.execute(
         "SELECT h.quando, h.para, h.origem, p.id, p.nome, p.ean FROM historico h "
         "JOIN produtos p ON p.id=h.produto_id WHERE h.campo='estoque' "
@@ -3539,7 +3558,7 @@ class Handler(BaseHTTPRequestHandler):
                     divisor = float(str(qs.get("divisor", "0.70")).replace(",", "."))
                 except ValueError:
                     raise ValueError("Divisor inválido.")
-                plano = planilha_ifood(con, divisor)
+                plano = planilha_ifood(con, divisor, "ifood" if qs.get("so_novos") == "1" else None)
                 if u.path == "/api/ifood/previa":
                     r = dict(plano)
                     r["itens"] = plano["itens"][:12]
@@ -3681,6 +3700,8 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if not self._logado(con):
                 return self._json({"erro": "Entre com a senha.", "login": True}, 401)
+            if u.path == "/api/envio/marcar":
+                return self._json(marcar_envio(con, str(json.loads(self._corpo() or b"{}").get("destino") or "")))
             if u.path.startswith("/api/produto/") and u.path.endswith("/desfazer-contagem"):
                 dados = json.loads(self._corpo() or b"{}")
                 return self._json(desfazer_contagem(con, int(u.path.split("/")[3]),

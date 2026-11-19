@@ -86,6 +86,8 @@ li small{color:var(--muted);white-space:nowrap}
 .qp .preco-in.mudou{border-color:var(--kraft);background:var(--kraft-soft)}
 .nota-preco{color:var(--muted);font-size:12px;margin-top:4px;line-height:1.25}
 li.clicavel{cursor:pointer;flex-wrap:wrap}
+li.dia-cab{background:var(--kraft-soft);color:var(--ink);font-size:13px;justify-content:space-between;padding:6px 12px;position:sticky;top:0}
+li.dia-cab span{flex:none;color:var(--muted)}
 li.clicavel:hover{background:#FAFBFA}
 li .seta{color:var(--muted);font-style:normal;font-size:15px}
 li .ed{flex:1 1 100%;cursor:default;margin-top:6px;padding-top:10px;border-top:1px dashed var(--line);display:grid;gap:8px}
@@ -630,8 +632,15 @@ async function ultimas(){
     const r = await api("/api/conferidos");
     if(r.servidor !== "9") status("⚠️ O painel no computador está desatualizado. Feche a janela preta do painel e abra o iniciar.bat de novo.", "aviso");
     $("#tot").textContent = "· " + r.total + (r.total === 1 ? " produto já conferido" : " produtos já conferidos");
-    $("#ultimas").innerHTML = r.itens.length ? r.itens.map(h =>
-      `<li class="clicavel" data-id="${h.id}" tabindex="0" title="Toque para editar"><b>${esc(h.para || "—")}</b><span>${esc(h.nome)}</span><small>${hora(h.quando)}${h.origem && h.origem !== "painel" ? " · " + esc(h.origem) : ""}</small><i class="seta">✎</i></li>`).join("")
+    // agrupa por dia: "Hoje", "Ontem" e depois a data; cada dia mostra quantos produtos foram contados
+    const dias = {}, ordem = [];
+    r.itens.forEach(h => { const d = String(h.quando || "").slice(0, 10); if(!dias[d]){ dias[d] = []; ordem.push(d); } dias[d].push(h); });
+    const hojeD = new Date(), ymd = dt => dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0");
+    const ontemD = new Date(hojeD.getTime() - 86400000);
+    const nomeDia = d => d === ymd(hojeD) ? "Hoje" : d === ymd(ontemD) ? "Ontem" : d.slice(8, 10) + "/" + d.slice(5, 7) + "/" + d.slice(0, 4);
+    $("#ultimas").innerHTML = r.itens.length ? ordem.map(d =>
+      `<li class="dia-cab"><b>${esc(nomeDia(d))}</b><span>${dias[d].length} ${dias[d].length === 1 ? "contagem" : "contagens"}</span></li>` +
+      dias[d].map(h => `<li class="clicavel" data-id="${h.id}" tabindex="0" title="Toque para editar"><b>${esc(h.para || "—")}</b><span>${esc(h.nome)}</span><small>${hora(h.quando)}${h.origem && h.origem !== "painel" ? " · " + esc(h.origem) : ""}</small><i class="seta">✎</i></li>`).join("")).join("")
       : "<li><span>Nenhuma contagem ainda.</span></li>";
   }catch(e){}
 }

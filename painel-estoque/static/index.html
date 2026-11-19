@@ -527,13 +527,14 @@ const NAV = [
   ["Conferência", [["todos","Todos os produtos"],["nao_conferido","Falta conferir"],["conferido","Já conferidos"],["zerado","Estoque zero"]]],
   ["Estoque estimado", [["tem_estimado","Com estimativa"],["est_negativo","Vendeu mais do que contei"],["est_baixo","Estimado em 3 ou menos"]]],
   ["Problemas", [["vende_sem_estoque","Sem estoque, mas à venda"],["parado_com_estoque","Com estoque, mas fora de venda"]]],
+  ["Contados ainda não enviados", [["novo_anota","Anota Aí"],["novo_ifood","iFood"],["novo_n99","99Food"],["novo_site","Site (Nuvemshop)"]]],
   ["Nuvemshop", [["vendendo_nuvemshop","À venda"],["no_nuvemshop","Cadastrado"],["fora_nuvemshop","Não está"]]],
   ["iFood", [["vendendo_ifood","À venda"],["no_ifood","Cadastrado"],["fora_ifood","Não está"]]],
   ["99Food", [["vendendo_99food","À venda"],["no_99food","Cadastrado"],["fora_99food","Não está"]]],
   ["Cadastro", [["sem_gestorz","Fora do Gestor Z"],["sem_ean","Sem código de barras real"],["em_nenhum_canal","Em nenhuma loja online"],["sem_foto","Sem foto"],["foto_tirada","Fotos tiradas na prateleira"],["cadastro_manual","Cadastrados à mão"]]],
 ];
 const NOME_FILTRO = {};
-NAV.forEach(([t, its]) => its.forEach(([k, n]) => NOME_FILTRO[k] = (["Nuvemshop","iFood","99Food"].includes(t) ? t + ": " : "") + n));
+NAV.forEach(([t, its]) => its.forEach(([k, n]) => NOME_FILTRO[k] = (["Nuvemshop","iFood","99Food"].includes(t) ? t + ": " : t.startsWith("Contados") ? "Contados e não enviados: " : "") + n));
 const ATENCAO = [
   ["nao_conferido","Falta conferir","warn"],["conferido","Já conferidos","ok"],
   ["zerado","Estoque zero","bad"],["vende_sem_estoque","Sem estoque, mas à venda","bad"],
@@ -594,8 +595,10 @@ function desenharNav(){
   const c = RESUMO ? RESUMO.filtros : {};
   $("#nav-lista").innerHTML = NAV.map(([t, itens]) => `<h2>${t}</h2>` + itens.map(([k, n]) =>
     `<button class="f ${k===est.filtro?"on":""}" data-f="${k}"><span>${n}</span><b>${num(c[k])}</b></button>`).join("")).join("");
-  $("#ativos").innerHTML = est.filtro !== "todos"
-    ? `<button class="chip ativo" id="x-filtro">${esc(NOME_FILTRO[est.filtro])} ✕</button>` : "";
+  const dest = est.filtro.startsWith("novo_") ? est.filtro.slice(5) : "", em = dest ? ((RESUMO && RESUMO.meta) || {})["envio_" + dest + "_em"] : "";
+  $("#ativos").innerHTML = (est.filtro !== "todos"
+    ? `<button class="chip ativo" id="x-filtro">${esc(NOME_FILTRO[est.filtro])} ✕</button>` : "") +
+    (dest ? `<div class="aviso" style="margin:8px 0">Estes são os produtos <b>contados depois</b> do último envio${em ? " (marcado em " + esc(data(em)) + ")" : " (você ainda não marcou nenhum envio)"}. Baixe a lista, suba no destino e depois toque em <button type="button" id="b-marcar" data-d="${dest}" class="pri">Já enviei: marcar agora</button> para a lista zerar.</div>` : "");
   $("#b-filtros").textContent = est.filtro !== "todos" ? "Filtros ●" : "Filtros";
 }
 async function lerCategorias(botao, depois){
@@ -839,7 +842,15 @@ $("#tela-inicio").addEventListener("click", e => {
   const b = e.target.closest("[data-f],[data-g]"); if(!b) return;
   irPara(b.dataset.f ? {filtro: b.dataset.f} : {grupo: b.dataset.g});
 });
-$("#ativos").addEventListener("click", e => { if(e.target.closest("#x-filtro")){ est.filtro = "todos"; est.pagina = 1; recarregar(false); } });
+$("#ativos").addEventListener("click", async e => {
+  const m = e.target.closest("#b-marcar");
+  if(m){
+    if(!confirm("Marcar que você já enviou os contados para este destino? A lista de 'não enviados' vai ficar vazia até você contar de novo. Isso não envia nada.")) return;
+    try{ await api("/api/envio/marcar", {method:"POST", body:JSON.stringify({destino:m.dataset.d})}); await carregarResumo(); recarregar(true); }
+    catch(er){ alert(er.message); }
+    return;
+  }
+ if(e.target.closest("#x-filtro")){ est.filtro = "todos"; est.pagina = 1; recarregar(false); } });
 $("#b-filtros").onclick = () => { $("#nav").classList.add("aberto"); $("#nav").scrollTop = 0; };
 $("#nav-x").onclick = () => $("#nav").classList.remove("aberto");
 $("#ant").onclick = () => { est.pagina--; recarregar(true); };
@@ -995,17 +1006,18 @@ $("#i-nuvem").onclick = async () => {
   }, 1500);
 };
 /* ------------------------------------------------ planilha do iFood */
-const ifd = {divisor:"0,70", canal:"shop", aba:"ifood"};
+const ifd = {divisor:"0,70", canal:"shop", aba:"ifood", novos:false};
 $("#b-ifood").onclick = () => abrirIfood(); $("#b-ifood2").onclick = () => abrirIfood();
 $("#ip-x").onclick = () => $("#difood").close();
 async function abrirIfood(){
   $("#difood").showModal(); const c = $("#ip-corpo");
   c.innerHTML = "<p>Calculando…</p>";
   let p;
-  try{ p = await api("/api/ifood/previa?divisor=" + encodeURIComponent(ifd.divisor)); }
+  try{ p = await api("/api/ifood/previa?divisor=" + encodeURIComponent(ifd.divisor) + (ifd.novos ? "&so_novos=1" : "")); }
   catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
   const f = p.faltas, aviso = (k, t) => f[k] ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(f[k].n)} ficam de fora: ${t}<br><small>${f[k].nomes.map(esc).join(" · ")}${f[k].n > 8 ? " · …" : ""}</small></p>` : "";
   const q = "divisor=" + encodeURIComponent(ifd.divisor) + "&canal=" + ifd.canal;
+  const qi = q + (ifd.novos ? "&so_novos=1" : "");     // só o iFood sabe filtrar "contados depois do último envio"
   let n9 = null; try{ n9 = await api("/api/n99/previa?" + q); }catch(e){ n9 = {erro:e.message}; }
   const ok99 = n9 && !n9.erro;
   const catalogo99 = `<section><b>1. Catálogo da 99Food</b>
@@ -1035,13 +1047,16 @@ async function abrirIfood(){
       <p>Preço no iFood = preço do painel ÷ <input id="if-div" inputmode="decimal" value="${esc(ifd.divisor)}" style="width:70px;padding:6px;border:1px solid var(--line);border-radius:6px"> <button id="if-aplicar">Recalcular</button></p>
       <p>Canal na planilha: <select id="if-canal">${[["shop","iFood Shop"],["app","iFood App"],["white","White Label"]].map(([k, n]) => `<option value="${k}" ${ifd.canal === k ? "selected" : ""}>${n}</option>`).join("")}</select></p></section>
     <section><b>3. O que vai na planilha</b>
+      <p><label><input type="checkbox" id="if-novos" ${ifd.novos ? "checked" : ""}> <b>Só os contados depois do último envio</b></label>
+        <small style="color:var(--muted)"> (${(RESUMO && RESUMO.meta && RESUMO.meta.envio_ifood_em) ? "último envio marcado em " + esc(data(RESUMO.meta.envio_ifood_em)) : "você ainda não marcou nenhum envio: vai tudo"})</small>
+        <button type="button" id="if-marcar" style="margin-left:6px">Já enviei: marcar agora</button></p>
       <p><b>${num(p.total)}</b> produtos (${num(p.no_ifood)} já no iFood · ${num(p.novos_no_ifood)} novos, que o iFood cadastra sozinho) · ${num(p.zerados)} com estoque 0 · <b>${num(p.ruptura)}</b> estão em ruptura no iFood e voltam com o estoque do painel para o iFood destravar.</p>
       <p style="color:var(--muted);font-size:13px">Estoque = estimado do painel (contagem + notas − vendas). O iFood atualiza preço e estoque de quem já existe e cadastra quem não existe. Ativo = 1 quando tem estoque.</p>
       ${aviso("ruptura_sem_contagem", "em ruptura no iFood, mas sem contagem no painel. Conte esses itens para eles voltarem a vender.")}${aviso("sem_preco", "sem preço no painel.")}${aviso("sem_contagem", "cadastrado mas sem contagem.")}${aviso("sem_codigo", "sem código de barras válido.")}
       ${p.itens.length ? `<div class="rolagem"><table class="mini"><thead><tr><th>Produto</th><th>Caixa</th><th>iFood</th><th>Estoque</th></tr></thead><tbody>${p.itens.map(i => `<tr><td>${esc(i.nome)}</td><td>${brl(i.caixa)}</td><td>${brl(i.preco)}</td><td>${i.qtd}${i.ruptura ? " (ruptura)" : ""}</td></tr>`).join("")}</tbody></table></div><small>Mostrando os 12 primeiros.</small>` : ""}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-        ${p.total ? Array.from({length:p.arquivos}, (_, k) => `<a class="btn pri" href="/api/ifood/planilha?${q}&parte=${k + 1}">Baixar planilha${p.arquivos > 1 ? " " + (k + 1) + " de " + p.arquivos : ""}</a>`).join("") : ""}
-        <a class="btn" href="/api/ifood/revisar.csv?${q}">Baixar lista para conferir</a></div>
+        ${p.total ? Array.from({length:p.arquivos}, (_, k) => `<a class="btn pri" href="/api/ifood/planilha?${qi}&parte=${k + 1}">Baixar planilha${p.arquivos > 1 ? " " + (k + 1) + " de " + p.arquivos : ""}</a>`).join("") : ""}
+        <a class="btn" href="/api/ifood/revisar.csv?${qi}">Baixar lista para conferir</a></div>
       <p style="color:var(--muted);font-size:13px">A coluna <i>Canal</i> vai preenchida com o canal escolhido acima (iFood Shop). Depois de baixar, suba a planilha no portal do iFood (importação por planilha).</p></section>`;
   const tem99 = n9 && !n9.erro, temIf = p.catalogo_lido;
   c.innerHTML = `<div class="abas" id="if-abas">
@@ -1052,6 +1067,12 @@ async function abrirIfood(){
     const f2 = e.target.files[0]; if(!f2) return; $("#n9-msg").textContent = "Lendo o catálogo da 99Food…";
     try{ const r = await api("/api/importar/n99-catalogo", {method:"POST", body: await f2.arrayBuffer()}); $("#n9-msg").innerHTML = `<div class="ok-msg">Pronto: ${num(r.itens)} itens, ${num(r.ativos_com_estoque)} ativos com estoque.</div>`; setTimeout(abrirIfood, 1200); }
     catch(err){ $("#n9-msg").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
+  };
+  if($("#if-novos")) $("#if-novos").onchange = e => { ifd.novos = e.target.checked; abrirIfood(); };
+  if($("#if-marcar")) $("#if-marcar").onclick = async () => {
+    if(!confirm("Marcar que você já subiu a planilha do iFood? Depois disso, com 'Só os contados depois do último envio' marcado, só aparece o que você contar de novo. Isso não envia nada.")) return;
+    try{ await api("/api/envio/marcar", {method:"POST", body:JSON.stringify({destino:"ifood"})}); await carregarResumo(); abrirIfood(); }
+    catch(er){ alert(er.message); }
   };
   if($("#if-canal")) $("#if-canal").onchange = e => { ifd.canal = e.target.value; abrirIfood(); };
   if($("#if-aplicar")) $("#if-aplicar").onclick = () => { ifd.divisor = $("#if-div").value || "0,70"; abrirIfood(); };
