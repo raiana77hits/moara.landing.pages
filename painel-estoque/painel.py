@@ -25,6 +25,7 @@ import hmac
 import io
 import json
 import math
+import zlib
 import os
 import re
 import secrets
@@ -2639,6 +2640,232 @@ def _resumo_chegada(con, imp):
             "vendem": [{"nome": n, "unidades": round(u, 2)} for v, n, u in vendem if v > 0][:8]}
 
 
+# ------------------------------------------------------------ nota fiscal em PDF (DANFE)
+
+def _pdf_objetos(raw):
+    return {int(n): b for n, b in re.findall(rb"(\d+) 0 obj(.*?)endobj", raw, re.S)}
+
+
+def _pdf_stream(obj):
+    m = re.search(rb"stream\r?\n(.*?)\r?\nendstream", obj, re.S)
+    if not m:
+        return b""
+    dados = m.group(1)
+    if b"/FlateDecode" in obj.split(b"stream", 1)[0]:
+        try:
+            return zlib.decompress(dados)
+        except zlib.error:
+            return b""
+    return dados
+
+
+def _pdf_cmap(obj):
+    """ToUnicode: (bytes por código, {código: texto})."""
+    txt = _pdf_stream(obj).decode("latin-1")
+    larg = 1
+    m = re.search(r"begincodespacerange\s*<([0-9A-Fa-f]+)>", txt)
+    if m:
+        larg = max(1, len(m.group(1)) // 2)
+    mapa = {}
+    def uni(h):
+        try:
+            return bytes.fromhex(h).decode("utf-16-be")
+        except Exception:  # noqa: BLE001
+            return ""
+    for bloco in re.findall(r"beginbfchar(.*?)endbfchar", txt, re.S):
+        for a, b in re.findall(r"<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>", bloco):
+            mapa[int(a, 16)] = uni(b)
+    for bloco in re.findall(r"beginbfrange(.*?)endbfrange", txt, re.S):
+        for a, b, c in re.findall(r"<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>", bloco):
+            ini, fim, base = int(a, 16), int(b, 16), uni(c)
+            if base:
+                for k in range(ini, min(fim, ini + 65535) + 1):
+                    mapa[k] = base[:-1] + chr(ord(base[-1]) + k - ini)
+    return larg, mapa
+
+
+def _pdf_fontes(objs, pagina):
+    fontes = {}
+    m = re.search(rb"/Font\s*<<(.*?)>>", pagina, re.S)
+    if not m:
+        return fontes
+    for nome, num in re.findall(rb"/(\w+)\s+(\d+) 0 R", m.group(1)):
+        o = objs.get(int(num), b"")
+        tu = re.search(rb"/ToUnicode (\d+) 0 R", o)
+        larg, mapa = _pdf_cmap(objs.get(int(tu.group(1)), b"")) if tu else (1, {})
+        fc = re.search(rb"/FirstChar (\d+)", o)
+        ws = re.search(rb"/Widths \[(.*?)\]", o, re.S)
+        larguras = [float(x) for x in ws.group(1).split()] if ws else []
+        fontes[nome.decode()] = {"larg": larg, "mapa": mapa, "primeiro": int(fc.group(1)) if fc else 0, "ws": larguras}
+    return fontes
+
+
+def _mul(m, n):
+    """Matriz m x n no formato PDF (a b c d e f)."""
+    return (m[0] * n[0] + m[1] * n[2], m[0] * n[1] + m[1] * n[3], m[2] * n[0] + m[3] * n[2],
+            m[2] * n[1] + m[3] * n[3], m[4] * n[0] + m[5] * n[2] + n[4], m[4] * n[1] + m[5] * n[3] + n[5])
+
+
+def _pdf_linhas_pagina(objs, pagina):
+    """Texto de uma página como linhas, com 2 ou mais espaços entre colunas (parecido com pdftotext -layout).
+    Só biblioteca padrão; serve para PDFs com camada de texto (DANFE gerado por sistema)."""
+    cont = re.search(rb"/Contents\s+(\d+) 0 R", pagina)
+    if not cont:
+        return []
+    conteudo = _pdf_stream(objs.get(int(cont.group(1)), b"")).decode("latin-1")
+    fontes = _pdf_fontes(objs, pagina)
+    ctm, pilha = (1, 0, 0, 1, 0, 0), []
+    tlm = tm = (1, 0, 0, 1, 0, 0)
+    fonte, tam = None, 1.0
+    itens = []
+    tokens = re.findall(r"\[(?:[^\]\\]|\\.)*\]|<[0-9A-Fa-f\s]*>|\((?:[^()\\]|\\.)*\)|/[^\s/\[\]<>()]+|[-+]?\d*\.?\d+|[A-Za-z\'\"*]+", conteudo)
+    pilha_op = []
+    def mostrar(dados):
+        if not fonte:
+            return
+        f = fontes.get(fonte, {"larg": 1, "mapa": {}, "ws": [], "primeiro": 0})
+        txt, larg_total = "", 0.0
+        for i in range(0, len(dados) - f["larg"] + 1, f["larg"]):
+            cod = int.from_bytes(dados[i:i + f["larg"]], "big")
+            txt += f["mapa"].get(cod, chr(cod) if 32 <= cod < 256 and not f["mapa"] else "")
+            k = cod - f["primeiro"]
+            larg_total += (f["ws"][k] if 0 <= k < len(f["ws"]) else 500) / 1000.0
+        g = _mul(tm, ctm)
+        escala = math.hypot(g[0], g[1]) * tam
+        itens.append((g[4], g[5], txt, larg_total * escala, escala))
+    for t in tokens:
+        if re.fullmatch(r"[-+]?\d*\.?\d+", t) or t.startswith(("/", "[", "<", "(")):
+            pilha_op.append(t)
+            continue
+        op, args = t, pilha_op
+        pilha_op = []
+        try:
+            if op == "q":
+                pilha.append(ctm)
+            elif op == "Q" and pilha:
+                ctm = pilha.pop()
+            elif op == "cm" and len(args) >= 6:
+                ctm = _mul(tuple(float(x) for x in args[-6:]), ctm)
+            elif op == "BT":
+                tlm = tm = (1, 0, 0, 1, 0, 0)
+            elif op == "Tf" and len(args) >= 2:
+                fonte, tam = args[-2][1:], float(args[-1])
+            elif op == "Tm" and len(args) >= 6:
+                tlm = tm = tuple(float(x) for x in args[-6:])
+            elif op in ("Td", "TD") and len(args) >= 2:
+                tlm = _mul((1, 0, 0, 1, float(args[-2]), float(args[-1])), tlm)
+                tm = tlm
+            elif op in ("Tj", "'", '"') and args:
+                a = args[-1]
+                if a.startswith("<"):
+                    mostrar(bytes.fromhex(re.sub(r"\s", "", a[1:-1]) + ("0" if len(re.sub(r"\s", "", a[1:-1])) % 2 else "")))
+                elif a.startswith("("):
+                    mostrar(re.sub(r"\\(.)", r"\1", a[1:-1]).encode("latin-1", "replace"))
+            elif op == "TJ" and args and args[-1].startswith("["):
+                for p in re.findall(r"<[0-9A-Fa-f\s]*>|\((?:[^()\\]|\\.)*\)", args[-1]):
+                    if p.startswith("<"):
+                        mostrar(bytes.fromhex(re.sub(r"\s", "", p[1:-1])))
+                    else:
+                        mostrar(re.sub(r"\\(.)", r"\1", p[1:-1]).encode("latin-1", "replace"))
+        except (ValueError, IndexError):
+            continue
+    # agrupa por linha (mesma altura) e ordena da esquerda para a direita
+    itens = [i for i in itens if i[2].strip() or i[2]]
+    itens.sort(key=lambda i: (-round(i[1] / 2.0), i[0]))
+    linhas, atual, y_ant = [], [], None
+    for it in itens:
+        y = round(it[1] / 2.0)
+        if y_ant is not None and y != y_ant:
+            linhas.append(atual)
+            atual = []
+        atual.append(it)
+        y_ant = y
+    if atual:
+        linhas.append(atual)
+    saida = []
+    for l in linhas:
+        l.sort(key=lambda i: i[0])
+        txt, fim = "", None
+        for x, y, t, w, esc in l:
+            if fim is not None:
+                folga = x - fim
+                if folga > esc * 0.9:
+                    txt += "  "
+                elif folga > esc * 0.18 and not txt.endswith(" ") and not t.startswith(" "):
+                    txt += " "
+            txt += t
+            fim = x + w
+        saida.append(txt.rstrip())
+    return saida
+
+
+def pdf_linhas(raw):
+    objs = _pdf_objetos(raw)
+    paginas = sorted((n for n, b in objs.items() if re.search(rb"/Type\s*/Page\b", b) and b"/Contents" in b))
+    linhas = []
+    for n in paginas:
+        linhas += _pdf_linhas_pagina(objs, objs[n])
+    return linhas
+
+
+def nota_pdf_para_linhas(raw):
+    """Lê um DANFE em PDF e devolve (cabeçalho da nota, itens, aviso)."""
+    linhas = pdf_linhas(raw)
+    if not linhas:
+        raise ValueError("Não consegui ler texto desse PDF. Se for foto ou digitalização, exporte os itens em CSV ou Excel.")
+    texto = "\n".join(linhas)
+    if "DANFE" not in texto.upper() and "DADOS DOS PRODUTOS" not in texto.upper():
+        raise ValueError("Esse PDF não parece uma nota fiscal (DANFE).")
+    m = re.search(r"EMISS[ÃA]O:\s*(\d{2}/\d{2}/\d{4})", texto) or re.search(r"DATA DA EMISS[ÃA]O\s+(\d{2}/\d{2}/\d{4})", texto)
+    emissao = _data(m.group(1)) if m else None
+    nome = re.search(r"RECEBEMOS DE\s+'?\"?([^'\"]+?)['\"]?\s+OS PRODUTOS", texto)
+    ini_dest = texto.upper().find("DESTINATÁRIO/REMETENTE")
+    antes = texto[:ini_dest] if ini_dest > 0 else texto
+    cn = re.findall(r"\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}", antes)
+    nota = re.search(r"N[º°o]\s*0*(\d+)", texto)
+    serie = re.search(r"S[ÉE]RIE[:\s]+(\d+)", texto)
+    itens, dentro = [], False
+    for l in linhas:
+        if "DADOS DOS PRODUTOS" in l.upper():
+            dentro = True
+            continue
+        if not dentro:
+            continue
+        if re.match(r"\s*(DADOS ADICIONAIS|C[ÁA]LCULO DO ISSQN)", l.upper()):
+            break
+        partes = re.split(r"\s{2,}", l.strip())
+        ix = next((i for i, p in enumerate(partes) if re.fullmatch(r"\d{8}", p)), None)
+        if ix is None or ix < 2 or len(partes) < ix + 8:
+            continue
+        try:
+            qtd = num_br(partes[ix + 4])
+        except ValueError:
+            continue
+        itens.append({"cod": partes[0], "descricao": " ".join(partes[1:ix]), "ncm": partes[ix], "cfop": partes[ix + 2],
+                      "un": partes[ix + 3], "quantidade": qtd, "total": num_br(partes[ix + 6 + 1]) if len(partes) > ix + 7 else 0.0})
+    if not (emissao and cn and nota):
+        raise ValueError("Não achei a data, o CNPJ do fornecedor ou o número da nota nesse PDF.")
+    if not itens:
+        raise ValueError("Não achei a tabela de produtos nesse PDF.")
+    cab = {"emissao": emissao, "fornecedor": (nome.group(1) if nome else "")[:80], "cnpj": re.sub(r"\D", "", cn[0]),
+           "nota": nota.group(1), "serie": serie.group(1) if serie else ""}
+    soma = round(sum(i["total"] for i in itens), 2)
+    return cab, itens, soma
+
+
+def importar_notas_pdf(con, raw, arquivo="", quem="painel"):
+    cab, itens, soma = nota_pdf_para_linhas(raw)
+    saida = io.StringIO()
+    w = csv.writer(saida, delimiter=";")
+    w.writerow(["emissao", "fornecedor", "cnpj", "nota", "serie", "cod_fornecedor", "descricao", "un", "quantidade", "cfop", "ncm"])
+    for i in itens:
+        w.writerow([cab["emissao"], cab["fornecedor"], cab["cnpj"], cab["nota"], cab["serie"], i["cod"], i["descricao"],
+                    i["un"], str(i["quantidade"]).replace(".", ","), i["cfop"], i["ncm"]])
+    r = importar_notas(con, saida.getvalue().encode("utf-8"), arquivo, quem)
+    r["nota_pdf"] = {"nota": cab["nota"], "fornecedor": cab["fornecedor"], "itens": len(itens), "soma_itens": soma}
+    return r
+
+
 def importar_notas(con, raw, arquivo="", quem="painel"):
     """Itens das notas de entrada. Reimportar o mesmo arquivo não duplica nada."""
     cab, linhas = _ler_csv(raw, [("EMISSAO", "DATA"), ("QUANTIDADE", "QTD", "QTDE")])
@@ -3884,8 +4111,11 @@ class Handler(BaseHTTPRequestHandler):
                                                   unquote(self.headers.get("X-Quem") or "painel")[:40]))
             if u.path == "/api/importar/notas":
                 qp = {k: v[0] for k, v in parse_qs(u.query).items()}
-                return self._json(importar_notas(con, self._corpo(), unquote(qp.get("arquivo", "")),
-                                                 unquote(self.headers.get("X-Quem") or "painel")[:40]))
+                corpo_arq = self._corpo()
+                quem_arq = unquote(self.headers.get("X-Quem") or "painel")[:40]
+                if corpo_arq[:4] == b"%PDF":
+                    return self._json(importar_notas_pdf(con, corpo_arq, unquote(qp.get("arquivo", "")), quem_arq))
+                return self._json(importar_notas(con, corpo_arq, unquote(qp.get("arquivo", "")), quem_arq))
             if u.path == "/api/cadastrar/trazer-nota":
                 return self._json(trazer_itens_da_nota(con, unquote(self.headers.get("X-Quem") or "painel")[:40]))
             if u.path == "/api/entradas/auto-aplicar":
