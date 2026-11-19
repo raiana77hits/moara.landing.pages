@@ -174,3 +174,15 @@ Pode ser a pasta do Google Drive/OneDrive no computador (o próprio programa del
 Na tela inicial aparece um aviso amarelo enquanto não estiver configurado ou se a pasta não responder, e o rodapé mostra a data do último backup externo.
 
 Para **restaurar**: feche o painel, copie um arquivo `banco_AAAAMMDD.db` da pasta de backup para a pasta do painel, renomeie para `banco.db` (guarde o antigo antes) e abra o `iniciar.bat`.
+
+
+## Abrir o painel sozinho quando o computador liga
+
+O arquivo `iniciar-com-windows.bat` abre o painel **sem abrir o navegador**. Para ele rodar toda vez que o Windows ligar:
+
+1. Clique com o botão direito em `iniciar-com-windows.bat`, **Criar atalho**.
+2. Aperte **Windows + R**, digite `shell:startup` e Enter. Abre a pasta de inicialização.
+3. Arraste o atalho recém-criado para dentro dessa pasta.
+4. Clique com o botão direito no atalho, **Propriedades**, em **Executar** escolha **Minimizada** e OK.
+
+Para testar, reinicie o computador e, no celular, abra o endereço do painel. O Tailscale também precisa estar ligado (ele já inicia com o Windows).
