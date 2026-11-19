@@ -1015,13 +1015,20 @@ $("#i-nuvem").onclick = async () => {
 const cz = {tipo:"", marcados:new Set(), dados:null};
 $("#b-cruz").onclick = () => abrirCruzamento();
 $("#cz-x").onclick = () => $("#dcruz").close();
-async function abrirCruzamento(tipo){
+async function abrirCruzamento(tipo, manter){
   if(tipo !== undefined) cz.tipo = tipo;
-  $("#dcruz").showModal(); const c = $("#cz-corpo");
-  c.innerHTML = "<p>Cruzando os preços…</p>";
+  const dlg = $("#dcruz"); if(!dlg.open) dlg.showModal(); const c = $("#cz-corpo");
+  const rolagem = manter ? c.scrollTop : 0;
+  if(!manter) c.innerHTML = "<p>Cruzando os preços…</p>";
   let d;
   try{ d = await api("/api/cruzamento" + (cz.tipo ? "?tipo=" + cz.tipo : "")); }
   catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
+  // aba "sem preço oficial": já traz a melhor sugestão do Gestor Z de cada produto e deixa quem não tem sugestão no fim
+  cz.sugPorId = {};
+  if(cz.tipo === "sem_oficial" && d.itens.length){
+    try{ const sg = await api("/api/cruzamento/sugestoes"); sg.itens.forEach(x => { if(x.sugestao) cz.sugPorId[x.id] = x.sugestao; }); }catch(e){}
+    d.itens.sort((a, b) => (cz.sugPorId[b.id] ? cz.sugPorId[b.id].parecido : -1) - (cz.sugPorId[a.id] ? cz.sugPorId[a.id].parecido : -1));
+  }
   cz.dados = d;
   const br = v => v == null ? "—" : "R$ " + Number(v).toFixed(2).replace(".", ",");
   const q = d.quando || {}, tx = (k, n) => q[k] ? n + " " + esc(data(q[k])) : n + " nunca";
@@ -1033,25 +1040,40 @@ async function abrirCruzamento(tipo){
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${Object.entries(d.tipos).map(([k, n]) => `<button type="button" class="${cz.tipo === k ? "pri" : ""}" data-t="${k}">${esc(n)} (${num(d.contagens[k])})</button>`).join("")}<button type="button" class="${cz.tipo === "" ? "pri" : ""}" data-t="">Tudo com alerta</button></div></section>
     <section>${d.itens.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${cz.tipo === "sem_oficial" ? '<button type="button" class="pri" id="cz-massa">🔎 Preencher os preços pelo Gestor Z (ver sugestões de todos)</button>' : ""}<button type="button" id="cz-todos">Marcar todos desta lista</button><button type="button" id="cz-nenhum">Desmarcar</button><button type="button" class="pri" id="cz-aplicar">Aplicar o preço oficial no painel (<span id="cz-n">0</span>)</button>${cz.tipo === "sem_oficial" ? '<button type="button" class="pri" id="cz-painel-oficial">Usar o preço que já está no painel como oficial nos marcados</button>' : ""}<button type="button" id="cz-csv">Baixar esta lista (CSV)</button></div>
       <p style="font-size:12px;color:var(--muted)">“Aplicar” só muda o preço <b>no painel</b>. Depois use as ferramentas de envio (iFood API: “Só atualizar preço…”, Planilhas dos apps, Nuvemshop) para levar o preço certo às lojas. Nada é enviado por aqui.${d.cortou ? " Mostrando só os primeiros " + d.itens.length + " de " + d.total + "." : ""}</p>
-      <div class="rolagem"><table class="mini"><thead><tr><th></th><th>Produto</th><th>Oficial</th><th>Apps ÷</th><th>Painel</th><th>Site</th><th>iFood</th><th>99Food</th></tr></thead><tbody>${d.itens.map(i => `<tr data-id="${i.id}"><td>${i.oficial || (cz.tipo === "sem_oficial" && i.painel) ? `<input type="checkbox" data-i="${i.id}" ${cz.marcados.has(i.id) ? "checked" : ""}>` : ""}</td><td>${esc(i.nome)}<br><small style="color:var(--muted)">${esc(i.ean || "sem código")}${i.contado != null ? " · contado " + i.contado : ""}</small></td><td><b>${br(i.oficial)}</b>${i.oficial ? "" : `<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap"><input class="cz-pin" data-i="${i.id}" inputmode="decimal" placeholder="R$" style="width:70px"><button type="button" class="cz-salvar pri" data-i="${i.id}" style="font-size:12px">Salvar preço</button></div>${i.painel ? `<button type="button" class="cz-usar-painel" data-i="${i.id}" data-p="${i.painel}" style="font-size:12px;margin-top:3px">Usar ${br(i.painel)} (do painel)</button><br>` : ""}<button type="button" class="cz-sug" data-i="${i.id}" style="font-size:12px;margin-top:3px">ver sugestões</button><div class="cz-sug-box" data-i="${i.id}"></div>`}</td><td>${br(i.esperado_apps)}</td><td${ruim(i, "painel")}>${br(i.painel)}</td><td${ruim(i, "site")}>${br(i.site)}</td><td${ruim(i, "ifood")}>${br(i.ifood)}</td><td${ruim(i, "n99")}>${br(i.n99)}</td></tr>`).join("")}</tbody></table></div>` : "<p>Nada com alerta nesta lista. 👍</p>"}</section>
+      <div class="rolagem"><table class="mini"><thead><tr><th></th><th>Produto</th><th>Oficial</th><th>Apps ÷</th><th>Painel</th><th>Site</th><th>iFood</th><th>99Food</th></tr></thead><tbody>${d.itens.map(i => `<tr data-id="${i.id}"><td>${i.oficial || (cz.tipo === "sem_oficial" && i.painel) ? `<input type="checkbox" data-i="${i.id}" ${cz.marcados.has(i.id) ? "checked" : ""}>` : ""}</td><td>${esc(i.nome)}<br><small style="color:var(--muted)">${esc(i.ean || "sem código")}${i.contado != null ? " · contado " + i.contado : ""}</small></td><td><b>${br(i.oficial)}</b>${i.oficial ? "" : `<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap"><input class="cz-pin" data-i="${i.id}" inputmode="decimal" placeholder="R$" style="width:70px"><button type="button" class="cz-salvar pri" data-i="${i.id}" style="font-size:12px">Salvar preço</button></div>${i.painel ? `<button type="button" class="cz-usar-painel" data-i="${i.id}" data-p="${i.painel}" style="font-size:12px;margin-top:3px">Usar ${br(i.painel)} (do painel)</button><br>` : ""}${cz.sugPorId[i.id] ? `<div style="margin-top:4px;font-size:12px;border-top:1px dashed var(--line);padding-top:3px">Sugestão do Gestor Z (${Math.round(cz.sugPorId[i.id].parecido * 100)}%): <b>${esc(cz.sugPorId[i.id].nome)}</b>${cz.sugPorId[i.id].tamanho_igual === false ? ' <b style="color:var(--bad)">(tamanho diferente)</b>' : ""}<br><button type="button" class="cz-usar-sug" data-i="${i.id}" data-r="${cz.sugPorId[i.id].id}" style="font-size:12px;margin-top:3px">Usar ${br(cz.sugPorId[i.id].preco)}</button></div>` : '<div style="margin-top:4px;font-size:12px;color:var(--muted)">sem sugestão no Gestor Z</div>'}`}</td><td>${br(i.esperado_apps)}</td><td${ruim(i, "painel")}>${br(i.painel)}</td><td${ruim(i, "site")}>${br(i.site)}</td><td${ruim(i, "ifood")}>${br(i.ifood)}</td><td${ruim(i, "n99")}>${br(i.n99)}</td></tr>`).join("")}</tbody></table></div>` : "<p>Nada com alerta nesta lista. 👍</p>"}</section>
     <div id="cz-res" role="status"></div>`;
   const cont = () => { const n = $("#cz-n"); if(n) n.textContent = cz.marcados.size; };
   cont();
+  if(manter) c.scrollTop = rolagem;
+  // salvar um item NÃO recarrega a tela: tira só a linha, para você continuar de onde estava
+  const tirarLinha = (id, texto) => {
+    const tr = c.querySelector(`tr[data-id="${id}"]`); if(tr) tr.remove();
+    cz.marcados.delete(+id); cont();
+    const chip = c.querySelector(`button[data-t="${cz.tipo}"]`);
+    if(chip) chip.textContent = chip.textContent.replace(/\((\d[\d.]*)\)/, (m, n) => "(" + Math.max(0, parseInt(n.replace(".", ""), 10) - 1) + ")");
+    const r = $("#cz-res"); if(r) r.innerHTML = `<div class="ok-msg" style="padding:4px 8px">${esc(texto)}</div>`;
+  };
   c.onclick = async e => {
     const t = e.target.closest("button[data-t]"); if(t){ cz.marcados.clear(); abrirCruzamento(t.dataset.t); return; }
-    if(e.target.closest("#cz-todos")){ aplicaveis.forEach(i => cz.marcados.add(i.id)); abrirCruzamento(); return; }
-    if(e.target.closest("#cz-nenhum")){ cz.marcados.clear(); abrirCruzamento(); return; }
+    if(e.target.closest("#cz-todos")){ aplicaveis.forEach(i => cz.marcados.add(i.id)); abrirCruzamento(undefined, true); return; }
+    if(e.target.closest("#cz-nenhum")){ cz.marcados.clear(); abrirCruzamento(undefined, true); return; }
     const sv = e.target.closest(".cz-salvar");
     if(sv){
       const v = c.querySelector(`.cz-pin[data-i="${sv.dataset.i}"]`).value;
       if(!v.trim()){ alert("Digite o preço, por exemplo 12,50."); return; }
-      try{ await api("/api/cruzamento/definir", {method:"POST", body:JSON.stringify({pares:[[+sv.dataset.i, v]]}), headers:{"X-Quem":encodeURIComponent(quemContando())}}); abrirCruzamento(); }
+      try{ await api("/api/cruzamento/definir", {method:"POST", body:JSON.stringify({pares:[[+sv.dataset.i, v]]}), headers:{"X-Quem":encodeURIComponent(quemContando())}}); tirarLinha(sv.dataset.i, "Preço salvo: R$ " + v.replace(".", ",")); }
+      catch(er){ alert(er.message); }
+      return;
+    }
+    const us2 = e.target.closest(".cz-usar-sug");
+    if(us2){
+      try{ await api("/api/cruzamento/aplicar-sugestoes", {method:"POST", body:JSON.stringify({pares:[[+us2.dataset.i, +us2.dataset.r]]}), headers:{"X-Quem":encodeURIComponent(quemContando())}}); tirarLinha(us2.dataset.i, "Preço do Gestor Z gravado: " + us2.textContent.replace("Usar ", "")); }
       catch(er){ alert(er.message); }
       return;
     }
     const up = e.target.closest(".cz-usar-painel");
     if(up){
-      try{ await api("/api/cruzamento/definir", {method:"POST", body:JSON.stringify({pares:[[+up.dataset.i, up.dataset.p]]}), headers:{"X-Quem":encodeURIComponent(quemContando())}}); abrirCruzamento(); }
+      try{ await api("/api/cruzamento/definir", {method:"POST", body:JSON.stringify({pares:[[+up.dataset.i, up.dataset.p]]}), headers:{"X-Quem":encodeURIComponent(quemContando())}}); tirarLinha(up.dataset.i, "Preço do painel aceito como oficial."); }
       catch(er){ alert(er.message); }
       return;
     }
@@ -1060,7 +1082,7 @@ async function abrirCruzamento(tipo){
       if(!pares.length){ alert("Marque ao menos um produto que já tenha preço no painel."); return; }
       if(!confirm("Usar o preço que já está no painel como preço oficial em " + pares.length + " produto(s)? Isso não envia nada às lojas.")) return;
       try{ const r = await api("/api/cruzamento/definir", {method:"POST", body:JSON.stringify({pares}), headers:{"X-Quem":encodeURIComponent(quemContando())}});
-        cz.marcados.clear(); await abrirCruzamento(); $("#cz-res").innerHTML = `<div class="ok-msg">${num(r.aplicados)} produto(s) com preço oficial definido. Atualize a lista do iFood.</div>`; carregarResumo(); }
+        cz.marcados.clear(); await abrirCruzamento(undefined, true); $("#cz-res").innerHTML = `<div class="ok-msg">${num(r.aplicados)} produto(s) com preço oficial definido. Atualize a lista do iFood.</div>`; carregarResumo(); }
       catch(er){ alert(er.message); }
       return;
     }
@@ -1097,7 +1119,7 @@ async function abrirCruzamento(tipo){
       if(!pares.length){ alert("Marque ao menos um."); return; }
       if(!confirm("Gravar no painel o preço do Gestor Z em " + pares.length + " produto(s)? Isso não envia nada às lojas.")) return;
       try{ const r = await api("/api/cruzamento/aplicar-sugestoes", {method:"POST", body:JSON.stringify({pares}), headers:{"X-Quem":encodeURIComponent(quemContando())}});
-        await abrirCruzamento("sem_oficial"); $("#cz-res").innerHTML = `<div class="ok-msg">${num(r.aplicados)} preço(s) gravado(s) no painel. Volte à janela do iFood e atualize a lista.</div>`; carregarResumo(); }
+        await abrirCruzamento("sem_oficial", true); $("#cz-res").innerHTML = `<div class="ok-msg">${num(r.aplicados)} preço(s) gravado(s) no painel. Volte à janela do iFood e atualize a lista.</div>`; carregarResumo(); }
       catch(er){ alert(er.message); }
       return;
     }
@@ -1105,7 +1127,7 @@ async function abrirCruzamento(tipo){
       if(!cz.marcados.size){ alert("Marque ao menos um produto."); return; }
       if(!confirm("Colocar no PAINEL o preço oficial do Gestor Z em " + cz.marcados.size + " produto(s)? Isso não envia nada às lojas.")) return;
       try{ const r = await api("/api/cruzamento/aplicar", {method:"POST", body:JSON.stringify({ids:[...cz.marcados]}), headers:{"X-Quem":encodeURIComponent(quemContando())}});
-        cz.marcados.clear(); await abrirCruzamento(); $("#cz-res").innerHTML = `<div class="ok-msg">${num(r.aplicados)} preço(s) corrigido(s) no painel. Agora leve para as lojas pelas ferramentas de envio.</div>`; carregarResumo(); }
+        cz.marcados.clear(); await abrirCruzamento(undefined, true); $("#cz-res").innerHTML = `<div class="ok-msg">${num(r.aplicados)} preço(s) corrigido(s) no painel. Agora leve para as lojas pelas ferramentas de envio.</div>`; carregarResumo(); }
       catch(er){ alert(er.message); }
       return;
     }
