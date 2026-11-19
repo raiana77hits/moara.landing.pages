@@ -1031,7 +1031,7 @@ async function abrirCruzamento(tipo){
     <p style="font-size:13px">Esperado: <b>Site = preço do Gestor Z</b> · <b>iFood e 99Food = preço do Gestor Z ÷ ${String(d.divisor).replace(".", ",")}</b> · diferenças de até ${br(d.tolerancia)} não contam.</p>
     <p style="font-size:12px;color:var(--muted)">Dados usados: ${tx("gestorz_importado_em", "Gestor Z")} · ${tx("nuvemshop_sync_em", "Nuvemshop lida em")} · ${tx("ifood_catalogo_em", "catálogo iFood de")} · ${tx("n99_catalogo_em", "catálogo 99 de")}. Para o cruzamento valer, importe o Gestor Z e os catálogos de novo.</p>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${Object.entries(d.tipos).map(([k, n]) => `<button type="button" class="${cz.tipo === k ? "pri" : ""}" data-t="${k}">${esc(n)} (${num(d.contagens[k])})</button>`).join("")}<button type="button" class="${cz.tipo === "" ? "pri" : ""}" data-t="">Tudo com alerta</button></div></section>
-    <section>${d.itens.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><button type="button" id="cz-todos">Marcar todos desta lista</button><button type="button" id="cz-nenhum">Desmarcar</button><button type="button" class="pri" id="cz-aplicar">Aplicar o preço oficial no painel (<span id="cz-n">0</span>)</button><button type="button" id="cz-csv">Baixar esta lista (CSV)</button></div>
+    <section>${d.itens.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${cz.tipo === "sem_oficial" ? '<button type="button" class="pri" id="cz-massa">🔎 Preencher os preços pelo Gestor Z (ver sugestões de todos)</button>' : ""}<button type="button" id="cz-todos">Marcar todos desta lista</button><button type="button" id="cz-nenhum">Desmarcar</button><button type="button" class="pri" id="cz-aplicar">Aplicar o preço oficial no painel (<span id="cz-n">0</span>)</button><button type="button" id="cz-csv">Baixar esta lista (CSV)</button></div>
       <p style="font-size:12px;color:var(--muted)">“Aplicar” só muda o preço <b>no painel</b>. Depois use as ferramentas de envio (iFood API: “Só atualizar preço…”, Planilhas dos apps, Nuvemshop) para levar o preço certo às lojas. Nada é enviado por aqui.${d.cortou ? " Mostrando só os primeiros " + d.itens.length + " de " + d.total + "." : ""}</p>
       <div class="rolagem"><table class="mini"><thead><tr><th></th><th>Produto</th><th>Oficial</th><th>Apps ÷</th><th>Painel</th><th>Site</th><th>iFood</th><th>99Food</th></tr></thead><tbody>${d.itens.map(i => `<tr data-id="${i.id}"><td>${i.oficial ? `<input type="checkbox" data-i="${i.id}" ${cz.marcados.has(i.id) ? "checked" : ""}>` : ""}</td><td>${esc(i.nome)}<br><small style="color:var(--muted)">${esc(i.ean || "sem código")}${i.contado != null ? " · contado " + i.contado : ""}</small></td><td><b>${br(i.oficial)}</b>${i.oficial ? "" : `<br><button type="button" class="cz-sug" data-i="${i.id}" style="font-size:12px">ver sugestões</button><div class="cz-sug-box" data-i="${i.id}"></div>`}</td><td>${br(i.esperado_apps)}</td><td${ruim(i, "painel")}>${br(i.painel)}</td><td${ruim(i, "site")}>${br(i.site)}</td><td${ruim(i, "ifood")}>${br(i.ifood)}</td><td${ruim(i, "n99")}>${br(i.n99)}</td></tr>`).join("")}</tbody></table></div>` : "<p>Nada com alerta nesta lista. 👍</p>"}</section>
     <div id="cz-res" role="status"></div>`;
@@ -1052,6 +1052,29 @@ async function abrirCruzamento(tipo){
     const us = e.target.closest(".cz-usar");
     if(us){
       try{ await api("/api/produto/" + us.dataset.i, {method:"POST", body:JSON.stringify({preco: us.dataset.p, quem: quemContando()})}); abrirCruzamento(); }
+      catch(er){ alert(er.message); }
+      return;
+    }
+    if(e.target.closest("#cz-massa")){
+      $("#cz-res").innerHTML = "<p>Procurando no Gestor Z…</p>";
+      try{
+        const r = await api("/api/cruzamento/sugestoes"), br = v => "R$ " + Number(v).toFixed(2).replace(".", ",");
+        cz.sug = r.itens;
+        $("#cz-res").innerHTML = `<section><b>Preços do Gestor Z para produtos sem preço</b>
+          <p style="font-size:13px">Vêm marcados só os <b>muito parecidos</b> (mesmas palavras e mesmo tamanho). Os outros, <b>confira o nome</b> antes de marcar. Aplicar grava o preço no painel e não envia nada às lojas.</p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button type="button" class="pri" id="cz-aplicar-sug">Aplicar os marcados</button><span id="cz-sug-n"></span></div>
+          <div class="rolagem"><table class="mini"><thead><tr><th></th><th>Seu produto</th><th>Produto do Gestor Z</th><th>Preço</th><th>Parecido</th></tr></thead><tbody>${r.itens.map((i, k) => i.sugestao ? `<tr><td><input type="checkbox" data-s="${k}" ${i.sugestao.auto ? "checked" : ""}></td><td>${esc(i.nome)}</td><td>${esc(i.sugestao.nome)}${i.sugestao.tamanho_igual === false ? ' <b style="color:var(--bad)">(tamanho diferente)</b>' : ""}</td><td><b>${br(i.sugestao.preco)}</b></td><td>${Math.round(i.sugestao.parecido * 100)}%${i.sugestao.auto ? " ✔" : ""}</td></tr>` : `<tr><td></td><td>${esc(i.nome)}</td><td colspan="3"><small>nenhum parecido no Gestor Z: informe o preço à mão</small></td></tr>`).join("")}</tbody></table></div></section>`;
+        const conta = () => { const n = $("#cz-res").querySelectorAll("input[data-s]:checked").length; $("#cz-sug-n").textContent = n + " marcado(s)"; };
+        conta(); $("#cz-res").onchange = conta;
+      }catch(er){ $("#cz-res").innerHTML = `<div class="erro-msg">${esc(er.message)}</div>`; }
+      return;
+    }
+    if(e.target.closest("#cz-aplicar-sug")){
+      const pares = [...$("#cz-res").querySelectorAll("input[data-s]:checked")].map(x => { const i = cz.sug[+x.dataset.s]; return [i.id, i.sugestao.id]; });
+      if(!pares.length){ alert("Marque ao menos um."); return; }
+      if(!confirm("Gravar no painel o preço do Gestor Z em " + pares.length + " produto(s)? Isso não envia nada às lojas.")) return;
+      try{ const r = await api("/api/cruzamento/aplicar-sugestoes", {method:"POST", body:JSON.stringify({pares}), headers:{"X-Quem":encodeURIComponent(quemContando())}});
+        await abrirCruzamento("sem_oficial"); $("#cz-res").innerHTML = `<div class="ok-msg">${num(r.aplicados)} preço(s) gravado(s) no painel. Volte à janela do iFood e atualize a lista.</div>`; carregarResumo(); }
       catch(er){ alert(er.message); }
       return;
     }
@@ -1260,6 +1283,7 @@ async function abrirIfoodApi(){
     if(!ultimaLista) return;
     const L = ultimaLista, prontos = L.itens.filter(i => i.pronto).length;
     $("#if-cab").innerHTML = `<div class="aviso" style="margin:8px 0"><b>${esc(L.nome)}</b>: ${L.itens.length}${L.cortou ? "+ (mostrando os primeiros " + L.itens.length + ")" : ""} produtos · <b>${prontos}</b> prontos para o iFood
+      ${L.itens.some(i => !i.pronto && (i.avisos || []).some(a => a.startsWith("sem preço"))) ? '<div style="margin:6px 0"><b style="color:var(--bad)">Há produtos sem preço nesta lista.</b> <button type="button" id="if-sem-preco" class="pri">Preencher os preços pelo Gestor Z</button></div>' : ""}
       <div style="margin-top:4px;font-size:13px"><label><input type="checkbox" id="if-ver-env" ${verEnviados ? "checked" : ""}> Mostrar também os que já enviei à loja real</label>${L.escondidos ? " <span style='color:var(--muted)'>(" + L.escondidos + " já enviados estão escondidos)</span>" : ""}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button type="button" id="if-todos">Marcar os próximos prontos (até o limite)</button><button type="button" id="if-nenhum">Desmarcar</button><button type="button" id="if-csv">Baixar esta lista (CSV)</button><span id="if-cont" style="align-self:center;color:var(--muted)"></span></div></div>`;
     $("#if-lista").innerHTML = L.itens.map(i => `<label class="pv" style="display:flex;gap:8px;align-items:flex-start;${i.pronto ? "" : "opacity:.75"}"><input type="checkbox" data-i="${i.id}" ${marcados.has(i.id) ? "checked" : ""} ${i.pronto ? "" : "disabled"}><span>${esc(i.nome)}<br><small>${esc(i.ean || "sem código")} · painel ${brl2(i.preco)} → iFood ${brl2(i.preco_ifood)}${i.ifood_atual != null ? " (hoje no iFood " + brl2(i.ifood_atual) + ")" : ""} · contado ${i.estoque ?? "—"}${i.estimado != null && Math.round(i.estimado) !== i.estoque ? " (estimado " + Math.round(i.estimado) + ")" : ""}${i.conferido_em ? " em " + esc(data(i.conferido_em)) : ""}<br>Site ${i.site ? "✔" : "—"} · iFood ${i.ifood ? "✔" : "—"} · 99Food ${i.n99 ? "✔" : "—"}${(i.motivos || []).length ? '<br><b style="color:var(--bad)">' + i.motivos.map(esc).join(" · ") + "</b>" : ""}${i.avisos.length ? '<br><span style="color:var(--warn)">' + i.avisos.map(esc).join("; ") + "</span>" : ""}</small></span></label>`).join("");
@@ -1290,6 +1314,7 @@ async function abrirIfoodApi(){
       if(modo){ const rd = document.querySelector(`input[name=if-modo][value=${modo}]`); if(rd) rd.checked = true; }
       carregarLista(b.dataset.l);
     }
+    if(e.target.closest("#if-sem-preco")){ $("#difa").close(); abrirCruzamento("sem_oficial"); return; }
     if(e.target.closest("#if-ver-env") && ultimaLista){ verEnviados = e.target.closest("#if-ver-env").checked; carregarLista(ultimaLista.lista); return; }
     if(e.target.closest("#if-todos") && ultimaLista){
       let n = marcados.size;

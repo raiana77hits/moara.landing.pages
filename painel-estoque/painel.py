@@ -2189,6 +2189,76 @@ def cruzamento_precos(con, tipo="", divisor=0.70, limite=400):
             "cortou": len(linhas) > limite, "tolerancia": TOLERANCIA_PRECO, "divisor": divisor, "quando": meta}
 
 
+_TAM_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(ml|g|gr|kg|l|lt|un|und|unid|unidades|cm|mm|m|pcs|pc|pecas)\b")
+_SEM_PESO = {"de", "da", "do", "das", "dos", "e", "com", "para", "a", "o", "em", "c", "p"}
+
+
+def _tokens_nome(nome):
+    t = re.sub(r"[^a-z0-9., ]+", " ", _sem_acento(nome).lower())
+    tam = set()
+    for n, u in _TAM_RE.findall(t):
+        u = {"gr": "g", "lt": "l", "und": "un", "unid": "un", "unidades": "un", "pcs": "pc", "pecas": "pc"}.get(u, u)
+        tam.add(n.replace(",", ".").rstrip("0").rstrip(".") + u)
+    palavras = {(w[:-1] if len(w) > 4 and w.endswith("s") else w)       # johnsons = johnson
+                for w in re.sub(r"[.,]", " ", _TAM_RE.sub(" ", t)).split() if w not in _SEM_PESO and len(w) > 1}
+    return palavras, tam
+
+
+def sugestoes_em_massa(con, limite=300):
+    """Para cada produto sem preço oficial, o produto do Gestor Z de nome mais parecido (mesmas palavras e mesmo
+    tamanho). Só leitura. 'auto' = parecido o bastante para vir marcado; o resto você confere."""
+    ids = [i["id"] for i in cruzamento_precos(con, "sem_oficial", limite=limite)["itens"]]
+    base = []
+    for r in con.execute("SELECT id, nome, preco_gz, ean FROM produtos WHERE origem='gestorz' AND preco_gz > 0"):
+        pal, tam = _tokens_nome(r["nome"])
+        if pal:
+            base.append((r, pal, tam))
+    saida = []
+    for pid in ids:
+        p = con.execute("SELECT id, nome, ean, estoque FROM produtos WHERE id=?", (pid,)).fetchone()
+        pal, tam = _tokens_nome(p["nome"])
+        melhor = None
+        for r, pal2, tam2 in base:
+            if not pal or not pal2:
+                continue
+            inter = len(pal & pal2)
+            if not inter:
+                continue
+            jac = inter / len(pal | pal2)
+            igual = (tam == tam2) if (tam and tam2) else None
+            sc = jac - (0.35 if igual is False else 0)
+            if melhor is None or sc > melhor[0]:
+                melhor = (sc, jac, igual, r)
+        item = {"id": p["id"], "nome": p["nome"], "ean": p["ean"], "contado": p["estoque"], "sugestao": None}
+        if melhor and melhor[0] >= 0.4:
+            sc, jac, igual, r = melhor
+            item["sugestao"] = {"id": r["id"], "nome": r["nome"], "preco": r["preco_gz"], "ean": r["ean"],
+                                "parecido": round(jac, 2), "tamanho_igual": igual,
+                                "auto": jac >= 0.8 and igual is not False and (igual is True or bool(tam) is False)}
+        saida.append(item)
+    saida.sort(key=lambda x: -(x["sugestao"]["parecido"] if x["sugestao"] else 0))
+    return {"itens": saida}
+
+
+def aplicar_sugestoes(con, pares, quem="painel"):
+    """Aplica o preço do Gestor Z de um produto parecido (par = [id do seu produto, id do produto do Gestor Z]).
+    Grava o preço no painel como preço oficial. Não envia nada às lojas."""
+    feitos = 0
+    for par in pares[:500]:
+        pid, ref = int(par[0]), int(par[1])
+        r = con.execute("SELECT nome, preco_gz FROM produtos WHERE id=? AND origem='gestorz' AND preco_gz > 0", (ref,)).fetchone()
+        p = con.execute("SELECT id, preco FROM produtos WHERE id=?", (pid,)).fetchone()
+        if not r or not p:
+            continue
+        con.execute("UPDATE produtos SET preco=?, preco_gz=?, atualizado_em=? WHERE id=?", (r["preco_gz"], r["preco_gz"], agora(), pid))
+        con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
+                    (pid, agora(), "preco", "" if p["preco"] is None else f"{p['preco']:.2f}", f"{r['preco_gz']:.2f}",
+                     f"{quem} (preço do Gestor Z: {r['nome'][:40]})"))
+        feitos += 1
+    con.commit()
+    return {"aplicados": feitos}
+
+
 def aplicar_preco_oficial(con, ids, quem="painel"):
     """Põe no painel o preço oficial do Gestor Z nos produtos marcados. Não envia nada às lojas."""
     feitos = 0
@@ -4068,6 +4138,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json(candidatos_ifood(con, qs.get("lista", ""), mostrar_enviados=qs.get("todos") == "1"))
                 except ValueError as e:
                     return self._json({"erro": str(e)}, 400)
+            if u.path == "/api/cruzamento/sugestoes":
+                return self._json(sugestoes_em_massa(con))
             if u.path == "/api/cruzamento":
                 return self._json(cruzamento_precos(con, qs.get("tipo", "")))
             if u.path == "/api/ifood-api/comparar":
@@ -4244,6 +4316,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if not self._logado(con):
                 return self._json({"erro": "Entre com a senha.", "login": True}, 401)
+            if u.path == "/api/cruzamento/aplicar-sugestoes":
+                d = json.loads(self._corpo() or b"{}")
+                return self._json(aplicar_sugestoes(con, d.get("pares") or [], unquote(self.headers.get("X-Quem") or "painel")[:40]))
             if u.path == "/api/cruzamento/aplicar":
                 d = json.loads(self._corpo() or b"{}")
                 return self._json(aplicar_preco_oficial(con, d.get("ids") or [], unquote(self.headers.get("X-Quem") or "painel")[:40]))
