@@ -2595,9 +2595,9 @@ def recalcular(con, ids=None):
             "WHERE d.estado='confirmado' AND d.produto_id IS NOT NULL GROUP BY d.produto_id, n.emissao"):
         ent.setdefault(r["pid"], []).append((r["em"], r["q"] or 0))
     ven = {}
-    for r in con.execute("SELECT gz_codigo, inicio, unidade, SUM(qtd) AS q FROM vendas_gz "
+    for r in con.execute("SELECT gz_codigo, inicio, MAX(fim) AS fim, unidade, SUM(qtd) AS q FROM vendas_gz "
                          "GROUP BY gz_codigo, inicio, unidade"):
-        ven.setdefault(r["gz_codigo"], []).append((r["inicio"], r["unidade"], r["q"] or 0))
+        ven.setdefault(r["gz_codigo"], []).append((r["inicio"], r["unidade"], r["q"] or 0, r["fim"]))
     sitev = {}
     for r in con.execute(
             "SELECT k.produto_id pid, substr(o.criado_em,1,10) d, SUM(i.qtd) q FROM pedidos_itens i "
@@ -2610,16 +2610,21 @@ def recalcular(con, ids=None):
             dia = p["conferido_em"][:10]
             e = sum(q for em, q in ent.get(p["id"], []) if em > dia)
             v = 0.0
-            for ini, un, q in ven.get(str(p["gz_codigo"] or ""), []):
+            cruza = False
+            for ini, un, q, fim in ven.get(str(p["gz_codigo"] or ""), []):
                 if ini > dia:
                     if un == "KG":
                         aviso = "peso"
                     v += q
+                elif q and (fim or "") >= dia:
+                    cruza = True          # período de vendas que contém o dia da contagem: não dá para saber quanto saiu depois
             v += sum(q for d, q in sitev.get(p["id"], []) if d > dia)
             if aviso != "peso":
                 est = round(p["estoque"] + e - v, 2)
                 if est < 0:
                     aviso = "negativo"          # vendas descontadas maiores que a contagem: confira o período importado
+                elif cruza:
+                    aviso = "periodo"           # estimativa pode estar acima do real: vendas do dia da contagem não entraram
         con.execute("UPDATE produtos SET estimado=?, est_aviso=? WHERE id=?", (est, aviso, p["id"]))
     con.commit()
 

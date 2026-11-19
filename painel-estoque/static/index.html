@@ -612,7 +612,8 @@ const fmtN = v => Number(v).toLocaleString("pt-BR", {maximumFractionDigits:1});
 function textoEst(p){
   if(p.est_aviso === "peso") return "<br>vende por peso: sem estimativa";
   if(p.estimado == null) return "";
-  return `<br><b style="color:${p.estimado < 0 ? "var(--bad)" : "inherit"}">estimado ${fmtN(p.estimado)}</b>`;
+  return `<br><b style="color:${p.estimado < 0 ? "var(--bad)" : "inherit"}">estimado ${fmtN(p.estimado)}</b>` +
+    (p.est_aviso === "periodo" ? `<br><small title="A planilha de vendas inclui o dia da contagem; as vendas desse período não foram descontadas.">⚠ pode estar acima do real</small>` : "");
 }
 function desenharInicio(){
   const r = RESUMO; if(!r) return; const f = r.filtros;

@@ -496,7 +496,11 @@ async function buscar(texto, daCamera){
     else itens = (await api("/api/produtos?por_pagina=12&q=" + encodeURIComponent(texto))).itens;
   }catch(e){ if(e.message !== "login") res.innerHTML = `<div class="aviso a-bad">${esc(e.message)}</div>`; return; }
   if(!itens.length){
-    if(soNumero){ pausar(true); res.innerHTML = ""; abrirCadastro(texto.replace(/\D/g, "")); return; }   // código novo: abre o cadastro na hora
+    if(soNumero){
+      const dig = texto.replace(/\D/g, "");
+      if(dig.length < 6 || dig.length > 14){ res.innerHTML = `<div class="aviso a-warn">Não achei “${esc(texto)}”. Código de barras tem de 6 a 14 números. Confira o que digitou, ou escreva o nome do produto.</div>`; return; }
+      pausar(true); res.innerHTML = ""; abrirCadastro(dig); return;   // código novo: abre o cadastro na hora
+    }
     res.innerHTML = `<div class="aviso a-warn">Nenhum produto com “${esc(texto)}”.</div>`;
     return;
   }
@@ -555,6 +559,7 @@ function cartao(p){
     if(pr !== "" && (isNaN(Number(pr)) || Number(pr) < 0)){ $("#c-erro").hidden = false; $("#c-erro").textContent = "Preço inválido. Use números, por exemplo 12,50."; return; }
     const depois = pr === "" ? "" : Number(pr).toFixed(2);
     const mudouPreco = depois !== antes;
+    if(mudouPreco && depois === "" && antes !== "" && !confirm("Apagar o preço deste produto? (hoje: R$ " + antes.replace(".", ",") + ")")) return;
     if(mudouPreco) corpo.preco = depois;
     try{
       await api("/api/produto/" + p.id, {method:"POST", body:JSON.stringify(corpo)});
@@ -661,7 +666,10 @@ async function abrirEdicao(li){
     if(v(".e-nome").trim() !== p.nome) corpo.nome = v(".e-nome");
     const np = num2(v(".e-preco")), pa = p.preco != null ? Number(p.preco).toFixed(2) : "";
     if(np !== "" && isNaN(Number(np))){ msg.className = "msg erro"; msg.textContent = "Preço inválido."; return; }
-    if(np !== pa) corpo.preco = np;
+    if(np !== pa){
+      if(np === "" && pa !== "" && !confirm("Apagar o preço deste produto? (hoje: R$ " + pa.replace(".", ",") + ")")) return;
+      corpo.preco = np;
+    }
     const q = v(".e-qtd").trim();
     if(q !== String(p.estoque ?? "")){
       if(q === "" || isNaN(parseInt(q)) || parseInt(q) < 0){ msg.className = "msg erro"; msg.textContent = "A quantidade precisa ser um número, zero ou mais."; return; }
