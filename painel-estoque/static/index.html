@@ -1149,19 +1149,22 @@ async function abrirIfoodApi(){
     <label class="campo">ID da loja (merchant)<input id="if-loja" autocomplete="off" placeholder="opcional"></label>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="pri" id="if-salvar">Salvar e testar</button><button id="if-testar">Só testar</button></div>
     </section><div id="if-res" role="status"></div>
-    <section><b>Enviar produtos para a loja de teste do iFood</b>
-      <p>Só na <b>loja de teste</b>. Cria ou atualiza o produto (sem apagar nada). Primeiro você vê o que seria enviado.</p>
+    <section><b>Enviar produtos ao iFood</b>
+      <p>Cria ou atualiza o produto (sem apagar nada). Primeiro você vê o que seria enviado.</p>
+      <label class="op"><input type="radio" name="if-dest" value="teste" checked><span><b>Loja de teste</b></span></label>
+      <label class="op"><input type="radio" name="if-dest" value="real"><span><b style="color:var(--bad)">Loja REAL</b> (clientes de verdade veem)<br><small>O <b>primeiro envio é de 1 produto só</b>, para você conferir no iFood. Depois, até 100 por vez. A carga completa (reset) nunca é feita na loja real. Precisa do ID, segredo e loja reais acima (ID ${ok(e.real.id)} · segredo ${ok(e.real.segredo)} · loja ${ok(e.real.loja)}).</small></span></label>
       <label class="op"><input type="radio" name="if-modo" value="post" checked><span><b>Criar ou atualizar tudo</b> (POST)<br><small>Produto novo, ou reenviar todos os dados. Não apaga nada.</small></span></label>
       <label class="op"><input type="radio" name="if-modo" value="patch"><span><b>Só preço, promoção e estoque</b> (PATCH)<br><small>Para produto que já foi enviado. O iFood não aceita ativar produto por aqui.</small></span></label>
       <label class="op"><input type="radio" name="if-modo" value="reset"><span><b>Carga completa</b> (reset=true) <b style="color:var(--warn,#b54708)">cuidado</b><br><small>Substitui o catálogo inteiro da loja de TESTE pelos produtos marcados. O iFood só recomenda em caso de extrema necessidade.</small></span></label>
       <label class="campo">Preço promocional (opcional, para todos os marcados)<input id="if-promo" inputmode="decimal" placeholder="ex.: 9,90 (precisa ser menor que o preço)"></label>
       <input class="busca-lista" id="if-q" type="search" placeholder="Buscar produto pelo nome ou código de barras" aria-label="Buscar produto">
       <div id="if-lista"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button id="if-ver">Ver o que seria enviado</button><button class="pri" id="if-env">Enviar para a loja de teste</button></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button id="if-ver">Ver o que seria enviado</button><button class="pri" id="if-env">Enviar</button></div>
       <pre id="if-prev" style="white-space:pre-wrap;font-size:12px;max-height:40vh;overflow:auto" hidden></pre>
     </section><div id="if-env-res" role="status"></div>`;
   const marcados = new Set();
   const modoIf = () => document.querySelector("input[name=if-modo]:checked").value;
+  const destIf = () => document.querySelector("input[name=if-dest]:checked").value;
   let tq; $("#if-q").oninput = () => { clearTimeout(tq); tq = setTimeout(async () => {
     const q = $("#if-q").value.trim(); if(q.length < 2){ $("#if-lista").innerHTML = ""; return; }
     const r = await api("/api/produtos?por_pagina=8&q=" + encodeURIComponent(q));
@@ -1178,14 +1181,18 @@ async function abrirIfoodApi(){
   };
   $("#if-env").onclick = async () => {
     if(!marcados.size){ alert("Marque ao menos um produto."); return; }
-    const modo = modoIf(); let confirmo = "";
-    if(modo === "reset"){
+    const modo = modoIf(), dest = destIf(); let confirmo = "";
+    if(dest === "real"){
+      if(modo === "reset"){ alert("A carga completa (reset) não é feita na loja real."); return; }
+      confirmo = prompt("LOJA REAL DO iFOOD: " + marcados.size + " produto(s) serão " + (modo === "patch" ? "atualizados (preço/promoção/estoque)" : "criados ou atualizados") + " e os clientes vão ver.\n\nO primeiro envio precisa ser de 1 produto só.\n\nDigite ENVIAR para confirmar:") || "";
+      if(confirmo.trim().toUpperCase() !== "ENVIAR") return;
+    }else if(modo === "reset"){
       confirmo = prompt("CARGA COMPLETA (reset=true) na loja de TESTE: o catálogo atual dela será substituído pelos " + marcados.size + " produto(s) marcados.\n\nDigite RESET para confirmar:") || "";
       if(confirmo.trim().toUpperCase() !== "RESET") return;
     }else if(!confirm((modo === "patch" ? "Atualizar preço/promoção/estoque de " : "Enviar ") + marcados.size + " produto(s) para a LOJA DE TESTE do iFood? (nada vai para a loja real)")) return;
     $("#if-env-res").textContent = "Enviando…";
     try{
-      const r = await api("/api/ifood-api/enviar", {method:"POST", body:JSON.stringify({ids:[...marcados], ambiente:"teste", modo, promo:$("#if-promo").value, confirmo}), headers:{"X-Quem":encodeURIComponent(quemContando())}});
+      const r = await api("/api/ifood-api/enviar", {method:"POST", body:JSON.stringify({ids:[...marcados], ambiente:dest, modo, promo:$("#if-promo").value, confirmo}), headers:{"X-Quem":encodeURIComponent(quemContando())}});
       $("#if-env-res").innerHTML = `<div class="${r.ok ? "ok-msg" : "erro-msg"}">${r.ok ? "O iFood aceitou" : "O iFood recusou"} (código ${r.status}) · ${r.enviados} produto(s). ${esc(r.mensagem || "")}<br><small>Resposta guardada em backups/${esc(r.backup)}</small><pre style="white-space:pre-wrap;font-size:12px;max-height:30vh;overflow:auto">${esc(JSON.stringify(r.resposta, null, 2))}</pre></div>`;
     }catch(err){ $("#if-env-res").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
   };

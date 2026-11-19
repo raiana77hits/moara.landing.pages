@@ -186,3 +186,16 @@ O arquivo `iniciar-com-windows.bat` abre o painel **sem abrir o navegador**. Par
 4. Clique com o botão direito no atalho, **Propriedades**, em **Executar** escolha **Minimizada** e OK.
 
 Para testar, reinicie o computador e, no celular, abra o endereço do painel. O Tailscale também precisa estar ligado (ele já inicia com o Windows).
+
+
+## iFood: loja real (depois da homologação)
+
+O iFood homologou o módulo **Item**. Em **Ferramentas > iFood (API)**, marque **Loja real**, informe o **Client ID**, o **Client Secret** do aplicativo "Casa de Embalagens Cangaiba - Catalogo" (aba Credenciais do portal) e o **ID da loja (merchant)** da loja real, e toque em **Salvar e testar**. As chaves ficam só no `config.json`.
+
+Para enviar, escolha **Loja REAL** na seção "Enviar produtos ao iFood". Travas do painel:
+- o **primeiro envio é de 1 produto só**, para você conferir no iFood antes de mandar mais; depois, no máximo 100 por vez;
+- precisa **digitar ENVIAR**;
+- a **carga completa (reset=true) nunca é feita na loja real**;
+- cada envio guarda a resposta em `backups/ifood_api_real_...json` e registra no histórico do produto.
+
+Lembre: o iFood aceita (resposta 202) e processa depois; não há consulta do resultado. Confira o produto no portal do parceiro.

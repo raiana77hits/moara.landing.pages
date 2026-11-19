@@ -829,20 +829,41 @@ def _ifood_loja_teste():
     raise ValueError("Informe o ID da loja de teste na tela de conexão do iFood.")
 
 
-def enviar_ifood_item(con, ids, ambiente="teste", quem="painel", modo="post", promo=None, confirmo_reset=False):
-    """Envia produtos para a LOJA DE TESTE do iFood. A loja real fica bloqueada até a homologação.
-    post = cria/atualiza (reset=false) | patch = só preço, promoção e estoque | reset = carga completa."""
-    if ambiente != "teste":
-        raise ValueError("O envio para a loja real está bloqueado até o iFood aprovar a homologação.")
+LIMITE_IFOOD_REAL_PRIMEIRO = 1      # o primeiro envio à loja real é de UM produto só
+LIMITE_IFOOD_REAL = 100             # depois disso, no máximo 100 por envio
+
+
+def enviar_ifood_item(con, ids, ambiente="teste", quem="painel", modo="post", promo=None, confirmo_reset=False,
+                      confirmo_real=False):
+    """Envia produtos ao iFood (API Item). 'teste' = loja de teste. 'real' = loja real, liberada depois da
+    homologação, com travas: nunca faz carga completa (reset), exige digitar ENVIAR, a chave e a loja reais
+    configuradas, o primeiro envio é de 1 produto e depois no máximo 100 por vez.
+    post = cria/atualiza (reset=false) | patch = só preço, promoção e estoque | reset = carga completa (só teste)."""
+    if ambiente not in ("teste", "real"):
+        raise ValueError("Ambiente desconhecido.")
     modo = modo if modo in ("post", "patch", "reset") else "post"
+    real = ambiente == "real"
+    if real:
+        if modo == "reset":
+            raise ValueError("A carga completa (reset=true) nunca é feita na loja real pelo painel: ela substitui o catálogo inteiro.")
+        if not confirmo_real:
+            raise ValueError("Para enviar à loja real, digite ENVIAR para confirmar.")
+        cfg_real = ifood_config("real")
+        if not (cfg_real["client_id"] and cfg_real["client_secret"] and cfg_real["merchant_id"]):
+            raise ValueError("Faltam o ID, o segredo e o ID da loja REAL na tela de conexão do iFood (marque 'Loja real').")
+        primeiro = not con.execute("SELECT 1 FROM meta WHERE chave='ifood_real_primeiro_ok'").fetchone()
+        limite = LIMITE_IFOOD_REAL_PRIMEIRO if primeiro else LIMITE_IFOOD_REAL
+        if len(set(ids)) > limite:
+            raise ValueError(f"Marque no máximo {limite} produto(s) por envio à loja real"
+                             + (" (o primeiro envio é de 1 produto só, para conferir no iFood antes de enviar mais)." if primeiro else "."))
     if modo == "reset" and not confirmo_reset:
         raise ValueError("A carga completa (reset=true) substitui o catálogo da loja de teste. Confirme digitando RESET.")
     pre = previa_ifood_item(con, ids, modo=modo, promo=promo)
     itens = [i for i in pre["itens"] if not i["bloqueia"]]
     if not itens:
         raise ValueError("Nenhum produto pode ser enviado: " + "; ".join(sorted({a for i in pre["itens"] for a in i["avisos"] if a.startswith(("sem ", "nada "))}))[:220])
-    loja = _ifood_loja_teste()
-    token = ifood_token("teste")
+    loja = cfg_real["merchant_id"] if real else _ifood_loja_teste()
+    token = ifood_token("real" if real else "teste")
     corpo = [i["corpo"] for i in itens]
     metodo, caminho = ("PATCH", f"/item/v1.0/ingestion/{loja}") if modo == "patch" else \
         ("POST", f"/item/v1.0/ingestion/{loja}?reset={'true' if modo == 'reset' else 'false'}")
@@ -854,14 +875,16 @@ def enviar_ifood_item(con, ids, ambiente="teste", quem="painel", modo="post", pr
         time.sleep(espera)
         espera *= 2
     os.makedirs(backups_dir(), exist_ok=True)
-    nome = f"ifood_api_teste_{modo}_{datetime.now():%Y%m%d_%H%M%S}.json"
+    nome = f"ifood_api_{'real' if real else 'teste'}_{modo}_{datetime.now():%Y%m%d_%H%M%S}.json"
     with open(os.path.join(backups_dir(), nome), "w", encoding="utf-8") as f:
         json.dump({"quando": agora(), "quem": quem, "loja_fim": loja[-6:], "endereco": f"{metodo} {caminho.split('/')[-1]}",
                    "modo": modo, "status": codigo, "enviado": corpo, "resposta": resp}, f, ensure_ascii=False, indent=2)
     if 200 <= codigo < 300:
         for i in itens:
             con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
-                        (i["pid"], agora(), "iFood (loja de teste)", "", f"enviado pela API ({modo})", quem))
+                        (i["pid"], agora(), "iFood (loja real)" if real else "iFood (loja de teste)", "", f"enviado pela API ({modo})", quem))
+        if real:
+            set_meta(con, "ifood_real_primeiro_ok", agora())
         con.commit()
     msg = str((resp.get("error") or {}).get("message") or "")[:200] if isinstance(resp, dict) else ""
     return {"ok": 200 <= codigo < 300, "status": codigo, "enviados": len(itens), "modo": modo,
@@ -3725,7 +3748,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json(enviar_ifood_item(con, d.get("ids") or [], d.get("ambiente") or "teste",
                                                         unquote(self.headers.get("X-Quem") or "painel")[:40],
                                                         modo=d.get("modo") or "post", promo=promo,
-                                                        confirmo_reset=(str(d.get("confirmo") or "").strip().upper() == "RESET")))
+                                                        confirmo_reset=(str(d.get("confirmo") or "").strip().upper() == "RESET"),
+                                                        confirmo_real=(str(d.get("confirmo") or "").strip().upper() == "ENVIAR")))
                 except ValueError as e:
                     return self._json({"erro": str(e)}, 400)
             if u.path == "/api/ifood-api/testar":
