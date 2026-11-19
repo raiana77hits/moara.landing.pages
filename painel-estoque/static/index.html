@@ -1512,7 +1512,7 @@ function desenharImportar(){
       <input type="file" id="f-vendas" accept=".csv,.xlsx,text/csv"></section>
     <section><b>Notas de entrada (fornecedores)</b>
       <p>Arquivo CSV ou Excel (.xlsx) com os itens das notas. Pode reenviar o arquivo inteiro: só entram as notas novas.</p>
-      <input type="file" id="f-notas" accept=".csv,.xlsx,text/csv"></section>
+      <input type="file" id="f-notas" accept=".csv,.xlsx,.pdf,text/csv" multiple> <small style="color:var(--muted)">(até 5 arquivos de uma vez)</small></section>
     <div id="m-msg"></div>`;
   $("#f-vendas").onchange = async e => {
     const f = e.target.files[0]; if(!f) return;
@@ -1526,16 +1526,22 @@ function desenharImportar(){
     e.target.value = "";
   };
   $("#f-notas").onchange = async e => {
-    const f = e.target.files[0]; if(!f) return;
-    $("#m-msg").textContent = "Importando…";
-    try{
-      const r = await api("/api/importar/notas?" + new URLSearchParams({arquivo:f.name}), {method:"POST", body: await f.arrayBuffer(), headers:{"X-Quem":encodeURIComponent(quemContando())}});
-      const ch = r.chegada;
-      $("#m-msg").innerHTML = `<div class="ok-msg">Pronto: ${num(r.novas)} itens novos de nota${r.repetidas ? " (" + num(r.repetidas) + " já estavam)" : ""}.` +
-        (ch ? `<br><b>Chegou:</b> ${num(ch.produtos_ligados)} produtos já ligados entram no estoque estimado. ${ch.sem_vinculo ? `<b>${num(ch.sem_vinculo)} itens ainda sem ligação</b>: ligue na aba “Itens das notas” (ou use “Vincular os seguros” em Prioridades) para o painel saber que entraram.` : ""}` +
-        ((ch.vendem || []).length ? `<br><b>Itens que vendem e chegaram:</b> ${ch.vendem.map(v => esc(v.nome) + " (+" + v.unidades + ")").join(" · ")}` : "") : "") + `</div>`;
-      carregarResumo();
-    }catch(err){ $("#m-msg").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
+    const arqs = [...e.target.files].slice(0, 5); if(!arqs.length) return;
+    const sobra = e.target.files.length > 5 ? `<div class="erro-msg">Escolhi só os 5 primeiros arquivos; envie os outros depois.</div>` : "";
+    const saidas = [];
+    for(const [n, f] of arqs.entries()){
+      $("#m-msg").innerHTML = `Importando ${n + 1} de ${arqs.length}: ${esc(f.name)}…`;
+      if(/\.pdf$/i.test(f.name)){ saidas.push(`<div class="erro-msg"><b>${esc(f.name)}</b>: o painel ainda não lê PDF de nota. Exporte os itens em CSV ou Excel, ou me mande um PDF de exemplo para eu ensinar o painel.</div>`); continue; }
+      try{
+        const r = await api("/api/importar/notas?" + new URLSearchParams({arquivo:f.name}), {method:"POST", body: await f.arrayBuffer(), headers:{"X-Quem":encodeURIComponent(quemContando())}});
+        const ch = r.chegada;
+        saidas.push(`<div class="ok-msg"><b>${esc(f.name)}</b>: ${num(r.novas)} itens novos de nota${r.repetidas ? " (" + num(r.repetidas) + " já estavam)" : ""}.` +
+          (ch ? `<br><b>Chegou:</b> ${num(ch.produtos_ligados)} produtos já ligados entram no estoque estimado.${ch.sem_vinculo ? ` <b>${num(ch.sem_vinculo)} itens ainda sem ligação</b>: ligue na aba “Itens das notas” (ou use “Vincular os seguros” em Prioridades).` : ""}` +
+          ((ch.vendem || []).length ? `<br><b>Itens que vendem e chegaram:</b> ${ch.vendem.map(v => esc(v.nome) + " (+" + v.unidades + ")").join(" · ")}` : "") : "") + `</div>`);
+      }catch(err){ saidas.push(`<div class="erro-msg"><b>${esc(f.name)}</b>: ${esc(err.message)}</div>`); }
+    }
+    $("#m-msg").innerHTML = saidas.join("") + sobra;
+    carregarResumo();
     e.target.value = "";
   };
 }
