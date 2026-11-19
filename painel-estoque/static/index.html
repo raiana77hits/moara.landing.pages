@@ -1224,6 +1224,7 @@ async function abrirIfoodApi(){
       <label class="op"><input type="radio" name="if-dest" value="real"><span><b style="color:var(--bad)">Loja REAL</b> (clientes de verdade veem)<br><small>O <b>primeiro envio é de 1 produto só</b>, para você conferir no iFood. Depois, até 100 por vez. A carga completa (reset) nunca é feita na loja real. Precisa do ID, segredo e loja reais acima (ID ${ok(e.real.id)} · segredo ${ok(e.real.segredo)} · loja ${ok(e.real.loja)}).</small></span></label>
       <label class="op"><input type="radio" name="if-modo" value="post" checked><span><b>Enviar o produto completo</b> (cria ou atualiza)<br><small>Produto novo, ou reenviar todos os dados (nome, preço, estoque, categoria). Não apaga nada.</small></span></label>
       <label class="op"><input type="radio" name="if-modo" value="patch"><span><b>Só atualizar preço, promoção e estoque</b><br><small>Para produto que já foi enviado. O iFood não aceita ativar produto por aqui.</small></span></label>
+      <label class="op"><input type="radio" name="if-modo" value="preco"><span><b>Só mudar o preço</b><br><small>Muda só o preço (preço do Gestor Z ÷ 0,70). Não mexe em estoque nem em ativo/inativo. Para produto que já está no iFood. Use o botão "💲 Mudar preços do iFood".</small></span></label>
       <label class="op"><input type="radio" name="if-modo" value="desativar"><span><b>Desativar produtos com estoque zero</b><br><small>Manda estoque 0 e deixa o produto inativo no iFood (some da loja até você repor). Só vale para produto contado com estoque 0. Use a lista "Estoque zero: desativar no iFood".</small></span></label>
       <label class="op"><input type="radio" name="if-modo" value="reset"><span><b>Carga completa</b> (só na loja de teste) <b style="color:var(--warn,#b54708)">cuidado</b><br><small>Substitui o catálogo inteiro da loja de TESTE pelos produtos marcados. Nunca na loja real.</small></span></label>
       <label class="campo">Preço promocional (opcional, para todos os marcados)<input id="if-promo" inputmode="decimal" placeholder="ex.: 9,90 (precisa ser menor que o preço)"></label>
@@ -1262,7 +1263,7 @@ async function abrirIfoodApi(){
     $("#if-cab").innerHTML = `<div class="aviso" style="margin:8px 0"><b>${esc(L.nome)}</b>: ${L.itens.length}${L.cortou ? "+ (mostrando os primeiros " + L.itens.length + ")" : ""} produtos · <b>${prontos}</b> prontos para o iFood
       <div style="margin-top:4px;font-size:13px"><label><input type="checkbox" id="if-ver-env" ${verEnviados ? "checked" : ""}> Mostrar também os que já enviei à loja real</label>${L.escondidos ? " <span style='color:var(--muted)'>(" + L.escondidos + " já enviados estão escondidos)</span>" : ""}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button type="button" id="if-todos">Marcar todos os prontos</button><button type="button" id="if-nenhum">Desmarcar</button><button type="button" id="if-csv">Baixar esta lista (CSV)</button><span id="if-cont" style="align-self:center;color:var(--muted)"></span></div></div>`;
-    $("#if-lista").innerHTML = L.itens.map(i => `<label class="pv" style="display:flex;gap:8px;align-items:flex-start;${i.pronto ? "" : "opacity:.75"}"><input type="checkbox" data-i="${i.id}" ${marcados.has(i.id) ? "checked" : ""} ${i.pronto ? "" : "disabled"}><span>${esc(i.nome)}<br><small>${esc(i.ean || "sem código")} · painel ${brl2(i.preco)} → iFood ${brl2(i.preco_ifood)} · contado ${i.estoque ?? "—"}${i.estimado != null && Math.round(i.estimado) !== i.estoque ? " (estimado " + Math.round(i.estimado) + ")" : ""}${i.conferido_em ? " em " + esc(data(i.conferido_em)) : ""}<br>Site ${i.site ? "✔" : "—"} · iFood ${i.ifood ? "✔" : "—"} · 99Food ${i.n99 ? "✔" : "—"}${i.avisos.length ? '<br><span style="color:var(--warn)">' + i.avisos.map(esc).join("; ") + "</span>" : ""}</small></span></label>`).join("");
+    $("#if-lista").innerHTML = L.itens.map(i => `<label class="pv" style="display:flex;gap:8px;align-items:flex-start;${i.pronto ? "" : "opacity:.75"}"><input type="checkbox" data-i="${i.id}" ${marcados.has(i.id) ? "checked" : ""} ${i.pronto ? "" : "disabled"}><span>${esc(i.nome)}<br><small>${esc(i.ean || "sem código")} · painel ${brl2(i.preco)} → iFood ${brl2(i.preco_ifood)}${i.ifood_atual != null ? " (hoje no iFood " + brl2(i.ifood_atual) + ")" : ""} · contado ${i.estoque ?? "—"}${i.estimado != null && Math.round(i.estimado) !== i.estoque ? " (estimado " + Math.round(i.estimado) + ")" : ""}${i.conferido_em ? " em " + esc(data(i.conferido_em)) : ""}<br>Site ${i.site ? "✔" : "—"} · iFood ${i.ifood ? "✔" : "—"} · 99Food ${i.n99 ? "✔" : "—"}${i.avisos.length ? '<br><span style="color:var(--warn)">' + i.avisos.map(esc).join("; ") + "</span>" : ""}</small></span></label>`).join("");
     contaMarcados();
   };
   const carregarLista = async chave => {
@@ -1273,7 +1274,7 @@ async function abrirIfoodApi(){
   try{
     const rap = await api("/api/ifood-api/comparar");
     $("#if-rapidas").innerHTML = `<b>Escolher sem digitar</b><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">` +
-      rap.listas.map(l => `<button type="button" data-l="${l.chave}">${esc(l.nome)}</button>`).join("") +
+      rap.listas.map(l => `<button type="button" data-l="${l.chave}"${l.chave === "preco_ifood" ? ' class="pri"' : ""}>${l.chave === "preco_ifood" ? "💲 Mudar preços do iFood" : esc(l.nome)}</button>`).join("") +
       `<button type="button" id="if-comparar" class="pri">📊 Comparar Site × iFood × 99</button></div>`;
     $("#if-comparar").onclick = async () => {
       const c2 = await api("/api/ifood-api/comparar");
@@ -1284,7 +1285,12 @@ async function abrirIfoodApi(){
     };
   }catch(err){ $("#if-rapidas").innerHTML = ""; }
   $("#difa").onclick = e => {
-    const b = e.target.closest("button[data-l]"); if(b) carregarLista(b.dataset.l);
+    const b = e.target.closest("button[data-l]");
+    if(b){
+      const modo = {preco_ifood: "preco", zerados: "desativar"}[b.dataset.l];     // já deixa o modo certo escolhido
+      if(modo){ const rd = document.querySelector(`input[name=if-modo][value=${modo}]`); if(rd) rd.checked = true; }
+      carregarLista(b.dataset.l);
+    }
     if(e.target.closest("#if-ver-env") && ultimaLista){ verEnviados = e.target.closest("#if-ver-env").checked; carregarLista(ultimaLista.lista); return; }
     if(e.target.closest("#if-todos") && ultimaLista){ ultimaLista.itens.filter(i => i.pronto).forEach(i => marcados.add(i.id)); pintarLista(); }
     if(e.target.closest("#if-nenhum")){ marcados.clear(); pintarLista(); }
@@ -1306,7 +1312,7 @@ async function abrirIfoodApi(){
     const ver = x => x ? "sim" : "não";
     pv.innerHTML = p.itens.map(i => { const r = i.resumo || {};
       return `<div class="aviso" style="margin:8px 0" data-pid="${i.pid}"><b>${esc(i.nome)}</b>${r.ja_no_ifood ? ' <span class="pill">já está no iFood</span>' : ""}
-        <div style="margin:4px 0;font-size:13px">Preço no iFood <b>${brl2(r.preco)}</b> · estoque <b>${r.estoque ?? "—"}</b> · ativo <b>${ver(r.ativo)}</b> · foto <b>${r.imagem ? "vai" : "não vai"}</b>${r.imagem ? "" : " <small>(o iFood precisa de um endereço público de imagem; a foto da prateleira não serve)</small>"}</div>
+        <div style="margin:4px 0;font-size:13px">Preço no iFood <b>${brl2(r.preco)}</b> · estoque <b>${r.estoque ?? "não muda"}</b> · ativo <b>${r.ativo == null ? "não muda" : ver(r.ativo)}</b> · foto <b>${r.imagem ? "vai" : "não vai"}</b>${r.imagem ? "" : " <small>(o iFood precisa de um endereço público de imagem; a foto da prateleira não serve)</small>"}</div>
         ${r.preco == null ? '<div class="if-sug" style="margin-top:6px;font-size:13px">Sem preço: procurando no Gestor Z…</div>' : ""}
         ${r.ja_no_ifood ? '<div style="color:var(--warn);font-size:13px">Já foi enviado antes: reenviar o produto completo pode trocar a categoria que está lá.</div>' : ""}
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:end;margin-top:6px">
@@ -1344,12 +1350,12 @@ async function abrirIfoodApi(){
     const modo = modoIf(), dest = destIf(); let confirmo = "";
     if(dest === "real"){
       if(modo === "reset"){ alert("A carga completa (reset) não é feita na loja real."); return; }
-      confirmo = prompt("LOJA REAL DO iFOOD: " + marcados.size + " produto(s) serão " + (modo === "patch" ? "atualizados (preço/promoção/estoque)" : modo === "desativar" ? "DESATIVADOS (estoque 0 e inativos)" : "criados ou atualizados") + " e os clientes vão ver.\n\nO primeiro envio precisa ser de 1 produto só.\n\nDigite ENVIAR para confirmar:") || "";
+      confirmo = prompt("LOJA REAL DO iFOOD: " + marcados.size + " produto(s) serão " + (modo === "patch" ? "atualizados (preço/promoção/estoque)" : modo === "desativar" ? "DESATIVADOS (estoque 0 e inativos)" : modo === "preco" ? "atualizados SÓ NO PREÇO" : "criados ou atualizados") + " e os clientes vão ver.\n\nO primeiro envio precisa ser de 1 produto só.\n\nDigite ENVIAR para confirmar:") || "";
       if(confirmo.trim().toUpperCase() !== "ENVIAR") return;
     }else if(modo === "reset"){
       confirmo = prompt("CARGA COMPLETA (reset=true) na loja de TESTE: o catálogo atual dela será substituído pelos " + marcados.size + " produto(s) marcados.\n\nDigite RESET para confirmar:") || "";
       if(confirmo.trim().toUpperCase() !== "RESET") return;
-    }else if(!confirm((modo === "patch" ? "Atualizar preço/promoção/estoque de " : modo === "desativar" ? "DESATIVAR (estoque 0) " : "Enviar ") + marcados.size + " produto(s) para a LOJA DE TESTE do iFood? (nada vai para a loja real)")) return;
+    }else if(!confirm((modo === "patch" ? "Atualizar preço/promoção/estoque de " : modo === "desativar" ? "DESATIVAR (estoque 0) " : modo === "preco" ? "Mudar só o preço de " : "Enviar ") + marcados.size + " produto(s) para a LOJA DE TESTE do iFood? (nada vai para a loja real)")) return;
     $("#if-env-res").textContent = "Enviando…";
     try{
       const r = await api("/api/ifood-api/enviar", {method:"POST", body:JSON.stringify({ids:[...marcados], ambiente:dest, modo, promo:$("#if-promo").value, confirmo}), headers:{"X-Quem":encodeURIComponent(quemContando())}});
