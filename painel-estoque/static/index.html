@@ -1139,23 +1139,24 @@ async function abrirIfoodApi(){
   $("#difa").showModal(); const c = $("#if-corpo");
   const e = await api("/api/ifood-api/estado");
   const ok = (x) => x ? "✔" : "—";
-  c.innerHTML = `<section><b>Conectar o painel à API do iFood</b>
+  c.innerHTML = `<section><b>1. Conectar o painel à API do iFood</b> <small style="color:var(--muted)">(escolha de quais chaves você está salvando ou testando)</small>
     <p>As chaves ficam só neste computador (no <code>config.json</code>). Aqui o painel só <b>confere a conexão</b>: não envia nada ao iFood.</p>
-    <label class="op"><input type="radio" name="if-amb" value="teste" ${e.ambiente !== "real" ? "checked" : ""}><span><b>Loja de teste</b> (para gravar os vídeos de homologação)<br><small>ID ${ok(e.teste.id)} · segredo ${ok(e.teste.segredo)}</small></span></label>
-    <label class="op"><input type="radio" name="if-amb" value="real" ${e.ambiente === "real" ? "checked" : ""}><span><b>Loja real</b> (só depois da homologação)<br><small>ID ${ok(e.real.id)} · segredo ${ok(e.real.segredo)} · loja ${ok(e.real.loja)}</small></span></label>
+    <label class="op"><input type="radio" name="if-amb" value="teste" ${e.ambiente !== "real" ? "checked" : ""}><span><b>Chaves da loja de teste</b> (usadas nos testes)<br><small>ID ${ok(e.teste.id)} · segredo ${ok(e.teste.segredo)}</small></span></label>
+    <label class="op"><input type="radio" name="if-amb" value="real" ${e.ambiente === "real" ? "checked" : ""}><span><b>Chaves da loja real</b><br><small>ID ${ok(e.real.id)} · segredo ${ok(e.real.segredo)} · loja ${ok(e.real.loja)}</small></span></label>
     <p style="margin:10px 0 4px">Se já estiverem salvas, deixe em branco e clique em <b>Só testar</b>.</p>
     <label class="campo">Client ID<input id="if-id" autocomplete="off" placeholder="código no formato 8-4-4-4-12"></label>
     <label class="campo">Client Secret<input id="if-sec" type="password" autocomplete="off"></label>
     <label class="campo">ID da loja (merchant)<input id="if-loja" autocomplete="off" placeholder="opcional"></label>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="pri" id="if-salvar">Salvar e testar</button><button id="if-testar">Só testar</button></div>
     </section><div id="if-res" role="status"></div>
-    <section><b>Enviar produtos ao iFood</b>
+    <section><b>2. Enviar produtos ao iFood</b>
+      <div id="if-faixa" style="position:sticky;top:0;z-index:2;padding:8px 10px;border-radius:8px;font-weight:700;margin:6px 0"></div>
       <p>Cria ou atualiza o produto (sem apagar nada). Primeiro você vê o que seria enviado.</p>
       <label class="op"><input type="radio" name="if-dest" value="teste" checked><span><b>Loja de teste</b></span></label>
       <label class="op"><input type="radio" name="if-dest" value="real"><span><b style="color:var(--bad)">Loja REAL</b> (clientes de verdade veem)<br><small>O <b>primeiro envio é de 1 produto só</b>, para você conferir no iFood. Depois, até 100 por vez. A carga completa (reset) nunca é feita na loja real. Precisa do ID, segredo e loja reais acima (ID ${ok(e.real.id)} · segredo ${ok(e.real.segredo)} · loja ${ok(e.real.loja)}).</small></span></label>
-      <label class="op"><input type="radio" name="if-modo" value="post" checked><span><b>Criar ou atualizar tudo</b> (POST)<br><small>Produto novo, ou reenviar todos os dados. Não apaga nada.</small></span></label>
-      <label class="op"><input type="radio" name="if-modo" value="patch"><span><b>Só preço, promoção e estoque</b> (PATCH)<br><small>Para produto que já foi enviado. O iFood não aceita ativar produto por aqui.</small></span></label>
-      <label class="op"><input type="radio" name="if-modo" value="reset"><span><b>Carga completa</b> (reset=true) <b style="color:var(--warn,#b54708)">cuidado</b><br><small>Substitui o catálogo inteiro da loja de TESTE pelos produtos marcados. O iFood só recomenda em caso de extrema necessidade.</small></span></label>
+      <label class="op"><input type="radio" name="if-modo" value="post" checked><span><b>Enviar o produto completo</b> (cria ou atualiza)<br><small>Produto novo, ou reenviar todos os dados (nome, preço, estoque, categoria). Não apaga nada.</small></span></label>
+      <label class="op"><input type="radio" name="if-modo" value="patch"><span><b>Só atualizar preço, promoção e estoque</b><br><small>Para produto que já foi enviado. O iFood não aceita ativar produto por aqui.</small></span></label>
+      <label class="op"><input type="radio" name="if-modo" value="reset"><span><b>Carga completa</b> (só na loja de teste) <b style="color:var(--warn,#b54708)">cuidado</b><br><small>Substitui o catálogo inteiro da loja de TESTE pelos produtos marcados. Nunca na loja real.</small></span></label>
       <label class="campo">Preço promocional (opcional, para todos os marcados)<input id="if-promo" inputmode="decimal" placeholder="ex.: 9,90 (precisa ser menor que o preço)"></label>
       <div id="if-rapidas" style="margin:10px 0"></div>
       <div id="if-comp"></div>
@@ -1163,10 +1164,18 @@ async function abrirIfoodApi(){
       <div id="if-cab"></div>
       <div id="if-lista"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button id="if-ver">Ver o que seria enviado</button><button class="pri" id="if-env">Enviar</button></div>
-      <pre id="if-prev" style="white-space:pre-wrap;font-size:12px;max-height:40vh;overflow:auto" hidden></pre>
-    </section><div id="if-env-res" role="status"></div>`;
+      <div id="if-prev" hidden></div>
+      <div id="if-env-res" role="status" style="margin-top:10px"></div>
+    </section>`;
   const marcados = new Set();
   const modoIf = () => document.querySelector("input[name=if-modo]:checked").value;
+  const pintarFaixa = () => {
+    const real = document.querySelector("input[name=if-dest]:checked").value === "real", f = $("#if-faixa");
+    f.textContent = real ? "DESTINO: LOJA REAL — clientes de verdade vão ver" : "DESTINO: LOJA DE TESTE — nada vai para clientes";
+    f.style.background = real ? "var(--bad-bg,#fde8e6)" : "var(--ok-bg,#e1f1e6)"; f.style.color = real ? "var(--bad,#b42318)" : "var(--ok,#067647)";
+    $("#if-env").textContent = real ? "Enviar para a loja REAL" : "Enviar para a loja de teste";
+  };
+  document.querySelectorAll("input[name=if-dest]").forEach(x => x.addEventListener("change", pintarFaixa)); pintarFaixa();
   const destIf = () => document.querySelector("input[name=if-dest]:checked").value;
   let tq; $("#if-q").oninput = () => { clearTimeout(tq); tq = setTimeout(async () => {
     const q = $("#if-q").value.trim(); if(q.length < 2){ $("#if-lista").innerHTML = ""; return; }
@@ -1223,7 +1232,25 @@ async function abrirIfoodApi(){
     try{ p = await api("/api/ifood-api/previa?modo=" + modoIf() + "&promo=" + encodeURIComponent($("#if-promo").value) + "&ids=" + [...marcados].join(",")); }
     catch(err){ alert(err.message); return; }
     const pv = $("#if-prev"); pv.hidden = false;
-    pv.textContent = p.endereco + "\n\n" + p.itens.map(i => (i.avisos.length ? "⚠ " + i.nome + ": " + i.avisos.join("; ") + "\n" : "") + JSON.stringify(i.corpo, null, 2)).join("\n\n");
+    const ver = x => x ? "sim" : "não";
+    pv.innerHTML = p.itens.map(i => { const r = i.resumo || {};
+      return `<div class="aviso" style="margin:8px 0" data-pid="${i.pid}"><b>${esc(i.nome)}</b>${r.ja_no_ifood ? ' <span class="pill">já está no iFood</span>' : ""}
+        <div style="margin:4px 0;font-size:13px">Preço no iFood <b>${brl2(r.preco)}</b> · estoque <b>${r.estoque ?? "—"}</b> · ativo <b>${ver(r.ativo)}</b> · foto <b>${r.imagem ? "vai" : "não vai"}</b>${r.imagem ? "" : " <small>(o iFood precisa de um endereço público de imagem; a foto da prateleira não serve)</small>"}</div>
+        ${r.ja_no_ifood ? '<div style="color:var(--warn);font-size:13px">Já foi enviado antes: reenviar o produto completo pode trocar a categoria que está lá.</div>' : ""}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:end;margin-top:6px">
+          <label style="flex:1;min-width:130px">Departamento no iFood<input class="if-dep" value="${esc(r.departamento)}" style="width:100%"></label>
+          <label style="flex:1;min-width:130px">Categoria no iFood<input class="if-cat2" value="${esc(r.categoria)}" placeholder="ex.: Aromatizantes de ambiente" style="width:100%"></label>
+          <button type="button" class="if-salvar-cat">Salvar categoria</button></div>
+        ${i.avisos.length ? '<div style="color:var(--warn);font-size:13px;margin-top:4px">⚠ ' + i.avisos.map(esc).join("; ") + "</div>" : ""}
+        <details style="margin-top:6px"><summary>Ver o texto técnico enviado</summary><pre style="white-space:pre-wrap;font-size:12px;max-height:30vh;overflow:auto">${esc(p.endereco + "\n" + JSON.stringify(i.corpo, null, 2))}</pre></details></div>`; }).join("");
+  };
+  $("#if-prev").onclick = async e => {
+    const b = e.target.closest(".if-salvar-cat"); if(!b) return;
+    const card = b.closest("[data-pid]");
+    try{
+      await api("/api/produto/" + card.dataset.pid, {method:"POST", body:JSON.stringify({ifood_depto: card.querySelector(".if-dep").value, ifood_cat: card.querySelector(".if-cat2").value, quem: quemContando()})});
+      $("#if-ver").click();
+    }catch(er){ alert(er.message); }
   };
   $("#if-env").onclick = async () => {
     if(!marcados.size){ alert("Marque ao menos um produto."); return; }
@@ -1239,6 +1266,7 @@ async function abrirIfoodApi(){
     $("#if-env-res").textContent = "Enviando…";
     try{
       const r = await api("/api/ifood-api/enviar", {method:"POST", body:JSON.stringify({ids:[...marcados], ambiente:dest, modo, promo:$("#if-promo").value, confirmo}), headers:{"X-Quem":encodeURIComponent(quemContando())}});
+      $("#if-env-res").scrollIntoView({block:"nearest"});
       $("#if-env-res").innerHTML = `<div class="${r.ok ? "ok-msg" : "erro-msg"}">${r.ok ? "O iFood aceitou" : "O iFood recusou"} (código ${r.status}) · ${r.enviados} produto(s). ${esc(r.mensagem || "")}<br><small>Resposta guardada em backups/${esc(r.backup)}</small><pre style="white-space:pre-wrap;font-size:12px;max-height:30vh;overflow:auto">${esc(JSON.stringify(r.resposta, null, 2))}</pre></div>`;
     }catch(err){ $("#if-env-res").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
   };

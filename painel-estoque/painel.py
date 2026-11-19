@@ -234,7 +234,7 @@ def conectar():
     if "foto_url" not in colunas:          # banco criado por uma versão anterior
         con.execute("ALTER TABLE produtos ADD COLUMN foto_url TEXT")
     for col, tipo in (("estimado", "REAL"), ("est_aviso", "TEXT"), ("categoria_id", "TEXT"),
-                      ("categoria_nome", "TEXT")):
+                      ("categoria_nome", "TEXT"), ("ifood_depto", "TEXT"), ("ifood_cat", "TEXT")):
         if col not in colunas:
             con.execute(f"ALTER TABLE produtos ADD COLUMN {col} {tipo}")
         con.commit()
@@ -761,7 +761,9 @@ def ifood_item_corpo(p, divisor=0.70):
     cat = {}
     if p["grupo"]:
         cat["department"] = str(p["grupo"]).title()[:60]
-    if p["categoria_nome"]:
+    if p["ifood_cat"]:                      # categoria escolhida à mão para o iFood: vale mais que o grupo do Gestor Z
+        cat = {"department": str(p["ifood_depto"] or p["grupo"] or p["ifood_cat"]).title()[:60], "category": str(p["ifood_cat"])[:60]}
+    elif p["categoria_nome"]:
         partes = [x.strip() for x in str(p["categoria_nome"]).split(">")]
         cat["category"] = partes[-1][:60]
         if len(partes) > 2:
@@ -871,7 +873,13 @@ def previa_ifood_item(con, ids, divisor=0.70, modo="post", promo=None):
         if modo == "patch" and "prices" not in corpo and "inventory" not in corpo:
             avisos.append("nada para atualizar (sem preço e sem estoque)")
             bloqueia = True
-        itens.append({"pid": pid, "nome": p["nome"], "avisos": avisos, "corpo": corpo, "bloqueia": bloqueia})
+        cz = (corpo.get("details") or {}).get("categorization") or {}
+        ja = con.execute("SELECT 1 FROM produtos p WHERE p.id=? AND " + _FLAG_IFOOD, (pid,)).fetchone() is not None
+        itens.append({"pid": pid, "nome": p["nome"], "avisos": avisos, "corpo": corpo, "bloqueia": bloqueia,
+                      "resumo": {"preco": (corpo.get("prices") or {}).get("price"), "estoque": (corpo.get("inventory") or {}).get("stock"),
+                                 "ativo": corpo.get("active"), "imagem": bool((corpo.get("details") or {}).get("imageUrl")),
+                                 "departamento": cz.get("department", ""), "categoria": cz.get("category", ""),
+                                 "subcategoria": cz.get("subCategory", ""), "ja_no_ifood": ja}})
     end = {"post": "POST /item/v1.0/ingestion/{loja}?reset=false  (cria ou atualiza tudo)",
            "patch": "PATCH /item/v1.0/ingestion/{loja}  (só preço, promoção e estoque)",
            "reset": "POST /item/v1.0/ingestion/{loja}?reset=true  (CARGA COMPLETA: substitui o catálogo da loja de teste)"}[modo]
@@ -1950,6 +1958,9 @@ def alterar(con, pid, dados):
                      "" if p["estoque"] is None else str(p["estoque"]),
                      "" if novo is None else str(novo), quem))
     mudar = {}
+    for campo_if in ("ifood_depto", "ifood_cat"):       # categoria que vai ao iFood (não muda o grupo do Gestor Z)
+        if campo_if in dados:
+            mudar[campo_if] = " ".join(str(dados[campo_if] or "").split())[:60] or None
     if "nome" in dados:
         nome = " ".join(str(dados["nome"] or "").split())
         if not 2 <= len(nome) <= 150:
