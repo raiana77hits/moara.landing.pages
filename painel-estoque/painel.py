@@ -1843,9 +1843,17 @@ def alterar(con, pid, dados):
         if novo in ("", None):
             novo = None
         else:
-            novo = int(novo)
+            try:
+                f = float(str(novo).replace(",", "."))
+            except ValueError:
+                raise ValueError("A quantidade precisa ser um número.") from None
+            if f != f or f in (float("inf"), float("-inf")) or f != int(f):
+                raise ValueError("A quantidade precisa ser um número inteiro (sem vírgula).")
+            novo = int(f)
             if novo < 0:
                 raise ValueError("O estoque não pode ser negativo.")
+            if novo > 1_000_000:
+                raise ValueError("Quantidade grande demais. Confira o número.")
         con.execute("UPDATE produtos SET estoque=?, conferido_em=?, atualizado_em=? WHERE id=?",
                     (novo, agora() if novo is not None else None, agora(), pid))
         con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) "
@@ -1861,8 +1869,11 @@ def alterar(con, pid, dados):
         mudar["nome"] = nome
     for campo in ("preco", "custo"):
         if campo in dados:
-            v = None if str(dados[campo] if dados[campo] is not None else "").strip() == "" else num(str(dados[campo]).replace(",", "."))
-            if v is not None and not 0 <= v <= 100000:
+            bruto = str(dados[campo] if dados[campo] is not None else "").strip()
+            v = None if bruto == "" else num(bruto)
+            if bruto != "" and v is None:
+                raise ValueError("Preço inválido. Use só números, por exemplo 12,50.")
+            if v is not None and not 0 <= v <= 100000:   # também recusa NaN e infinito
                 raise ValueError("Valor fora do normal.")
             mudar[campo] = v
     if "ean" in dados:
@@ -3562,7 +3573,10 @@ class Handler(BaseHTTPRequestHandler):
             if u.path == "/api/nuvemshop/backups":
                 return self._json({"itens": listar_backups()})
             if u.path.startswith("/api/foto/"):
-                arq = os.path.join(fotos_dir(), f"{int(u.path.rsplit('/', 1)[1])}.jpg")
+                id_foto = u.path.rsplit("/", 1)[1]
+                if not id_foto.isdigit():
+                    return self._json({"erro": "Sem foto."}, 404)
+                arq = os.path.join(fotos_dir(), f"{int(id_foto)}.jpg")
                 if not os.path.exists(arq):
                     return self._json({"erro": "Sem foto."}, 404)
                 with open(arq, "rb") as f:
@@ -3601,6 +3615,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(corpo)
                 return
             self._json({"erro": "Não encontrado."}, 404)
+        except (ValueError, KeyError) as e:     # falta de passo do usuário, não defeito do painel
+            self._json({"erro": str(e)}, 400)
         except Exception as e:  # noqa: BLE001
             self._json({"erro": str(e)}, 500)
         finally:
@@ -3803,7 +3819,12 @@ def servir(abrir=True):
               "(PAINEL_SENHA ou \"senha\" no config.json).")
         return 1
     try:
-        srv = ThreadingHTTPServer((HOST, PORTA), Handler)
+        class Servidor(ThreadingHTTPServer):
+            def handle_error(self, request, client_address):   # aba fechada no meio da resposta: não é erro
+                if isinstance(sys.exc_info()[1], (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)):
+                    return
+                super().handle_error(request, client_address)
+        srv = Servidor((HOST, PORTA), Handler)
     except OSError:
         print("O painel já está aberto em outra janela preta (porta %d ocupada)." % PORTA)
         print("Feche TODAS as janelas pretas do painel, depois abra o iniciar.bat de novo.")

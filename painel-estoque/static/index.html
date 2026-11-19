@@ -467,8 +467,8 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 </dialog>
 
 <dialog id="difood">
-  <div class="topo"><h3>Planilhas dos apps</h3><button id="if-x">Fechar</button></div>
-  <div class="corpo imp" id="if-corpo"></div>
+  <div class="topo"><h3>Planilhas dos apps</h3><button id="ip-x">Fechar</button></div>
+  <div class="corpo imp" id="ip-corpo"></div>
 </dialog>
 
 <dialog id="dpub">
@@ -985,9 +985,9 @@ $("#i-nuvem").onclick = async () => {
 /* ------------------------------------------------ planilha do iFood */
 const ifd = {divisor:"0,70", canal:"shop", aba:"ifood"};
 $("#b-ifood").onclick = () => abrirIfood(); $("#b-ifood2").onclick = () => abrirIfood();
-$("#if-x").onclick = () => $("#difood").close();
+$("#ip-x").onclick = () => $("#difood").close();
 async function abrirIfood(){
-  $("#difood").showModal(); const c = $("#if-corpo");
+  $("#difood").showModal(); const c = $("#ip-corpo");
   c.innerHTML = "<p>Calculando…</p>";
   let p;
   try{ p = await api("/api/ifood/previa?divisor=" + encodeURIComponent(ifd.divisor)); }
