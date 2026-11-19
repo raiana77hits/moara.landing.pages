@@ -279,7 +279,13 @@ def ler_csv(origem):
 
 def importar_gestorz(con, origem):
     """Cadastro de produtos do Gestor Z (colunas id_produto, codigo, gtin, descricao...)."""
-    linhas = ler_csv(origem)
+    if isinstance(origem, (bytes, bytearray)) and bytes(origem)[:2] == b"PK":   # veio como planilha .xlsx
+        tabela = ler_xlsx(bytes(origem), exigir=[["ID PRODUTO"], ["DESCRICAO"]])
+        cab = [str(c or "").strip() for c in (tabela[0] if tabela else [])]
+        linhas = [{cab[i]: ("" if i >= len(r) or r[i] is None else str(r[i]).strip()) for i in range(len(cab)) if cab[i]}
+                  for r in tabela[1:] if any(x not in (None, "") for x in r)]
+    else:
+        linhas = ler_csv(origem)
     if not linhas or "id_produto" not in linhas[0] or "descricao" not in linhas[0]:
         raise ValueError("Arquivo não parece o cadastro de produtos do Gestor Z "
                          "(faltam as colunas id_produto e descricao).")
@@ -2050,7 +2056,7 @@ def ler_xlsx(raw, exigir=None):
         for row in ET.fromstring(z.read(caminho)).iter(ns + "row"):
             d = {}
             for c in row.findall(ns + "c"):
-                letras = re.match(r"[A-Z]+", c.get("r")).group(0)
+                letras = re.match(r"[^0-9]+", c.get("r") or "A").group(0)   # tolera colunas além do Z mal numeradas, como "{1"
                 col = 0
                 for ch in letras:
                     col = col * 26 + ord(ch) - 64
