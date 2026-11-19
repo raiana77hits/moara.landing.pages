@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>De-para</title>
+<link rel="stylesheet" href="/static/painel.css">
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-linha">
+    <h1 id="dp-titulo">Painel de Catálogos</h1>
+    <select id="dp-cliente" aria-label="Cliente"></select>
+  </div>
+  <nav class="topo-nav">
+    <a href="/">Início</a>
+    <a href="/importar">Atualizar dados</a>
+    <a href="/de-para" class="atual">De-para</a>
+  </nav>
+</header>
+
+<main>
+
+<h2>Linhas de canal sem produto</h2>
+<p class="dica">
+  São linhas que estão no canal mas o painel não achou na lista da loja — normalmente
+  porque o canal usa um código próprio em vez do código de barras, como os códigos
+  <strong>SM…</strong> da biblioteca do iFood para ração a granel.
+  Ligue cada uma ao produto certo. O painel guarda a ligação e não pergunta de novo.
+</p>
+
+<div class="barra">
+  <input type="search" id="dp-busca" placeholder="Filtrar estas linhas por nome ou código">
+</div>
+<p class="contagem" id="dp-contagem"></p>
+<div id="dp-soltos"></div>
+
+</main>
+
+<script src="/static/painel.js"></script>
+<script>
+(function () {
+  "use strict";
+  var el = P.el, api = P.api, reais = P.reais;
+  var marca = null, todos = [];
+
+  async function comecar() {
+    try {
+      marca = await api("/api/marca");
+      P.aplicarMarca(marca);
+      el("dp-titulo").textContent = marca.nome;
+      document.title = "De-para · " + marca.nome;
+      await P.montarClientes(el("dp-cliente"), function () { carregar(); });
+      await carregar();
+    } catch (e) {
+      P.erroNaTela(e);
+    }
+  }
+
+  async function carregar() {
+    var r = await api("/api/lista?cliente=" + P.cliente() + "&tipo=soltos");
+    todos = r.itens;
+    el("dp-contagem").textContent = r.total + (r.total === 1 ? " linha" : " linhas")
+      + " sem produto" + (r.cortado ? " · mostrando as primeiras " + r.limite : "");
+    el("dp-contagem").classList.toggle("contagem-corte", !!r.cortado);
+    desenhar();
+  }
+
+  function desenhar() {
+    var filtro = (el("dp-busca").value || "").toLowerCase().trim();
+    var caixa = el("dp-soltos");
+    caixa.innerHTML = "";
+    var vistos = todos.filter(function (i) {
+      if (!filtro) { return true; }
+      return (i.nome || "").toLowerCase().indexOf(filtro) >= 0
+        || (i.codigo || "").toLowerCase().indexOf(filtro) >= 0
+        || (i.ean || "").indexOf(filtro) >= 0;
+    });
+    if (!vistos.length) {
+      var p = document.createElement("p");
+      p.className = "tudo-certo";
+      p.textContent = todos.length
+        ? "Nenhuma linha com esse filtro."
+        : "Nada pendente: todas as linhas dos canais estão ligadas a um produto da loja.";
+      caixa.append(p);
+      return;
+    }
+    vistos.forEach(function (i) { caixa.append(bloco(i)); });
+  }
+
+  function bloco(i) {
+    var d = document.createElement("div");
+    d.className = "solto";
+
+    var topo = document.createElement("div");
+    topo.className = "solto-topo";
+    var esq = document.createElement("div");
+    var nome = document.createElement("div");
+    nome.className = "solto-nome";
+    nome.textContent = i.nome || "(sem nome)";
+    var sub = document.createElement("div");
+    sub.className = "item-sub";
+    var partes = [];
+    if (i.codigo) { partes.push("cód. " + i.codigo); }
+    if (i.ean) { partes.push("EAN " + i.ean); }
+    if (i.preco_canal !== null && i.preco_canal !== undefined) {
+      partes.push("R$ " + reais(i.preco_canal));
+    }
+    if (i.categoria) { partes.push(i.categoria); }
+    if (i.situacao) { partes.push(i.situacao); }
+    sub.textContent = partes.join(" · ");
+    esq.append(nome, sub);
+    var tag = document.createElement("span");
+    tag.className = "solto-canal";
+    tag.textContent = i.canal_nome || i.canal;
+    topo.append(esq, tag);
+
+    var linhaBusca = document.createElement("div");
+    linhaBusca.className = "solto-busca";
+    var campo = document.createElement("input");
+    campo.type = "search";
+    campo.placeholder = "Buscar o produto na lista da loja";
+    campo.value = primeirasPalavras(i.nome);
+    var botao = document.createElement("button");
+    botao.className = "botao-vazado";
+    botao.type = "button";
+    botao.textContent = "Buscar";
+    linhaBusca.append(campo, botao);
+
+    var achados = document.createElement("div");
+    achados.className = "achados";
+    var recado = document.createElement("div");
+    recado.className = "recado";
+
+    async function buscar() {
+      achados.innerHTML = "";
+      recado.textContent = "Buscando...";
+      recado.className = "recado";
+      try {
+        var r = await api("/api/produtos?cliente=" + P.cliente()
+                          + "&q=" + encodeURIComponent(campo.value));
+        recado.textContent = r.itens.length ? "" : "Nenhum produto da loja com esse nome.";
+        r.itens.forEach(function (p) {
+          var b = document.createElement("button");
+          b.type = "button";
+          b.className = "achado";
+          b.innerHTML = "<span></span><br><small></small>";
+          b.querySelector("span").textContent = p.nome;
+          b.querySelector("small").textContent = [p.ean ? "EAN " + p.ean : "sem EAN",
+            p.preco_loja === null ? "sem preço" : "R$ " + reais(p.preco_loja)].join(" · ");
+          b.addEventListener("click", function () { ligar(p, b); });
+          achados.append(b);
+        });
+      } catch (e) {
+        recado.textContent = e.message;
+        recado.className = "recado recado-erro";
+      }
+    }
+
+    async function ligar(p, botaoAchado) {
+      botaoAchado.disabled = true;
+      recado.textContent = "Ligando...";
+      recado.className = "recado";
+      try {
+        await api("/api/ligar?cliente=" + P.cliente(), {
+          canal_linha_id: i.canal_linha_id, produto_id: p.id
+        });
+        /* muda só este bloco: a rolagem fica onde está */
+        d.classList.add("item-feito");
+        linhaBusca.remove();
+        achados.remove();
+        recado.textContent = "Ligado a: " + p.nome;
+        recado.className = "recado recado-ok";
+        todos = todos.filter(function (x) { return x.canal_linha_id !== i.canal_linha_id; });
+        var n = todos.length;
+        el("dp-contagem").textContent = n + (n === 1 ? " linha" : " linhas") + " sem produto";
+      } catch (e) {
+        botaoAchado.disabled = false;
+        recado.textContent = e.message;
+        recado.className = "recado recado-erro";
+      }
+    }
+
+    botao.addEventListener("click", buscar);
+    campo.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter") { ev.preventDefault(); buscar(); }
+    });
+
+    d.append(topo, linhaBusca, achados, recado);
+    return d;
+  }
+
+  function primeirasPalavras(nome) {
+    return String(nome || "").split(/\s+/).slice(0, 3).join(" ");
+  }
+
+  var atraso = null;
+  el("dp-busca").addEventListener("input", function () {
+    clearTimeout(atraso);
+    atraso = setTimeout(desenhar, 200);
+  });
+
+  comecar();
+})();
+</script>
+</body>
+</html>

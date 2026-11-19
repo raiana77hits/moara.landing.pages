@@ -1,0 +1,6 @@
+banco.db
+banco.db-wal
+banco.db-shm
+backups/
+*.pyc
+__pycache__/

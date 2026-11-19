@@ -1,0 +1,11 @@
+{
+  "nome": "Painel de Catálogos",
+  "porta": 8767,
+  "cor": "#1e3fae",
+  "cor_escura": "#182549",
+  "divisor_entrega": 0.70,
+  "arredondamento": 0.01,
+  "tolerancia_preco": 0.05,
+  "canais": ["ifood", "anota", "n99"],
+  "cliente_inicial": "Vibe Pet"
+}

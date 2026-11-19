@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atualizar dados</title>
+<link rel="stylesheet" href="/static/painel.css">
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-linha">
+    <h1 id="im-titulo">Painel de Catálogos</h1>
+    <select id="im-cliente" aria-label="Cliente"></select>
+  </div>
+  <nav class="topo-nav">
+    <a href="/">Início</a>
+    <a href="/importar" class="atual">Atualizar dados</a>
+    <a href="/de-para">De-para</a>
+  </nav>
+</header>
+
+<main>
+
+<div class="aviso aviso-ok">
+  <strong>Nada sai daqui.</strong>
+  Este painel só lê as planilhas que você manda. Ele nunca escreve no iFood, no Anota Aí
+  nem em qualquer outra loja.
+</div>
+
+<!-- passo 1 --------------------------------------------------------------- -->
+<div class="passo">
+  <h3><span class="passo-n">1</span> O que é esta planilha?</h3>
+  <div class="escolhas" id="im-tipos"></div>
+  <p class="dica" id="im-tipo-dica"></p>
+  <p class="dica">
+    Não sabe como a planilha deveria ser? Baixe um exemplo:
+    <a href="/api/modelo?grupo=loja">lista da loja</a> ·
+    <a href="/api/modelo?grupo=canal">exportação de canal</a> ·
+    <a href="/api/modelo?grupo=fotos">lista de fotos</a>
+  </p>
+</div>
+
+<!-- passo 2 --------------------------------------------------------------- -->
+<div class="passo">
+  <h3><span class="passo-n">2</span> Escolha o arquivo</h3>
+  <p class="dica">Aceita CSV e XLSX (Excel). Até 20 MB.</p>
+  <input type="file" id="im-arquivo" accept=".csv,.xlsx,.txt,.tsv">
+  <p class="recado" id="im-recado-arquivo"></p>
+</div>
+
+<!-- passo 3 --------------------------------------------------------------- -->
+<div class="passo escondido" id="im-passo-mapa">
+  <h3><span class="passo-n">3</span> Confira as colunas</h3>
+  <p class="dica" id="im-mapa-dica"></p>
+  <div class="mapa" id="im-mapa"></div>
+  <div class="tabela-amostra" id="im-amostra"></div>
+</div>
+
+<!-- passo 4 --------------------------------------------------------------- -->
+<div class="passo escondido" id="im-passo-gravar">
+  <h3><span class="passo-n">4</span> Gravar no painel</h3>
+  <p class="dica" id="im-gravar-dica"></p>
+  <div class="dlg-acoes">
+    <button type="button" class="botao" id="im-gravar">Gravar no painel</button>
+    <span class="recado" id="im-recado"></span>
+  </div>
+</div>
+
+<h2>Importações recentes</h2>
+<div id="im-historico"></div>
+
+</main>
+
+<script src="/static/painel.js"></script>
+<script>
+(function () {
+  "use strict";
+  var el = P.el, api = P.api;
+  var marca = null, tipoEscolhido = "", arquivoBytes = null, arquivoNome = "", analise = null;
+
+  var TIPOS_FIXOS = [
+    { tipo: "loja", grupo: "loja", nome: "Lista de produtos da loja",
+      explica: "O que a loja vende, com o preço que vale. É a base de tudo." },
+    { tipo: "fotos", grupo: "fotos", nome: "Lista de fotos do Drive",
+      explica: "Os nomes dos arquivos de foto. O nome do arquivo precisa ser o código de barras." }
+  ];
+
+  async function comecar() {
+    try {
+      marca = await api("/api/marca");
+      P.aplicarMarca(marca);
+      el("im-titulo").textContent = marca.nome;
+      document.title = "Atualizar dados · " + marca.nome;
+      await P.montarClientes(el("im-cliente"), function () { location.reload(); });
+      montarTipos();
+      await mostrarHistorico();
+    } catch (e) {
+      P.erroNaTela(e);
+    }
+  }
+
+  function montarTipos() {
+    var lista = TIPOS_FIXOS.slice();
+    marca.canais.forEach(function (c) {
+      lista.push({
+        tipo: c.canal, grupo: "canal", nome: "Exportação do " + c.nome,
+        explica: c.entrega
+          ? ("Catálogo do " + c.nome + ". O preço esperado é o da loja dividido por "
+             + Number(marca.divisor).toFixed(2).replace(".", ",") + ".")
+          : ("Catálogo do " + c.nome + ". O preço esperado é igual ao da loja.")
+      });
+    });
+    var caixa = el("im-tipos");
+    caixa.innerHTML = "";
+    lista.forEach(function (t) {
+      var rot = document.createElement("label");
+      rot.className = "escolha";
+      rot.innerHTML = "<input type='radio' name='im-tipo'>"
+        + "<span><span class='escolha-t'></span><span class='escolha-e'></span></span>";
+      rot.querySelector(".escolha-t").textContent = t.nome;
+      rot.querySelector(".escolha-e").textContent = t.explica;
+      var radio = rot.querySelector("input");
+      radio.value = t.tipo;
+      radio.addEventListener("change", function () {
+        tipoEscolhido = t.tipo;
+        Array.prototype.forEach.call(caixa.children, function (c) {
+          c.classList.toggle("escolha-sel", c === rot);
+        });
+        el("im-tipo-dica").textContent = t.grupo === "canal"
+          ? "Ao gravar, as linhas antigas deste canal são substituídas pelas da planilha nova."
+          : (t.grupo === "loja"
+            ? "Produtos novos são acrescentados e os que já existem são atualizados. Nada é apagado."
+            : "A marca de \"tem foto\" é refeita a partir desta lista.");
+        if (arquivoBytes) { analisar(); }
+      });
+      caixa.append(rot);
+    });
+  }
+
+  function grupoDoTipo() {
+    if (tipoEscolhido === "loja") { return "loja"; }
+    if (tipoEscolhido === "fotos") { return "fotos"; }
+    return "canal";
+  }
+
+  el("im-arquivo").addEventListener("change", async function () {
+    var f = el("im-arquivo").files[0];
+    el("im-passo-mapa").classList.add("escondido");
+    el("im-passo-gravar").classList.add("escondido");
+    el("im-recado").textContent = "";
+    if (!f) { arquivoBytes = null; return; }
+    if (f.size > 20000000) {
+      el("im-recado-arquivo").textContent = "Esse arquivo tem mais de 20 MB. Mande um menor.";
+      el("im-recado-arquivo").className = "recado recado-erro";
+      arquivoBytes = null;
+      return;
+    }
+    arquivoNome = f.name;
+    arquivoBytes = await f.arrayBuffer();
+    el("im-recado-arquivo").textContent = f.name + " · "
+      + Math.max(1, Math.round(f.size / 1024)) + " KB";
+    el("im-recado-arquivo").className = "recado";
+    if (tipoEscolhido) { analisar(); }
+    else {
+      el("im-recado-arquivo").textContent += " — agora escolha, no passo 1, o que é esta planilha.";
+    }
+  });
+
+  async function analisar() {
+    el("im-recado-arquivo").className = "recado";
+    try {
+      analise = await api("/api/analisar?cliente=" + P.cliente() + "&grupo=" + grupoDoTipo(),
+                          arquivoBytes, true);
+    } catch (e) {
+      el("im-recado-arquivo").textContent = e.message;
+      el("im-recado-arquivo").className = "recado recado-erro";
+      el("im-passo-mapa").classList.add("escondido");
+      el("im-passo-gravar").classList.add("escondido");
+      return;
+    }
+    desenharMapa();
+  }
+
+  function desenharMapa() {
+    var campos = marca.campos[grupoDoTipo()];
+    el("im-mapa-dica").textContent = "O painel achou " + analise.linhas
+      + " linhas e " + analise.colunas.length + " colunas. Veja se ele acertou cada uma.";
+    var caixa = el("im-mapa");
+    caixa.innerHTML = "";
+    campos.forEach(function (c) {
+      var l = document.createElement("div");
+      l.className = "mapa-linha";
+      var rot = document.createElement("label");
+      rot.className = "mapa-rotulo";
+      rot.textContent = c.rotulo;
+      rot.htmlFor = "im-sel-" + c.campo;
+      if (c.obrigatorio) {
+        var est = document.createElement("span");
+        est.className = "mapa-obrig";
+        est.textContent = " *";
+        rot.append(est);
+      }
+      var sel = document.createElement("select");
+      sel.id = "im-sel-" + c.campo;
+      sel.dataset.campo = c.campo;
+      var vazio = document.createElement("option");
+      vazio.value = "-1";
+      vazio.textContent = c.obrigatorio ? "— escolha a coluna —" : "— não tem —";
+      sel.append(vazio);
+      analise.colunas.forEach(function (nome, i) {
+        var o = document.createElement("option");
+        o.value = String(i);
+        o.textContent = (i + 1) + ". " + nome;
+        sel.append(o);
+      });
+      sel.value = String(analise.mapa[c.campo] === undefined ? -1 : analise.mapa[c.campo]);
+      sel.addEventListener("change", conferirObrigatorios);
+      l.append(rot, sel);
+      caixa.append(l);
+    });
+
+    var t = el("im-amostra");
+    t.innerHTML = "";
+    if (analise.amostra.length) {
+      var tab = document.createElement("table");
+      var cab = document.createElement("tr");
+      analise.colunas.forEach(function (n, i) {
+        var th = document.createElement("th");
+        th.textContent = (i + 1) + ". " + n;
+        cab.append(th);
+      });
+      tab.append(cab);
+      analise.amostra.forEach(function (linha) {
+        var tr = document.createElement("tr");
+        analise.colunas.forEach(function (_n, i) {
+          var td = document.createElement("td");
+          td.textContent = linha[i] === undefined ? "" : linha[i];
+          tr.append(td);
+        });
+        tab.append(tr);
+      });
+      t.append(tab);
+    }
+
+    el("im-passo-mapa").classList.remove("escondido");
+    conferirObrigatorios();
+  }
+
+  function mapaAtual() {
+    var m = {};
+    Array.prototype.forEach.call(el("im-mapa").querySelectorAll("select"), function (s) {
+      m[s.dataset.campo] = Number(s.value);
+    });
+    return m;
+  }
+
+  function conferirObrigatorios() {
+    var campos = marca.campos[grupoDoTipo()];
+    var m = mapaAtual();
+    var faltando = campos.filter(function (c) {
+      return c.obrigatorio && (m[c.campo] === undefined || m[c.campo] < 0);
+    });
+    var pronto = faltando.length === 0;
+    el("im-passo-gravar").classList.toggle("escondido", !pronto);
+    el("im-gravar-dica").textContent = pronto
+      ? ("Vai gravar " + analise.linhas + " linhas no painel, no cliente "
+         + el("im-cliente").selectedOptions[0].textContent + ".")
+      : "";
+    if (!pronto) {
+      el("im-mapa-dica").textContent = "Falta dizer qual coluna é: "
+        + faltando.map(function (c) { return c.rotulo; }).join(", ") + ".";
+    }
+    return pronto;
+  }
+
+  el("im-gravar").addEventListener("click", async function () {
+    if (!conferirObrigatorios() || !arquivoBytes) { return; }
+    var botao = el("im-gravar");
+    botao.disabled = true;
+    el("im-recado").textContent = "Gravando...";
+    el("im-recado").className = "recado";
+    try {
+      var url = "/api/importar?cliente=" + P.cliente()
+        + "&tipo=" + encodeURIComponent(tipoEscolhido)
+        + "&arquivo=" + encodeURIComponent(arquivoNome)
+        + "&mapa=" + encodeURIComponent(JSON.stringify(mapaAtual()));
+      var r = await api(url, arquivoBytes, true);
+      var partes = [r.linhas + " linhas lidas"];
+      if (r.novos) { partes.push(r.novos + " produtos novos"); }
+      if (r.atualizados) { partes.push(r.atualizados + " atualizados"); }
+      if (r.ligados) { partes.push(r.ligados + " ligados a produtos"); }
+      if (r.soltos) { partes.push(r.soltos + " sem produto (veja De-para)"); }
+      if (r.ignorados) { partes.push(r.ignorados + " linhas ignoradas por estarem vazias"); }
+      el("im-recado").textContent = "Pronto: " + partes.join(", ") + ".";
+      el("im-recado").className = "recado recado-ok";
+      await mostrarHistorico();
+    } catch (e) {
+      el("im-recado").textContent = e.message;
+      el("im-recado").className = "recado recado-erro";
+    } finally {
+      botao.disabled = false;
+    }
+  });
+
+  async function mostrarHistorico() {
+    var r = await api("/api/importacoes?cliente=" + P.cliente());
+    var caixa = el("im-historico");
+    caixa.innerHTML = "";
+    if (!r.itens.length) {
+      var p = document.createElement("p");
+      p.className = "dica";
+      p.textContent = "Nada foi importado ainda.";
+      caixa.append(p);
+      return;
+    }
+    r.itens.forEach(function (i) {
+      var d = document.createElement("div");
+      d.className = "fonte";
+      var partes = [i.quando, i.linhas + " linhas"];
+      if (i.novos) { partes.push(i.novos + " novos"); }
+      if (i.soltos) { partes.push(i.soltos + " sem produto"); }
+      d.innerHTML = "<strong></strong><span></span>";
+      d.querySelector("strong").textContent = nomeDoTipo(i.tipo)
+        + (i.arquivo ? " · " + i.arquivo : "");
+      d.querySelector("span").textContent = partes.join(" · ");
+      caixa.append(d);
+    });
+  }
+
+  function nomeDoTipo(t) {
+    if (t === "loja") { return "Lista da loja"; }
+    if (t === "fotos") { return "Fotos"; }
+    var c = marca.canais.filter(function (x) { return x.canal === t; })[0];
+    return c ? c.nome : t;
+  }
+
+  comecar();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel de Catálogos</title>
+<link rel="stylesheet" href="/static/painel.css">
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-linha">
+    <h1 id="ix-titulo">Painel de Catálogos</h1>
+    <select id="ix-cliente" aria-label="Cliente"></select>
+  </div>
+  <nav class="topo-nav">
+    <a href="/" class="atual">Início</a>
+    <a href="/importar">Atualizar dados</a>
+    <a href="/de-para">De-para</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- ------------------------------------------------------------- INÍCIO -->
+<section id="ix-inicio">
+  <div id="ix-vazio" class="aviso escondido">
+    <strong>O painel está vazio.</strong>
+    Comece em <a href="/importar">Atualizar dados</a>: mande a lista de produtos da loja e
+    depois a exportação de cada canal. Nada é enviado para loja nenhuma.
+  </div>
+
+  <div class="placar" id="ix-placar"></div>
+
+  <h2>O que precisa de atenção</h2>
+  <p class="dica">Toque num cartão para ver a lista. Você pode marcar cada item como resolvido.</p>
+  <div class="cartoes" id="ix-cartoes"></div>
+
+  <h2>De onde vêm os dados</h2>
+  <div class="fontes" id="ix-fontes"></div>
+</section>
+
+<!-- -------------------------------------------------------------- LISTA -->
+<section id="ix-lista" class="escondido">
+  <button class="voltar" id="ix-voltar">&larr; Início</button>
+  <h2 id="ix-lista-titulo"></h2>
+  <p class="dica" id="ix-lista-explica"></p>
+
+  <div class="barra">
+    <input type="search" id="ix-busca" placeholder="Buscar por nome, marca ou código">
+    <label class="caixinha"><input type="checkbox" id="ix-ver-feitos"> Mostrar os já resolvidos</label>
+    <a class="botao-vazado" id="ix-csv" href="#">Baixar em CSV</a>
+  </div>
+
+  <p class="contagem" id="ix-contagem"></p>
+  <div id="ix-itens"></div>
+</section>
+
+</main>
+
+<!-- ------------------------------------------------------------- PRODUTO -->
+<dialog id="pd-dlg">
+  <form method="dialog" class="dlg-fechar"><button aria-label="Fechar">&times;</button></form>
+  <h3 id="pd-nome"></h3>
+  <p class="dica" id="pd-sub"></p>
+
+  <div class="campos">
+    <label>Nome
+      <input type="text" id="pd-campo-nome">
+    </label>
+    <label>Preço na loja (R$)
+      <input type="text" id="pd-campo-preco" inputmode="decimal" placeholder="89,90">
+    </label>
+    <label>Código de barras
+      <input type="text" id="pd-campo-ean" inputmode="numeric">
+    </label>
+    <label>Anotação
+      <input type="text" id="pd-campo-obs" placeholder="o que você quiser lembrar">
+    </label>
+  </div>
+  <div class="dlg-acoes">
+    <button type="button" class="botao" id="pd-salvar">Salvar</button>
+    <span class="recado" id="pd-recado"></span>
+  </div>
+
+  <h4>Em cada canal</h4>
+  <div id="pd-canais"></div>
+
+  <h4>Histórico</h4>
+  <div id="pd-historico" class="historico"></div>
+</dialog>
+
+<script src="/static/painel.js"></script>
+<script>
+(function () {
+  "use strict";
+  var marca = null, resumoAtual = null, listaAtual = null, produtoAberto = null;
+
+  var el = P.el, api = P.api, reais = P.reais, erroNaTela = P.erroNaTela;
+
+  /* ----------------------------------------------------------- arranque */
+  async function comecar() {
+    try {
+      marca = await api("/api/marca");
+      P.aplicarMarca(marca);
+      el("ix-titulo").textContent = marca.nome;
+      document.title = marca.nome;
+      await P.montarClientes(el("ix-cliente"), function () { abrirInicio(); });
+      await abrirInicio();
+    } catch (e) {
+      erroNaTela(e);
+    }
+  }
+
+  /* ------------------------------------------------------------ início */
+  async function abrirInicio() {
+    el("ix-lista").classList.add("escondido");
+    el("ix-inicio").classList.remove("escondido");
+    location.hash = "";
+    var r = await api("/api/resumo?cliente=" + P.cliente());
+    resumoAtual = r;
+    el("ix-vazio").classList.toggle("escondido", r.produtos > 0);
+
+    el("ix-placar").innerHTML = "";
+    el("ix-placar").append(
+      placa(r.produtos, "produtos na lista da loja"),
+      placa(r.certos, "sem nenhum problema"),
+      placa(Math.max(0, r.produtos - r.certos), "precisam de algo")
+    );
+
+    var caixa = el("ix-cartoes");
+    caixa.innerHTML = "";
+    var comAlgo = r.cartoes.filter(function (c) { return c.quantos > 0; });
+    var zerados = r.cartoes.filter(function (c) { return c.quantos === 0; });
+    if (!comAlgo.length && r.produtos > 0) {
+      caixa.append(el2("p", "tudo-certo", "Nada pendente. Tudo o que o painel sabe conferir está certo."));
+    }
+    comAlgo.concat(zerados).forEach(function (c) {
+      var d = document.createElement("button");
+      d.className = "cartao" + (c.quantos ? "" : " cartao-zero");
+      d.innerHTML = "<span class='cartao-n'>" + c.quantos + "</span>"
+        + "<span class='cartao-t'></span><span class='cartao-e'></span>";
+      d.querySelector(".cartao-t").textContent = c.titulo;
+      d.querySelector(".cartao-e").textContent = c.explica
+        + (c.feitos ? " (" + c.feitos + " já resolvidos)" : "");
+      d.addEventListener("click", function () { abrirLista(c.chave, c.titulo, c.explica); });
+      caixa.append(d);
+    });
+
+    var f = el("ix-fontes");
+    f.innerHTML = "";
+    f.append(fonte("Lista da loja", r.importado_loja, r.produtos + " produtos"));
+    f.append(fonte("Fotos do Drive", r.importado_fotos, ""));
+    r.canais.forEach(function (c) {
+      f.append(fonte(c.nome, c.importado, c.linhas + " linhas"));
+    });
+  }
+
+  function placa(n, texto) {
+    var d = document.createElement("div");
+    d.className = "placa";
+    d.innerHTML = "<strong></strong><span></span>";
+    d.querySelector("strong").textContent = n;
+    d.querySelector("span").textContent = texto;
+    return d;
+  }
+
+  function fonte(nome, quando, extra) {
+    var d = document.createElement("div");
+    d.className = "fonte" + (quando ? "" : " fonte-falta");
+    var t = quando ? ("atualizado em " + quando) : "ainda não importado";
+    d.innerHTML = "<strong></strong><span></span>";
+    d.querySelector("strong").textContent = nome;
+    d.querySelector("span").textContent = t + (extra ? " · " + extra : "");
+    return d;
+  }
+
+  function el2(tag, classe, texto) {
+    var d = document.createElement(tag);
+    d.className = classe;
+    d.textContent = texto;
+    return d;
+  }
+
+  /* ------------------------------------------------------------- lista */
+  async function abrirLista(tipo, titulo, explica) {
+    el("ix-inicio").classList.add("escondido");
+    el("ix-lista").classList.remove("escondido");
+    location.hash = tipo;
+    el("ix-busca").value = "";
+    el("ix-ver-feitos").checked = false;
+    /* o titulo entra na hora, para a tela nunca abrir em branco */
+    el("ix-lista-titulo").textContent = titulo || "";
+    el("ix-lista-explica").textContent = explica || "";
+    el("ix-contagem").textContent = "Carregando...";
+    el("ix-itens").innerHTML = "";
+    window.scrollTo(0, 0);
+    await recarregarLista(tipo);
+  }
+
+  async function recarregarLista(tipo) {
+    tipo = tipo || (listaAtual && listaAtual.tipo);
+    if (!tipo) { return; }
+    var url = "/api/lista?cliente=" + P.cliente() + "&tipo=" + encodeURIComponent(tipo)
+      + "&q=" + encodeURIComponent(el("ix-busca").value)
+      + (el("ix-ver-feitos").checked ? "&feitos=1" : "");
+    var r = await api(url);
+    listaAtual = r;
+    el("ix-lista-titulo").textContent = r.titulo;
+    el("ix-lista-explica").textContent = r.explica;
+    el("ix-csv").href = "/api/csv?cliente=" + P.cliente() + "&tipo=" + encodeURIComponent(tipo)
+      + "&q=" + encodeURIComponent(el("ix-busca").value);
+    var msg = r.total + (r.total === 1 ? " item" : " itens");
+    if (r.feitos) { msg += " · " + r.feitos + " já resolvidos"; }
+    if (r.cortado) {
+      msg += " · mostrando só os primeiros " + r.limite
+        + ". Use a busca ou baixe o CSV para ver todos.";
+    }
+    el("ix-contagem").textContent = msg;
+    el("ix-contagem").classList.toggle("contagem-corte", !!r.cortado);
+    desenharItens(r);
+  }
+
+  function desenharItens(r) {
+    var caixa = el("ix-itens");
+    caixa.innerHTML = "";
+    if (!r.itens.length) {
+      caixa.append(el2("p", "tudo-certo", "Nada aqui."));
+      return;
+    }
+    r.itens.forEach(function (i) { caixa.append(linha(i, r.tipo)); });
+  }
+
+  function linha(i, tipo) {
+    var d = document.createElement("div");
+    d.className = "item" + (i.feito ? " item-feito" : "");
+    d.dataset.chave = i.chave || "";
+
+    var marcador = document.createElement("input");
+    marcador.type = "checkbox";
+    marcador.checked = !!i.feito;
+    marcador.title = "Marcar como resolvido";
+    marcador.className = "item-check";
+    marcador.addEventListener("change", async function () {
+      try {
+        await api("/api/tarefa?cliente=" + P.cliente(), {
+          tipo: tipo, chave: i.chave, feito: marcador.checked
+        });
+        /* muda só esta linha: a rolagem fica onde está */
+        i.feito = marcador.checked;
+        d.classList.toggle("item-feito", i.feito);
+        if (i.feito && !el("ix-ver-feitos").checked) { d.classList.add("saindo"); }
+        atualizarContagem(i.feito ? -1 : 1, i.feito ? 1 : -1);
+      } catch (e) {
+        marcador.checked = !marcador.checked;
+        alert(e.message);
+      }
+    });
+
+    var corpo = document.createElement("div");
+    corpo.className = "item-corpo";
+    var h = document.createElement("div");
+    h.className = "item-nome";
+    h.textContent = i.nome || "(sem nome)";
+    corpo.append(h);
+
+    var linhas = [];
+    if (i.situacao) { linhas.push(i.situacao); }
+    if (i.canal_nome) { linhas.push(i.canal_nome); }
+    if (i.preco_canal !== undefined && i.preco_canal !== null) {
+      linhas.push("no canal R$ " + reais(i.preco_canal));
+    }
+    if (i.esperado !== undefined && i.esperado !== null) {
+      linhas.push("deveria ser R$ " + reais(i.esperado));
+    }
+    if (i.preco_loja !== undefined && i.preco_loja !== null) {
+      linhas.push("loja R$ " + reais(i.preco_loja));
+    }
+    if (i.nome_canal && i.nome_canal !== i.nome) { linhas.push("no canal: " + i.nome_canal); }
+    if (i.ean) { linhas.push("EAN " + i.ean); }
+    else if (i.codigo) { linhas.push("cód. " + i.codigo); }
+    if (i.granel) { linhas.push("granel"); }
+
+    var s = document.createElement("div");
+    s.className = "item-sub";
+    s.textContent = linhas.join(" · ");
+    corpo.append(s);
+
+    if (i.diferenca !== undefined && i.diferenca !== null) {
+      var tag = document.createElement("span");
+      tag.className = "etiqueta " + (i.diferenca > 0 ? "etq-caro" : "etq-barato");
+      tag.textContent = (i.diferenca > 0 ? "+" : "") + "R$ " + reais(i.diferenca);
+      corpo.append(tag);
+    }
+
+    d.append(marcador, corpo);
+    if (i.produto_id) {
+      corpo.classList.add("clicavel");
+      corpo.addEventListener("click", function () { abrirProduto(i.produto_id); });
+    }
+    return d;
+  }
+
+  function atualizarContagem(dTotal, dFeitos) {
+    if (!listaAtual) { return; }
+    listaAtual.total += dTotal;
+    listaAtual.feitos += dFeitos;
+    var msg = listaAtual.total + (listaAtual.total === 1 ? " item" : " itens");
+    if (listaAtual.feitos) { msg += " · " + listaAtual.feitos + " já resolvidos"; }
+    el("ix-contagem").textContent = msg;
+  }
+
+  /* ----------------------------------------------------------- produto */
+  async function abrirProduto(id) {
+    var p = await api("/api/produto?cliente=" + P.cliente() + "&id=" + id);
+    produtoAberto = p;
+    el("pd-nome").textContent = p.nome || "(sem nome)";
+    var sub = [];
+    if (p.marca) { sub.push(p.marca); }
+    if (p.categoria) { sub.push(p.categoria); }
+    if (p.un) { sub.push(p.un); }
+    if (p.granel) { sub.push("granel"); }
+    sub.push(p.tem_foto ? "tem foto no Drive" : "sem foto no Drive");
+    el("pd-sub").textContent = sub.join(" · ");
+    el("pd-campo-nome").value = p.nome || "";
+    el("pd-campo-preco").value = p.preco_loja === null ? "" : reais(p.preco_loja);
+    el("pd-campo-ean").value = p.ean || "";
+    el("pd-campo-obs").value = p.obs || "";
+    el("pd-recado").textContent = "";
+
+    var c = el("pd-canais");
+    c.innerHTML = "";
+    p.canais.forEach(function (x) {
+      var d = document.createElement("div");
+      d.className = "canal" + (x.presente && x.vendendo ? " canal-ok" : " canal-falta");
+      var partes = [];
+      if (!x.presente) { partes.push("não está cadastrado"); }
+      else {
+        partes.push(x.vendendo ? "vendendo" : (x.status || "não está vendendo"));
+        if (x.preco !== null) { partes.push("R$ " + reais(x.preco)); }
+        else { partes.push("sem preço"); }
+        if (x.esperado !== null) { partes.push("esperado R$ " + reais(x.esperado)); }
+        if (x.codigo) { partes.push("cód. " + x.codigo); }
+        if (x.estoque !== null) { partes.push("estoque " + x.estoque); }
+        partes.push(x.tem_foto ? "com foto" : "sem foto");
+      }
+      d.innerHTML = "<strong></strong><span></span>";
+      d.querySelector("strong").textContent = x.nome;
+      d.querySelector("span").textContent = partes.join(" · ");
+      c.append(d);
+    });
+
+    var hh = el("pd-historico");
+    hh.innerHTML = "";
+    if (!p.historico.length) {
+      hh.append(el2("p", "dica", "Nada mudou ainda."));
+    } else {
+      p.historico.forEach(function (h) {
+        var d = document.createElement("div");
+        d.className = "hist";
+        d.innerHTML = "<span></span><em></em>";
+        d.querySelector("span").textContent = h.texto;
+        d.querySelector("em").textContent = h.quando;
+        hh.append(d);
+      });
+    }
+    el("pd-dlg").showModal();
+  }
+
+  el("pd-salvar").addEventListener("click", async function () {
+    if (!produtoAberto) { return; }
+    var botao = el("pd-salvar");
+    botao.disabled = true;
+    el("pd-recado").textContent = "Salvando...";
+    el("pd-recado").className = "recado";
+    try {
+      var r = await api("/api/produto?cliente=" + P.cliente(), {
+        id: produtoAberto.produto_id,
+        nome: el("pd-campo-nome").value,
+        preco_loja: el("pd-campo-preco").value,
+        ean: el("pd-campo-ean").value,
+        obs: el("pd-campo-obs").value
+      });
+      el("pd-recado").textContent = r.mudou.length ? "Salvo." : "Nada mudou.";
+      el("pd-recado").className = "recado recado-ok";
+      /* atualiza só a linha que está na lista, mantendo a rolagem */
+      if (listaAtual) { await recarregarLista(); }
+    } catch (e) {
+      el("pd-recado").textContent = e.message;
+      el("pd-recado").className = "recado recado-erro";
+    } finally {
+      botao.disabled = false;
+    }
+  });
+
+  el("ix-voltar").addEventListener("click", abrirInicio);
+  el("ix-ver-feitos").addEventListener("change", function () { recarregarLista(); });
+  var atraso = null;
+  el("ix-busca").addEventListener("input", function () {
+    clearTimeout(atraso);
+    atraso = setTimeout(function () { recarregarLista(); }, 250);
+  });
+
+  comecar();
+})();
+</script>
+</body>
+</html>
