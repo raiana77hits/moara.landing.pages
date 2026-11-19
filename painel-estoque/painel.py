@@ -30,6 +30,7 @@ import re
 import secrets
 import sqlite3
 import sys
+import shutil
 import threading
 import unicodedata
 import time
@@ -388,6 +389,7 @@ def carregar_config():
         "loja": os.environ.get("NUVEMSHOP_STORE_ID") or str(cfg.get("nuvemshop_loja", "")),
         "agente": os.environ.get("NUVEMSHOP_USER_AGENT")
         or cfg.get("nuvemshop_user_agent", "Painel de Estoque"),
+        "pasta_backup_extra": os.environ.get("PAINEL_BACKUP_EXTRA") or str(cfg.get("pasta_backup_extra", "") or ""),
     }
 
 
@@ -3776,6 +3778,39 @@ class Handler(BaseHTTPRequestHandler):
             con.close()
 
 
+def backup_extra():
+    """Segunda cópia do banco FORA da pasta do painel (pendrive, HD externo ou pasta sincronizada com
+    Google Drive/OneDrive), definida em config.json como "pasta_backup_extra". Guarda as 30 mais recentes.
+    O resultado (ok, não configurado ou erro) vai para a tela inicial."""
+    estado, detalhe = "nao_configurado", ""
+    try:
+        pasta = carregar_config().get("pasta_backup_extra", "").strip().strip('"')
+        hoje = os.path.join(backups_dir(), f"banco_{datetime.now():%Y%m%d}.db")
+        if pasta and os.path.exists(hoje):
+            os.makedirs(pasta, exist_ok=True)
+            destino = os.path.join(pasta, os.path.basename(hoje))
+            if not os.path.exists(destino) or os.path.getmtime(destino) < os.path.getmtime(hoje):
+                shutil.copy2(hoje, destino + ".tmp")
+                os.replace(destino + ".tmp", destino)
+            for n in sorted(x for x in os.listdir(pasta) if x.startswith("banco_") and x.endswith(".db"))[:-30]:
+                os.remove(os.path.join(pasta, n))
+            estado = "ok"
+        elif pasta:
+            estado, detalhe = "erro", "ainda não existe a cópia de hoje"
+    except Exception as e:  # noqa: BLE001 - backup nunca derruba o painel
+        estado, detalhe = "erro", str(e)[:120]
+    try:
+        con = conectar()
+        set_meta(con, "backup_extra", estado)
+        set_meta(con, "backup_extra_detalhe", detalhe)
+        if estado == "ok":
+            set_meta(con, "backup_extra_em", agora())
+        con.commit()
+        con.close()
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def backup_banco():
     """Cópia do banco na pasta backups: uma por dia, renovada se tiver mais de 6 horas
     (guarda as 14 mais recentes). Escreve num arquivo temporário e só então troca."""
@@ -3795,6 +3830,7 @@ def backup_banco():
             os.remove(os.path.join(backups_dir(), n))
     except Exception:  # noqa: BLE001 - backup nunca derruba o painel
         pass
+    backup_extra()
 
 
 def _rotina_backup():

@@ -372,6 +372,8 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
         <form class="busca-grande" id="f-inicio"><input type="search" id="q-inicio" placeholder="Buscar produto ou código" aria-label="Buscar produto" enterkeyhint="search"><button>Buscar</button></form>
       </div>
 
+      <div id="aviso-backup" class="aviso" hidden></div>
+
       <div class="bloco">
         <h2>Conferência</h2>
         <div class="prog">
@@ -627,7 +629,15 @@ function desenharInicio(){
     <div><div class="nm">${ic} ${nome}</div><div class="tx">à venda agora</div></div>
     <div class="big">${num(f["vendendo_" + c])}</div>
     <div class="loja-acoes"><button class="pri" data-f="vendendo_${c}">Ver à venda</button><button data-f="fora_${c}">Não está (${num(f["fora_" + c])})</button></div></div>`).join("");
-  $("#t-zip").textContent = "Baixar fotos tiradas (" + num(r.fotos_tiradas) + ")";
+  const be = (r.meta || {}).backup_extra, ab = $("#aviso-backup");
+  if(be === "ok"){ ab.hidden = true; }
+  else{
+    ab.hidden = false; ab.className = "aviso a-warn";
+    ab.innerHTML = be === "erro"
+      ? "⚠ <b>Backup fora do computador falhou</b>" + ((r.meta || {}).backup_extra_detalhe ? " (" + esc(r.meta.backup_extra_detalhe) + ")" : "") + ". Confira se o pendrive/pasta está ligado. A cópia dentro do painel continua sendo feita."
+      : "⚠ <b>Seu estoque só tem cópia neste computador.</b> Se ele queimar ou for roubado, perde tudo. Veja no LEIA-ME “Backup fora do computador” (1 minuto para ligar).";
+  }
+    $("#t-zip").textContent = "Baixar fotos tiradas (" + num(r.fotos_tiradas) + ")";
   const semSite = !(r.categorias_n && r.categorias_n.length);
   const aviso = document.getElementById("aviso-cats");
   if(aviso) aviso.remove();
@@ -641,6 +651,7 @@ function datasTexto(){
   const m = RESUMO ? RESUMO.meta : {}, p = [];
   if(m.nuvemshop_sync_em) p.push("Nuvemshop lida em " + data(m.nuvemshop_sync_em));
   if(m.painel_importado_em) p.push("iFood e 99Food de " + data(m.painel_importado_em));
+  if(m.backup_extra_em) p.push("backup externo em " + data(m.backup_extra_em));
   return p.join(" · ") || "sem dados ainda: toque em Atualizar dados";
 }
 

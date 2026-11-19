@@ -159,3 +159,18 @@ Sem ele o painel funciona normalmente, só não relê a Nuvemshop.
 ## Onde ficam os dados
 
 Tudo em `banco.db`, nesta pasta. Para fazer backup, copie esse arquivo.
+
+
+## Backup fora do computador
+
+O painel já guarda uma cópia do banco por dia na pasta `backups` (as 14 mais recentes). Isso não protege se o computador queimar ou for roubado. Para guardar uma **segunda cópia em outro lugar**, abra o `config.json` e acrescente uma linha com a pasta de destino (use `/` ou `\\` duplas no Windows):
+
+```json
+"pasta_backup_extra": "G:/Meu Drive/backup-painel"
+```
+
+Pode ser a pasta do Google Drive/OneDrive no computador (o próprio programa deles envia para a nuvem) ou um pendrive/HD externo (ex.: `E:/backup-painel`). Guarda as 30 cópias mais recentes. Depois de salvar, feche a janela preta e abra o `iniciar.bat`.
+
+Na tela inicial aparece um aviso amarelo enquanto não estiver configurado ou se a pasta não responder, e o rodapé mostra a data do último backup externo.
+
+Para **restaurar**: feche o painel, copie um arquivo `banco_AAAAMMDD.db` da pasta de backup para a pasta do painel, renomeie para `banco.db` (guarde o antigo antes) e abra o `iniciar.bat`.
