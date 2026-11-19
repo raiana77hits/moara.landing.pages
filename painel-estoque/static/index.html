@@ -1254,13 +1254,14 @@ async function abrirIfoodApi(){
   // ---- listas rápidas: escolher o que subir sem digitar nome de produto
   let ultimaLista = null, verEnviados = false;
   const brl2 = v => v == null ? "—" : "R$ " + Number(v).toFixed(2).replace(".", ",");
-  const contaMarcados = () => { const el = $("#if-cont"); if(el) el.textContent = marcados.size + " marcado(s)"; };
+  const limiteLote = () => document.querySelector("input[name=if-dest]:checked").value === "real" ? 100 : 20;
+  const contaMarcados = () => { const el = $("#if-cont"); if(el) el.textContent = marcados.size + " marcado(s) · limite por envio: " + limiteLote(); };
   const pintarLista = () => {
     if(!ultimaLista) return;
     const L = ultimaLista, prontos = L.itens.filter(i => i.pronto).length;
     $("#if-cab").innerHTML = `<div class="aviso" style="margin:8px 0"><b>${esc(L.nome)}</b>: ${L.itens.length}${L.cortou ? "+ (mostrando os primeiros " + L.itens.length + ")" : ""} produtos · <b>${prontos}</b> prontos para o iFood
       <div style="margin-top:4px;font-size:13px"><label><input type="checkbox" id="if-ver-env" ${verEnviados ? "checked" : ""}> Mostrar também os que já enviei à loja real</label>${L.escondidos ? " <span style='color:var(--muted)'>(" + L.escondidos + " já enviados estão escondidos)</span>" : ""}</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button type="button" id="if-todos">Marcar todos os prontos</button><button type="button" id="if-nenhum">Desmarcar</button><button type="button" id="if-csv">Baixar esta lista (CSV)</button><span id="if-cont" style="align-self:center;color:var(--muted)"></span></div></div>`;
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button type="button" id="if-todos">Marcar os próximos prontos (até o limite)</button><button type="button" id="if-nenhum">Desmarcar</button><button type="button" id="if-csv">Baixar esta lista (CSV)</button><span id="if-cont" style="align-self:center;color:var(--muted)"></span></div></div>`;
     $("#if-lista").innerHTML = L.itens.map(i => `<label class="pv" style="display:flex;gap:8px;align-items:flex-start;${i.pronto ? "" : "opacity:.75"}"><input type="checkbox" data-i="${i.id}" ${marcados.has(i.id) ? "checked" : ""} ${i.pronto ? "" : "disabled"}><span>${esc(i.nome)}<br><small>${esc(i.ean || "sem código")} · painel ${brl2(i.preco)} → iFood ${brl2(i.preco_ifood)}${i.ifood_atual != null ? " (hoje no iFood " + brl2(i.ifood_atual) + ")" : ""} · contado ${i.estoque ?? "—"}${i.estimado != null && Math.round(i.estimado) !== i.estoque ? " (estimado " + Math.round(i.estimado) + ")" : ""}${i.conferido_em ? " em " + esc(data(i.conferido_em)) : ""}<br>Site ${i.site ? "✔" : "—"} · iFood ${i.ifood ? "✔" : "—"} · 99Food ${i.n99 ? "✔" : "—"}${(i.motivos || []).length ? '<br><b style="color:var(--bad)">' + i.motivos.map(esc).join(" · ") + "</b>" : ""}${i.avisos.length ? '<br><span style="color:var(--warn)">' + i.avisos.map(esc).join("; ") + "</span>" : ""}</small></span></label>`).join("");
     contaMarcados();
   };
@@ -1290,7 +1291,11 @@ async function abrirIfoodApi(){
       carregarLista(b.dataset.l);
     }
     if(e.target.closest("#if-ver-env") && ultimaLista){ verEnviados = e.target.closest("#if-ver-env").checked; carregarLista(ultimaLista.lista); return; }
-    if(e.target.closest("#if-todos") && ultimaLista){ ultimaLista.itens.filter(i => i.pronto).forEach(i => marcados.add(i.id)); pintarLista(); }
+    if(e.target.closest("#if-todos") && ultimaLista){
+      let n = marcados.size;
+      for(const i of ultimaLista.itens){ if(n >= limiteLote()) break; if(i.pronto && !marcados.has(i.id)){ marcados.add(i.id); n++; } }
+      pintarLista();
+    }
     if(e.target.closest("#if-nenhum")){ marcados.clear(); pintarLista(); }
     if(e.target.closest("#if-csv") && ultimaLista){
       const q = t => '"' + String(t ?? "").replace(/"/g, '""') + '"';
@@ -1358,6 +1363,7 @@ async function abrirIfoodApi(){
     $("#if-env-res").textContent = "Enviando…";
     try{
       const r = await api("/api/ifood-api/enviar", {method:"POST", body:JSON.stringify({ids:[...marcados], ambiente:dest, modo, promo:$("#if-promo").value, confirmo}), headers:{"X-Quem":encodeURIComponent(quemContando())}});
+      if(r.ok){ marcados.clear(); if(ultimaLista) setTimeout(() => carregarLista(ultimaLista.lista), 300); }
       $("#if-env-res").scrollIntoView({block:"nearest"});
       $("#if-env-res").innerHTML = `<div class="${r.ok ? "ok-msg" : "erro-msg"}">${r.ok ? "O iFood aceitou" : "O iFood recusou"} (código ${r.status}) · ${r.enviados} produto(s). ${esc(r.mensagem || "")}<br><small>Resposta guardada em backups/${esc(r.backup)}</small><pre style="white-space:pre-wrap;font-size:12px;max-height:30vh;overflow:auto">${esc(JSON.stringify(r.resposta, null, 2))}</pre></div>`;
     }catch(err){ $("#if-env-res").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
