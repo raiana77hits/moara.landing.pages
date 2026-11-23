@@ -4291,8 +4291,11 @@ def casar_fotos(con, nomes):
         arq = str(nome or "").strip()
         base = os.path.basename(arq)
         sem_ext = base.rsplit(".", 1)[0].strip().lower()
+        # "7898104093645_2.jpg" ou "7898104093645 (1).jpg" = segunda foto do mesmo produto
+        so_codigo = re.match(r"\s*([0-9]{6,14})", sem_ext)
         achado = (por_arquivo.get(base.lower()) or por_ifood.get(sem_ext)
-                  or por_sku.get(sem_ext) or por_ean.get(norm_ean(sem_ext)))
+                  or por_sku.get(sem_ext) or por_ean.get(norm_ean(sem_ext))
+                  or (por_ean.get(norm_ean(so_codigo.group(1))) if so_codigo else None))
         if achado is None:
             itens.append({"arquivo": base, "id": None, "produto": "",
                           "motivo": "não achei um produto com esse código"})
