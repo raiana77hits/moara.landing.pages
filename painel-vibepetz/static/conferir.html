@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Conferência">
+<meta name="theme-color" content="{{COR_PRINCIPAL}}">
+<title>Conferência de prateleira · {{LOJA}}</title>
+<script>window.MARCA = {{MARCA_JSON}};</script>
+<style>
+:root{--bg:#F3F5F4;--surface:#fff;--ink:#18252A;--muted:#5A686E;--line:#D8DEDC;--marca:{{COR_PRINCIPAL}};--marca-suave:{{COR_SUAVE}};
+  --ok:#2E7D4F;--ok-bg:#E3F2E8;--warn:#9A6A00;--warn-bg:#FBF0D2;--bad:#B03A2E;--bad-bg:#F8E1DE;--idle-bg:#E8ECEB}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding-bottom:env(safe-area-inset-bottom)}
+header{background:var(--marca);color:#fff;padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));display:flex;align-items:center;gap:12px}
+header h1{margin:0;font-size:18px;flex:1}
+header a,header button{color:#fff;font:600 14px inherit;font-family:inherit;background:rgba(255,255,255,.18);border:0;border-radius:6px;padding:8px 10px;text-decoration:none;cursor:pointer}
+main{max-width:560px;margin:0 auto;padding:14px 16px;display:flex;flex-direction:column;gap:14px}
+button{font:600 16px inherit;font-family:inherit;border-radius:8px;padding:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+button.pri{background:var(--marca);border-color:var(--marca);color:#fff}
+button.zero{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--marca);outline-offset:2px}
+input{font:inherit;padding:14px;border:1px solid var(--line);border-radius:8px;width:100%;background:var(--surface);color:var(--ink)}
+#leitor{width:100%;background:#000;border-radius:8px;overflow:hidden;min-height:0}
+#leitor video{display:block;width:100%!important}
+.linha{display:flex;gap:8px}
+.linha input{flex:1;min-width:0}
+.aviso{border-radius:8px;padding:12px;font-size:15px}
+.a-warn{background:var(--warn-bg);color:var(--warn)}.a-bad{background:var(--bad-bg);color:var(--bad)}.a-ok{background:var(--ok-bg);color:var(--ok)}
+.cartao{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--marca);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.cartao h2{margin:0;font-size:19px;line-height:1.25}
+.cartao .cod{color:var(--muted);font:13px ui-monospace,Menlo,Consolas,monospace}
+dialog#d-novo{width:100vw;max-width:100vw;height:100vh;max-height:100vh;border:0;padding:0;background:var(--bg);color:var(--ink)}
+dialog#d-novo::backdrop{background:rgba(0,0,0,.5)}
+.topo-n{position:sticky;top:0;z-index:2;background:var(--marca);color:#fff;padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));font-size:19px;font-weight:700}
+.corpo-n{padding:14px 16px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:6px;max-width:560px;margin:0 auto}
+.campo{display:block;font-weight:600;margin:8px 0 0}
+.campo input,.campo select{margin-top:5px;font-weight:400}
+.campo input[readonly]{background:var(--idle-bg);font-family:ui-monospace,Menlo,Consolas,monospace}
+#n-foto-prev{display:flex;gap:12px;align-items:center}
+details.mais{margin-top:8px}
+details.mais summary{cursor:pointer;font-weight:600;padding:8px 0}
+.dois-n{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;margin-top:14px}
+.dois-n button{padding:18px;font-size:18px}
+select{font:inherit;padding:14px;border:1px solid var(--line);border-radius:8px;width:100%;background:var(--surface);color:var(--ink)}
+.topo-cartao{display:flex;gap:12px;align-items:flex-start}
+.topo-cartao>div:last-child{min-width:0;flex:1}
+.foto-c{width:104px;height:104px;border-radius:12px;object-fit:cover;flex:none;background:var(--idle-bg);cursor:zoom-in;display:block}
+.foto-c.sem{display:flex;align-items:center;justify-content:center;text-align:center;font-size:13px;color:var(--muted);border:2px dashed var(--line);cursor:default;padding:6px}
+.btn-foto.destaque{background:var(--warn-bg);border-color:var(--warn);color:var(--warn);font-size:18px;padding:16px}
+#foto-msg{font-size:14px;color:var(--muted);margin-top:6px}
+dialog#d-zoom{border:0;padding:0;background:transparent;max-width:96vw;max-height:96vh}
+dialog#d-zoom::backdrop{background:rgba(0,0,0,.8)}
+dialog#d-zoom img{display:block;max-width:96vw;max-height:92vh;border-radius:10px}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{font-size:12px;font-weight:600;padding:5px 9px;border-radius:999px}
+.p-ok{color:var(--ok);background:var(--ok-bg)}.p-bad{color:var(--bad);background:var(--bad-bg)}.p-idle{color:var(--muted);background:var(--idle-bg)}
+.qtd{display:grid;grid-template-columns:56px 1fr 56px;gap:8px}
+.qtd input{text-align:center;font:700 26px ui-monospace,Menlo,Consolas,monospace;padding:10px}
+.qtd button{font-size:24px;padding:0}
+.dois{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.escolha{display:flex;flex-direction:column;gap:8px}
+.escolha button{text-align:left;font-weight:500}
+.escolha small{display:block;color:var(--muted)}
+h3{margin:6px 0 0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+ul{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+li{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:baseline;font-size:14px}
+li:last-child{border-bottom:0}
+li b{font:700 16px ui-monospace,Menlo,Consolas,monospace;min-width:44px;text-align:right}
+li span{flex:1;min-width:0;overflow-wrap:anywhere}
+li small{color:var(--muted);white-space:nowrap}
+#caixa{position:relative}
+.mira{position:absolute;left:6%;right:6%;top:50%;height:0;border-top:2px solid rgba(255,60,60,.9);pointer-events:none}
+.status{border-radius:8px;padding:11px 13px;font-size:15px;background:var(--idle-bg);color:var(--ink)}
+.status.aviso{background:var(--warn-bg);color:var(--warn)}
+.btn-foto{display:block;text-align:center;font:600 16px inherit;font-family:inherit;padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer}
+.btn-foto:focus-within{outline:3px solid var(--marca);outline-offset:2px}
+[hidden]{display:none!important}
+
+.qp{display:grid;grid-template-columns:1.25fr 1fr;gap:12px;align-items:start}
+.qp .blk>label{display:block;font-weight:700;margin-bottom:5px}
+.qp .qtd{grid-template-columns:44px 1fr 44px}
+.qp .qtd input{font-size:22px;padding:8px 4px;min-width:0}
+.qp .preco-in{width:100%;box-sizing:border-box;padding:9px 8px;border:1px solid var(--line);border-radius:6px;font:700 20px ui-monospace,Menlo,Consolas,monospace;text-align:right;background:var(--surface);color:var(--ink)}
+.qp .preco-in.mudou{border-color:var(--marca);background:var(--marca-suave)}
+.nota-preco{color:var(--muted);font-size:12px;margin-top:4px;line-height:1.25}
+li.clicavel{cursor:pointer;flex-wrap:wrap}
+li.dia-cab{background:var(--marca-suave);color:var(--ink);font-size:13px;justify-content:space-between;padding:6px 12px;position:sticky;top:0}
+li.dia-cab span{flex:none;color:var(--muted)}
+li.clicavel:hover{background:#FAFBFA}
+li .seta{color:var(--muted);font-style:normal;font-size:15px}
+li .ed{flex:1 1 100%;cursor:default;margin-top:6px;padding-top:10px;border-top:1px dashed var(--line);display:grid;gap:8px}
+li .ed label{display:block;font-weight:600;font-size:13px}
+li .ed input,li .ed select{width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:16px;background:var(--surface);color:var(--ink);margin-top:3px}
+li .ed .lin2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+li .ed .btns{display:grid;grid-template-columns:1fr 1.4fr;gap:8px}
+li .ed .btns button{padding:14px;font-size:16px}
+li .ed .e-foto{display:grid;grid-template-columns:104px 1fr;gap:10px;align-items:center}
+li .ed .msg{font-size:13px;min-height:1em}
+li .ed .msg.erro{color:var(--bad)}
+</style>
+</head>
+<body>
+<header><h1>Conferência</h1><button id="b-quem"></button><a href="/">Painel</a></header>
+<main>
+  <div id="caixa" hidden><div id="leitor"></div><div class="mira"></div></div>
+  <div id="cam-status" class="status" hidden role="status"></div>
+  <div id="cam-msg" class="aviso a-warn" hidden></div>
+  <pre id="cam-det" class="aviso" hidden style="font-size:12px;white-space:pre-wrap;word-break:break-word"></pre>
+  <button class="pri" id="b-cam">Abrir a câmera para bipar</button>
+  <button id="b-trocar" hidden>🔄 Trocar de câmera</button>
+  <button id="b-perto" hidden>🔍 Câmera de perto (lente macro)</button>
+  <div id="dica-ios" class="aviso" hidden>
+    <b>Garrafa, plástico ou brilho que a câmera não lê?</b> Use o <b>número impresso</b> embaixo das listras:
+    <div style="margin:6px 0 8px">1) Toque em <b>“Ler os números”</b> abaixo.<br>2) Toque e segure no campo e escolha <b>“Digitalizar texto”</b> (ícone de câmera).<br>3) Aponte para os números: eles aparecem no campo e o painel já procura o produto.</div>
+    <button type="button" class="pri" id="b-nums" style="width:100%">🔢 Ler os números</button></div>
+  <label class="btn-foto" for="f-foto">📷 Tirar foto do código<input type="file" id="f-foto" accept="image/*" capture="environment" hidden></label>
+  <div id="leitor-arq" hidden></div>
+  <form class="linha" id="f-cod">
+    <input id="cod" inputmode="search" autocomplete="off" placeholder="Código de barras ou nome do produto" aria-label="Código de barras ou nome do produto">
+    <button>Buscar</button>
+  </form>
+  <div id="resultado" aria-live="polite"></div>
+  <h3>Últimas contagens <span id="tot"></span></h3>
+  <ul id="ultimas"></ul>
+</main>
+
+<dialog id="d-novo"><div class="topo-n">Cadastrar produto</div><div class="corpo-n" id="n-corpo"></div></dialog>
+<dialog id="d-zoom"><img id="z-img" alt=""></dialog>
+<script src="/vendor/html5-qrcode.min.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const mini = (u, t) => u && /-\d+-\d+\.\w+$/.test(u) ? u.replace(/-\d+-\d+(\.\w+)$/, "-" + t + "-0$1") : u;
+const hora = s => s ? s.slice(8,10)+"/"+s.slice(5,7)+" "+s.slice(11,16) : "";
+async function api(url, opt){
+  const r = await fetch(url, opt);
+  if(r.status === 401){ location.href = "/login?ir=conferir"; throw new Error("login"); }
+  const j = await r.json(); if(!r.ok) throw new Error(j.erro || "Erro"); return j;
+}
+
+// quem está contando (fica no histórico de cada produto)
+let quem = "";
+try{ quem = localStorage.getItem("quem") || ""; }catch(e){}
+function mostrarQuem(){ $("#b-quem").textContent = quem || "Seu nome"; }
+$("#b-quem").onclick = () => {
+  const n = prompt("Quem está contando?", quem); if(n === null) return;
+  quem = n.trim().slice(0, 40); try{ localStorage.setItem("quem", quem); }catch(e){} mostrarQuem();
+};
+mostrarQuem();
+
+function bip(){
+  try{ navigator.vibrate && navigator.vibrate(60); }catch(e){}
+  try{
+    const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), g = a.createGain();
+    o.frequency.value = 1200; g.gain.value = .08; o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + .09);
+  }catch(e){}
+}
+
+
+// ------------------------------------------------------------------ fotos
+async function reduzirFoto(file, lado){
+  lado = lado || 1280;
+  const url = URL.createObjectURL(file);
+  try{
+    const img = new Image(); img.src = url; await img.decode();
+    const k = Math.min(1, lado / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise((ok, no) => c.toBlob(b => b ? ok(b) : no(new Error("Não consegui preparar a foto.")), "image/jpeg", 0.82));
+  } finally { URL.revokeObjectURL(url); }
+}
+async function enviarFoto(id, file){
+  let quem = ""; try{ quem = localStorage.getItem("quem") || ""; }catch(e){}
+  const blob = await reduzirFoto(file);
+  return api("/api/foto/" + id, {method:"POST", body: blob, headers:{"Content-Type":"image/jpeg", "X-Quem": encodeURIComponent(quem)}});
+}
+
+// ---------------------------------------------------------------- câmera
+// Só aceita código com dígito verificador certo: leitura torta é ignorada em vez de buscar produto errado.
+function gs1Ok(c){
+  if(!/^\d+$/.test(c) || ![8, 12, 13, 14].includes(c.length)) return false;
+  const n = c.length; let soma = 0;
+  for(let i = 0; i < n - 1; i++) soma += (+c[n - 2 - i]) * (i % 2 === 0 ? 3 : 1);
+  return (10 - soma % 10) % 10 === +c[n - 1];
+}
+function status(t, tipo){ const e = $("#cam-status"); e.hidden = !t; e.textContent = t || ""; e.className = "status" + (tipo ? " " + tipo : ""); }
+function msgErro(e){
+  const n = String((e && e.name) || ""), m = String((e && e.message) || e || ""), tudo = n + " " + m;
+  if(/NotAllowed|Permission|denied/i.test(tudo)) return "O celular bloqueou a câmera para este endereço. No iPhone: toque em “aA” na barra de endereço do Safari, depois Ajustes do Site, Câmera e Permitir. Depois tente de novo.";
+  if(/NotFound|no camera|Requested device/i.test(tudo)) return "Não encontrei uma câmera neste aparelho.";
+  if(/NotReadable|TrackStart|in use|Could not start/i.test(tudo)) return "A câmera está em uso por outro aplicativo. Feche os outros apps e tente de novo.";
+  return "Não consegui abrir a câmera (" + (n || m).slice(0, 80) + "). Use o botão “Tirar foto do código” ou digite o código.";
+}
+let leitor = null, lendo = false, ultimo = "", ultimoEm = 0, descartes = 0, dica = null;
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+if(IOS){ $("#dica-ios").hidden = false; $("#b-perto").hidden = false; }
+const guardado = k => { try{ return localStorage.getItem(k) || ""; }catch(e){ return ""; } };
+const guardar = (k, v) => { try{ localStorage.setItem(k, v); }catch(e){} };
+let camId = guardado("camId");
+let quadros = 0, errosLeitor = {};
+const detalhe = t => { const e = $("#cam-det"); e.hidden = !t; e.textContent = t || ""; };
+const infoNavegador = () => "BarcodeDetector: " + ("BarcodeDetector" in window ? "sim" : "não") + " · iOS: " + (IOS ? "sim" : "não") + " · " + (navigator.userAgent.match(/(iPhone OS|Android) [\d_.]+/) || [""])[0];
+const FORMATOS = () => { const F = Html5QrcodeSupportedFormats; return [F.EAN_13, F.EAN_8, F.UPC_A, F.ITF]; };
+function onLido(texto){
+  texto = String(texto).trim();
+  if(!gs1Ok(texto)){
+    if(++descartes >= 3) status("Estou vendo o código, mas ele sai errado (“" + texto + "”). Deixe o celular reto, bem de frente e com mais luz.", "aviso");
+    return;
+  }
+  descartes = 0;
+  const agora = Date.now();
+  if(texto === ultimo && agora - ultimoEm < 4000) return;
+  ultimo = texto; ultimoEm = agora; bip(); status("Código lido: " + texto); buscar(texto, true);
+}
+async function abrirCamera(){
+  if(!window.isSecureContext){
+    $("#cam-msg").hidden = false;
+    $("#cam-msg").textContent = "O celular só libera a câmera em endereço com cadeado (https). Digite o código, tire uma foto ou use um leitor Bluetooth.";
+    return;
+  }
+  $("#caixa").hidden = false; $("#cam-msg").hidden = true; descartes = 0;
+  status("Abrindo a câmera… se o celular perguntar, toque em Permitir.");
+  leitor = new Html5Qrcode("leitor", {formatsToSupport: FORMATOS(),
+    experimentalFeatures:{useBarCodeDetectorIfSupported:true}, verbose:false});
+  try{
+    const alvo = camId ? {deviceId:{exact:camId}} : {facingMode:"environment"};
+    const cfg = {fps:10, disableFlip:true,
+      videoConstraints: camId ? {deviceId:{exact:camId}, width:{ideal:1920}, height:{ideal:1080}}
+                              : {facingMode:"environment", width:{ideal:1920}, height:{ideal:1080}}};
+    if(IOS){   // no iPhone: ler só uma faixa larga no meio e pedir mais pixels (código pequeno, de longe)
+      const w = Math.min(360, Math.floor(window.innerWidth * 0.92));
+      cfg.qrbox = {width: w, height: 190}; cfg.fps = 15;
+      cfg.videoConstraints = camId ? {deviceId:{exact:camId}, width:{ideal:3840}, height:{ideal:2160}}
+                                   : {facingMode:"environment", width:{ideal:3840}, height:{ideal:2160}};
+    }
+    quadros = 0; errosLeitor = {};
+    await leitor.start(alvo, cfg, onLido, msg => { quadros++; const k = String(msg).slice(0, 50); errosLeitor[k] = (errosLeitor[k] || 0) + 1; });
+    $("#b-trocar").hidden = false;
+    lendo = true; $("#b-cam").textContent = "Fechar a câmera"; $("#b-cam").classList.remove("pri");
+    let res = ""; try{ const st = leitor.getRunningTrackSettings(); res = " (" + st.width + "×" + st.height + ")"; }catch(e){}
+    status("Câmera ligada" + res + ". Deixe as listras na horizontal, a uns 20 a 25 cm (mais perto o iPhone não foca), com boa luz.");
+    clearTimeout(dica);
+    dica = setTimeout(() => {
+      if(lendo && $("#caixa").hidden === false){
+        status("Ainda não li nada. Afaste um pouco o celular até o código ficar nítido, ou use “Tirar foto do código”. Se for garrafa ou plástico brilhante, use “Ler os números” (número impresso embaixo das listras).", "aviso");
+        let r = ""; try{ const st = leitor.getRunningTrackSettings(); r = st.width + "×" + st.height + " a " + Math.round(st.frameRate || 0) + " fps"; }catch(e){}
+        detalhe("Detalhes: " + quadros + " leituras tentadas em 12 s · vídeo " + r + "\n" + infoNavegador() + "\n" + Object.entries(errosLeitor).slice(0, 3).map(([k, v]) => v + "x " + k).join("\n"));
+      }
+    }, 12000);
+  }catch(e){
+    $("#caixa").hidden = true; leitor = null; status("");
+    $("#cam-msg").hidden = false; $("#cam-msg").textContent = msgErro(e);
+  }
+}
+async function fecharCamera(){
+  clearTimeout(dica);
+  if(leitor){ try{ await leitor.stop(); leitor.clear(); }catch(e){} }
+  leitor = null; lendo = false; $("#caixa").hidden = true; status(""); detalhe(""); $("#b-trocar").hidden = true;
+  $("#b-cam").textContent = "Abrir a câmera para bipar"; $("#b-cam").classList.add("pri");
+}
+function pausar(sim){
+  if(!leitor || !lendo) return;
+  try{ sim ? leitor.pause(true) : leitor.resume(); }catch(e){}
+  $("#caixa").hidden = sim;   // com o produto na tela, a câmera sai da frente
+  if(!sim) window.scrollTo({top:0});
+}
+$("#b-cam").onclick = () => lendo ? fecharCamera() : abrirCamera();
+// aparelhos com várias câmeras (iPhone Pro): cada toque tenta a próxima câmera traseira e lembra a escolha
+$("#b-trocar").onclick = async () => {
+  try{
+    const todas = await Html5Qrcode.getCameras();
+    const tras = todas.filter(c => !/front|frontal|user|selfie|facetime/i.test(c.label || ""));
+    const lista = tras.length ? tras : todas;
+    if(lista.length < 2){ status("Este aparelho só mostrou uma câmera.", "aviso"); return; }
+    const i = lista.findIndex(c => c.id === camId);
+    const prox = lista[(i + 1) % lista.length];
+    camId = prox.id; guardar("camId", camId);
+    await fecharCamera(); await abrirCamera();
+    status("Câmera: " + (prox.label || "outra") + ". Se não ler, toque de novo em Trocar de câmera.");
+  }catch(e){ status("Não consegui listar as câmeras: " + String(e && e.message || e).slice(0, 80), "aviso"); }
+};
+
+// ---------- leitor de números impressos (OCR no próprio aparelho; os arquivos vêm do painel, nada vai para a internet)
+let ocrPronto = null, ocrWorker = null;
+function carregarOcr(){
+  if(ocrPronto) return ocrPronto;
+  ocrPronto = new Promise((ok, no) => {
+    const s = document.createElement("script"); s.src = "/vendor/ocr/tesseract.min.js";
+    s.onload = async () => {
+      try{
+        ocrWorker = await Tesseract.createWorker("eng", 1, {workerPath:"/vendor/ocr/worker.min.js", corePath:"/vendor/ocr/", langPath:"/vendor/ocr/", gzip:true, workerBlobURL:false});
+        await ocrWorker.setParameters({tessedit_char_whitelist:"0123456789", tessedit_pageseg_mode:"11"});
+        ok(ocrWorker);
+      }catch(e){ ocrPronto = null; no(e); }
+    };
+    s.onerror = () => { ocrPronto = null; no(new Error("não carregou o leitor de números")); };
+    document.head.appendChild(s);
+  });
+  return ocrPronto;
+}
+// desenha a foto (inteira ou um pedaço) em tons de cinza; canal vermelho deixa listras verdes bem escuras
+async function imagemParaOcr(bmp, fx, fy, fw, fh, lado, canal){
+  const w = bmp.width || bmp.naturalWidth, h = bmp.height || bmp.naturalHeight;
+  const sx = Math.round(fx * w), sy = Math.round(fy * h), sw = Math.round(fw * w), sh = Math.round(fh * h);
+  const k = Math.min(1, lado / Math.max(sw, sh)), cw = Math.max(1, Math.round(sw * k)), ch = Math.max(1, Math.round(sh * k));
+  const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+  const x = cv.getContext("2d"); x.drawImage(bmp, sx, sy, sw, sh, 0, 0, cw, ch);
+  const d = x.getImageData(0, 0, cw, ch), p = d.data; let mn = 255, mx = 0;
+  for(let i = 0; i < p.length; i += 4){ const v = canal === "r" ? p[i] : (p[i] * .3 + p[i + 1] * .59 + p[i + 2] * .11) | 0; p[i] = v; if(v < mn) mn = v; if(v > mx) mx = v; }
+  const f = mx > mn ? 255 / (mx - mn) : 1;
+  for(let i = 0; i < p.length; i += 4){ const v = Math.max(0, Math.min(255, (p[i] - mn) * f)) | 0; p[i] = p[i + 1] = p[i + 2] = v; }
+  x.putImageData(d, 0, 0); return cv;
+}
+// procura, no texto lido, um número de código de barras com dígito verificador certo
+function codigosNoTexto(t){
+  const achados = [];
+  const limpo = String(t).replace(/[Oo]/g, "0").replace(/[Il|]/g, "1");
+  for(const m of limpo.matchAll(/\d[\d\s]{6,20}\d/g)){
+    const d = m[0].replace(/\D/g, "");
+    for(const n of [13, 12, 8, 14]) for(let i = 0; i + n <= d.length; i++){ const s = d.slice(i, i + n); if(gs1Ok(s) && !achados.includes(s)) achados.push(s); }
+  }
+  return achados;
+}
+async function lerNumerosDaFoto(file, aoProgredir){
+  const w = await carregarOcr();
+  let bmp; try{ bmp = await createImageBitmap(file, {imageOrientation:"from-image"}); }
+  catch(e){ bmp = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = URL.createObjectURL(file); }); }
+  const planos = [[0, 0, 1, 1, 1800, "r"], [0, 0, 1, 1, 1800, "g"], [.1, .2, .8, .6, 2000, "r"], [0, 0, 1, 1, 1100, "r"]];
+  let n = 0;
+  for(const [fx, fy, fw, fh, lado, canal] of planos){
+    if(aoProgredir) aoProgredir(++n, planos.length);
+    const cv = await imagemParaOcr(bmp, fx, fy, fw, fh, lado, canal);
+    const r = await w.recognize(cv); cv.width = cv.height = 0;
+    const a = codigosNoTexto(r.data.text || ""); if(a.length) return a[0];
+  }
+  return "";
+}
+window.__ocrTeste = lerNumerosDaFoto;
+
+// iPhone Pro: a lente principal só foca a uns 12 a 15 cm; a ultra-angular é a macro (foca a 2 cm), como o app do banco usa
+$("#b-perto").onclick = async () => {
+  try{
+    try{ const t = await navigator.mediaDevices.getUserMedia({video:true}); t.getTracks().forEach(x => x.stop()); }catch(e){}
+    const todas = await Html5Qrcode.getCameras();
+    const macro = todas.find(c => /ultra/i.test(c.label || ""));
+    if(!macro){
+      status("Não achei a lente de perto. Câmeras vistas: " + (todas.map(c => c.label || "sem nome").join(" | ") || "nenhuma"), "aviso"); return;
+    }
+    camId = macro.id; guardar("camId", camId);
+    if(lendo) await fecharCamera();
+    await abrirCamera();
+    status("Lente de perto ligada (" + (macro.label || "ultra-angular") + "). Chegue bem perto (3 a 8 cm) e deixe as listras ocupando a faixa.");
+  }catch(e){ status("Não consegui trocar de lente: " + String(e && e.message || e).slice(0, 80), "aviso"); }
+};
+
+// Plano B: foto tirada pela câmera do próprio celular (foca melhor que o vídeo ao vivo)
+// O iPhone tira fotos de 12 a 48 milhões de pixels (HEIC): grandes demais para o leitor e para o navegador.
+// Reduzimos a foto em vários tamanhos (e girada) e tentamos ler cada um até acertar.
+async function variantesDaFoto(f, aoGerar){
+  let bmp;
+  try{ bmp = await createImageBitmap(f, {imageOrientation:"from-image"}); }
+  catch(e){
+    bmp = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = URL.createObjectURL(f); });
+  }
+  const w = bmp.width || bmp.naturalWidth, h = bmp.height || bmp.naturalHeight;
+  // recorta (fx,fy,fw,fh = fração da foto), reduz para no máximo `lado` pixels e gira se pedido
+  const gerar = async (nome, fx, fy, fw, fh, lado, giro) => {
+    const sx = Math.round(fx * w), sy = Math.round(fy * h), sw = Math.round(fw * w), sh = Math.round(fh * h);
+    const k = Math.min(1, lado / Math.max(sw, sh)), cw = Math.max(1, Math.round(sw * k)), ch = Math.max(1, Math.round(sh * k));
+    const c = document.createElement("canvas"), x = c.getContext("2d");
+    if(giro){ c.width = ch; c.height = cw; x.translate(ch, 0); x.rotate(Math.PI / 2); } else { c.width = cw; c.height = ch; }
+    x.drawImage(bmp, sx, sy, sw, sh, 0, 0, cw, ch);
+    const b = await new Promise(r => c.toBlob(r, "image/jpeg", 0.92));
+    c.width = c.height = 0;
+    return b ? new File([b], nome + ".jpg", {type:"image/jpeg"}) : null;
+  };
+  // ordem: foto inteira (códigos grandes), depois o meio e os cantos em alta resolução (códigos pequenos)
+  const planos = [["inteira-2400", 0, 0, 1, 1, 2400, 0], ["inteira-1400", 0, 0, 1, 1, 1400, 0],
+    ["meio", .2, .2, .6, .6, 2400, 0], ["meio-giro", .2, .2, .6, .6, 2000, 1]];
+  for(const fy of [.25, 0, .5]) for(const fx of [.25, 0, .5]) planos.push([`bloco-${fx}-${fy}`, fx, fy, .5, .5, 2200, 0]);
+  planos.push(["inteira-900", 0, 0, 1, 1, 900, 0], ["inteira-giro", 0, 0, 1, 1, 1800, 1]);
+  const saida = [];
+  for(const p of planos){
+    try{ const a = await gerar(...p); if(a) saida.push(a); }catch(e){ saida.erro = String(e && (e.name + ": " + e.message) || e).slice(0, 100); }
+    if(aoGerar) aoGerar(saida.length, planos.length);
+  }
+  return saida;
+}
+$("#f-foto").addEventListener("change", async e => {
+  const f = e.target.files[0]; e.target.value = ""; if(!f) return;
+  status("Lendo a foto…");
+  const arq = new Html5Qrcode("leitor-arq", {formatsToSupport: FORMATOS(), experimentalFeatures:{useBarCodeDetectorIfSupported:true}, verbose:false});
+  let errado = "", lido = "", errosFoto = {}, tentouN = 0, falhaVar = "";
+  try{
+    let tentativas = [];
+    try{ tentativas = await variantesDaFoto(f); }catch(x){ falhaVar = String(x && (x.name + ": " + x.message) || x).slice(0, 120); }
+    if(tentativas.erro && !falhaVar) falhaVar = tentativas.erro;
+    tentativas.push(f);                                   // por último, a foto original
+    let n = 0;
+    for(const a of tentativas){
+      status("Lendo a foto… " + (++n) + " de " + tentativas.length);
+      try{
+        const t = String(await arq.scanFile(a, false)).trim();
+        if(gs1Ok(t)){ lido = t; break; }
+        errado = errado || t;
+      }catch(err){ const k = String(err && (err.message || err) || err).slice(0, 60); errosFoto[k] = (errosFoto[k] || 0) + 1; }
+      tentouN++;
+      await new Promise(r => setTimeout(r, 0));          // deixa a tela respirar
+    }
+  }finally{ try{ arq.clear(); }catch(x){} }
+  detalhe(lido ? "" : "Detalhes da foto: " + Math.round(f.size / 1024) + " KB, " + (f.type || "tipo?") + " · " + tentouN + " tentativas" +
+    (falhaVar ? "\nErro ao preparar: " + falhaVar : "") + "\n" + infoNavegador() +
+    "\n" + Object.entries(errosFoto).slice(0, 3).map(([k, v]) => v + "x " + k).join("\n"));
+  if(lido){ bip(); status("Código lido: " + lido); buscar(lido, true); return; }
+  // listras não saíram: tenta ler o número impresso embaixo delas (OCR) e coloca na barra de busca
+  try{
+    status("Não li as listras. Lendo o número impresso… (na primeira vez demora alguns segundos)");
+    const num = await lerNumerosDaFoto(f, (i, t) => status("Lendo o número impresso… " + i + " de " + t));
+    if(num){ $("#cod").value = num; ultimoAuto = num; bip(); status("Número lido: " + num); buscar(num, true); return; }
+  }catch(er){ detalhe("Leitor de números: " + String(er && er.message || er).slice(0, 100)); }
+  if(errado) status("Li “" + errado + "”, mas parece errado. Tire outra foto, mais de perto e com o código reto.", "aviso");
+  else status("Não consegui ler nem as listras nem o número. Chegue mais perto, deixe o número nítido e tire outra foto, ou use “Ler os números”.", "aviso");
+});
+
+
+// ------------------------------------------------- cadastro na hora (código que não existe)
+let gruposCache = null, fotoNova = null, cadastroSalvo = false, codigoCadastro = "";
+async function carregarGrupos(){
+  if(!gruposCache){ try{ gruposCache = (await api("/api/categorias")).itens; }catch(e){ gruposCache = []; } }
+  return gruposCache;
+}
+async function abrirCadastro(codigo){
+  const grupos = await carregarGrupos();
+  fotoNova = null; cadastroSalvo = false; codigoCadastro = codigo;
+  $("#n-corpo").innerHTML = `
+    <div class="aviso a-warn">Este código não está no cadastro. Cadastre agora para não perder a contagem. O produto fica só no painel; depois é preciso cadastrar nas lojas.</div>
+    <label class="campo">Código de barras<input id="n-ean" value="${esc(codigo)}" readonly></label>
+    <label class="campo">Nome do produto *<input id="n-nome" autocomplete="off" autocapitalize="words" enterkeyhint="next" placeholder="Ex.: Sacola plástica 40x50"></label>
+    <label class="campo">Categoria da loja<select id="n-cat"><option value="">— escolher —</option>${grupos.map(g => `<option value="${esc(g.id)}">${esc(g.nome)}</option>`).join("")}</select></label>
+    ${grupos.length ? "" : '<div class="aviso a-warn">As categorias da loja aparecem depois de “Atualizar dados” no painel do computador.</div>'}
+    <label class="campo">Preço de venda (R$)<input id="n-preco" inputmode="decimal" autocomplete="off" placeholder="0,00"></label>
+    <label class="campo">Quantos tem na prateleira?<input id="n-qtd" type="number" inputmode="numeric" min="0" step="1" placeholder="Deixe vazio se não for contar agora"></label>
+    <div id="n-foto-prev"><label class="btn-foto destaque" for="n-foto" style="flex:1">📷 Tirar foto do produto<input type="file" id="n-foto" accept="image/*" capture="environment" hidden></label></div>
+    <details class="mais"><summary>Mais detalhes (custo, unidade, observação)</summary>
+      <label class="campo">Custo (R$)<input id="n-custo" inputmode="decimal" autocomplete="off" placeholder="0,00"></label>
+      <label class="campo">Unidade<select id="n-un"><option>UN</option><option>CX</option><option>PC</option><option>PCT</option><option>KG</option><option>M</option><option>L</option></select></label>
+      <label class="campo">Observação<input id="n-obs" autocomplete="off"></label>
+    </details>
+    <div id="n-erro" class="aviso a-bad" hidden role="alert"></div>
+    <div class="dois-n"><button id="n-agora">Agora não</button><button class="pri" id="n-salvar">Cadastrar</button></div>`;
+  $("#n-foto").onchange = e => {
+    const f = e.target.files[0]; e.target.value = ""; if(!f) return;
+    fotoNova = f;
+    $("#n-foto-prev").innerHTML = `<img class="foto-c" src="${URL.createObjectURL(f)}" alt="Foto tirada"><span>Foto pronta ✔</span>`;
+  };
+  $("#n-corpo").addEventListener("input", () => erroCadastro(""));
+  $("#n-agora").onclick = () => $("#d-novo").close();
+  $("#n-salvar").onclick = salvarCadastro;
+  $("#d-novo").showModal();
+  setTimeout(() => $("#n-nome").focus(), 150);
+}
+function erroCadastro(t){ const e = $("#n-erro"); e.hidden = !t; e.textContent = t || ""; if(t) e.scrollIntoView({block:"center"}); }
+async function salvarCadastro(){
+  const nome = $("#n-nome").value.trim();
+  if(nome.length < 2){ erroCadastro("Escreva o nome do produto."); $("#n-nome").focus(); return; }
+  const btn = $("#n-salvar"); btn.disabled = true; btn.textContent = "Salvando…"; erroCadastro("");
+  const d = {ean: codigoCadastro, nome, categoria_id: $("#n-cat").value, preco: $("#n-preco").value.replace(",", "."),
+             estoque: $("#n-qtd").value, custo: $("#n-custo").value.replace(",", "."), unidade: $("#n-un").value, obs: $("#n-obs").value.trim(), quem};
+  try{
+    let p = await api("/api/produto-novo", {method:"POST", body:JSON.stringify(d)});
+    let aviso = "";
+    if(fotoNova){ try{ p = await enviarFoto(p.id, fotoNova); }catch(e){ aviso = " (a foto não foi salva; tire de novo no cartão)"; } }
+    cadastroSalvo = true; gruposCache = null; $("#d-novo").close();
+    const msg = `<div class="aviso a-ok">Cadastrado ✔ <b>${esc(p.nome)}</b>${p.estoque != null ? " · contado: " + p.estoque : ""}. Fica só no painel; falta cadastrar nas lojas.${esc(aviso)}</div>`;
+    ultimas();
+    if(p.estoque != null){ $("#resultado").innerHTML = msg; seguir(); }
+    else { cartao(p); $("#resultado").insertAdjacentHTML("afterbegin", msg); }
+  }catch(e){ erroCadastro(e.message); btn.disabled = false; btn.textContent = "Cadastrar"; }
+}
+$("#d-novo").addEventListener("close", async () => {
+  if(cadastroSalvo) return;                    // "Agora não" ou voltar: o código fica anotado
+  try{ await api("/api/sem-cadastro", {method:"POST", body:JSON.stringify({codigo:codigoCadastro, quem, obs:""})}); }catch(e){}
+  $("#resultado").innerHTML = `<div class="aviso a-warn">Anotado para cadastrar depois: <b>${esc(codigoCadastro)}</b></div>`;
+  seguir();
+});
+
+// ------------------------------------------------------------------ busca
+async function buscar(texto, daCamera){
+  texto = String(texto).trim(); if(!texto) return;
+  const res = $("#resultado");
+  const soNumero = /^[\d\s.-]+$/.test(texto);
+  let itens = [];
+  try{
+    if(soNumero) itens = (await api("/api/codigo?c=" + encodeURIComponent(texto))).itens;
+    else itens = (await api("/api/produtos?por_pagina=12&q=" + encodeURIComponent(texto))).itens;
+  }catch(e){ if(e.message !== "login") res.innerHTML = `<div class="aviso a-bad">${esc(e.message)}</div>`; return; }
+  if(!itens.length){
+    if(soNumero){
+      const dig = texto.replace(/\D/g, "");
+      if(dig.length < 6 || dig.length > 14){ res.innerHTML = `<div class="aviso a-warn">Não achei “${esc(texto)}”. Código de barras tem de 6 a 14 números. Confira o que digitou, ou escreva o nome do produto.</div>`; return; }
+      pausar(true); res.innerHTML = ""; abrirCadastro(dig); return;   // código novo: abre o cadastro na hora
+    }
+    res.innerHTML = `<div class="aviso a-warn">Nenhum produto com “${esc(texto)}”.</div>`;
+    return;
+  }
+  if(itens.length === 1) return cartao(itens[0]);
+  pausar(true);
+  res.innerHTML = `<div class="aviso a-warn">${itens.length} produtos encontrados. Qual é?</div><div class="escolha" style="margin-top:8px">${
+    itens.map((p, i) => `<button data-i="${i}">${esc(p.nome)}<small>${esc(p.ean || "sem código")}${p.estoque != null ? " · estoque " + p.estoque : ""}</small></button>`).join("")}</div>`;
+  res.querySelectorAll("button").forEach(b => b.onclick = () => cartao(itens[b.dataset.i]));
+}
+
+const NOMES = {nuvemshop:"Site", ifood:"iFood", "99food":"99Food"};
+function cartao(p){
+  pausar(true);
+  const pills = Object.keys(NOMES).map(c => {
+    const cs = p.canais.filter(x => x.canal === c);
+    if(!cs.length) return `<span class="pill p-idle">${NOMES[c]}: não está</span>`;
+    const v = cs.some(x => x.vendendo);
+    return `<span class="pill ${v ? "p-ok" : "p-bad"}">${NOMES[c]}: ${v ? "à venda" : "fora de venda"}</span>`;
+  }).join("");
+  $("#resultado").innerHTML = `<div class="cartao">
+    <div class="topo-cartao"><div id="foto-img"></div><div>
+      <h2>${esc(p.nome)}</h2>
+      <div class="cod">${esc(p.ean || "sem código de barras")}${p.gz_codigo ? " · Gestor Z " + esc(p.gz_codigo) : ""}</div>
+    </div></div>
+    <div class="pills">${pills}</div>
+    <div id="foto-acao"></div>
+    <div>${p.estoque == null ? "Ainda não conferido." : `Última contagem: <b>${p.estoque}</b> em ${hora(p.conferido_em)}`}</div>
+    <div class="qp">
+      <div class="blk"><label for="qtd">Quantos tem na prateleira?</label>
+        <div class="qtd"><button type="button" id="menos" aria-label="Menos um">−</button>
+          <input id="qtd" type="number" inputmode="numeric" min="0" step="1" value="${p.estoque ?? ""}">
+          <button type="button" id="mais" aria-label="Mais um">+</button></div></div>
+      <div class="blk"><label for="preco-in">Preço (R$)</label>
+        <input id="preco-in" class="preco-in" inputmode="decimal" autocomplete="off" placeholder="sem preço" value="${p.preco != null ? Number(p.preco).toFixed(2).replace(".", ",") : ""}">
+        <div class="nota-preco">Preço do caixa. Muda só aqui no painel.</div></div>
+    </div>
+    <div class="dois"><button class="zero" id="b-zero">Não tem (0)</button><button class="pri" id="b-salvar">Salvar</button></div>
+    <button id="b-pular">Pular sem salvar</button>
+    <div id="c-erro" class="aviso a-bad" hidden></div>
+  </div>`;
+  desenharFoto(p);
+  const q = $("#qtd"), abriuEmP = Date.now();
+  $("#preco-in").addEventListener("input", () => {
+    const pr = ($("#preco-in").value || "").trim().replace(",", ".");
+    const antes = p.preco != null ? Number(p.preco).toFixed(2) : "";
+    $("#preco-in").classList.toggle("mudou", pr !== "" && !isNaN(Number(pr)) && Number(pr).toFixed(2) !== antes);
+  });
+  $("#preco-in").addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); if(Date.now() - abriuEmP < 900) return; salvar(q.value); } });
+  $("#menos").onclick = () => q.value = Math.max(0, (parseInt(q.value) || 0) - 1);
+  $("#mais").onclick = () => q.value = (parseInt(q.value) || 0) + 1;
+  const salvar = async valor => {
+    if(valor === "" || isNaN(parseInt(valor)) || parseInt(valor) < 0){ $("#c-erro").hidden = false; $("#c-erro").textContent = "Digite a quantidade."; return; }
+    const corpo = {estoque: parseInt(valor), quem};
+    const pr = ($("#preco-in").value || "").trim().replace(",", ".");
+    const antes = p.preco != null ? Number(p.preco).toFixed(2) : "";
+    if(pr !== "" && (isNaN(Number(pr)) || Number(pr) < 0)){ $("#c-erro").hidden = false; $("#c-erro").textContent = "Preço inválido. Use números, por exemplo 12,50."; return; }
+    const depois = pr === "" ? "" : Number(pr).toFixed(2);
+    const mudouPreco = depois !== antes;
+    if(mudouPreco && depois === "" && antes !== "" && !confirm("Apagar o preço deste produto? (hoje: R$ " + antes.replace(".", ",") + ")")) return;
+    if(mudouPreco) corpo.preco = depois;
+    try{
+      await api("/api/produto/" + p.id, {method:"POST", body:JSON.stringify(corpo)});
+      $("#resultado").innerHTML = `<div class="aviso a-ok">Salvo: <b>${parseInt(valor)}</b> × ${esc(p.nome)}${mudouPreco ? " · preço agora R$ " + (depois === "" ? "(vazio)" : depois.replace(".", ",")) : ""} <button type="button" class="desf" data-id="${p.id}" style="margin-left:8px">↩ Desfazer contagem</button></div>`;
+      ultimas(); seguir();
+    }catch(e){ $("#c-erro").hidden = false; $("#c-erro").textContent = e.message; }
+  };
+  $("#b-salvar").onclick = () => salvar(q.value);
+  $("#b-zero").onclick = () => salvar("0");
+  $("#b-pular").onclick = () => { $("#resultado").innerHTML = ""; seguir(); };
+  const abriuEm = Date.now();
+  q.addEventListener("keydown", e => {
+    if(e.key !== "Enter") return;
+    e.preventDefault();
+    if(Date.now() - abriuEm < 900) return;   // o "Enter" final do leitor de código de barras não pode salvar sozinho
+    salvar(q.value);
+  });
+  q.focus(); q.select();
+}
+function desenharFoto(p){
+  const img = $("#foto-img"), acao = $("#foto-acao"); if(!img || !acao) return;
+  img.innerHTML = p.foto ? `<img class="foto-c" src="${esc(mini(p.foto, 320))}" data-full="${esc(p.foto)}" alt="Foto de ${esc(p.nome)}">` : `<div class="foto-c sem">Sem foto</div>`;
+  const el = img.querySelector("img");
+  if(el) el.onclick = () => { $("#z-img").src = el.dataset.full; $("#d-zoom").showModal(); };
+  const texto = p.foto_local ? "📷 Tirar outra foto" : (p.foto ? "📷 Tirar outra foto (a do site pode estar errada)" : "📷 Sem foto: tirar foto na prateleira");
+  acao.innerHTML = `<label class="btn-foto ${p.foto ? "" : "destaque"}" for="f-prod">${texto}<input type="file" id="f-prod" accept="image/*" capture="environment" hidden></label><div id="foto-msg" role="status"></div>`;
+  $("#f-prod").onchange = async e => {
+    const f = e.target.files[0]; e.target.value = ""; if(!f) return;
+    $("#foto-msg").textContent = "Enviando a foto…";
+    try{
+      const d = await enviarFoto(p.id, f);
+      p.foto = d.foto; p.foto_local = true; desenharFoto(p);
+      $("#foto-msg").textContent = "Foto salva ✔";
+    }catch(err){
+      $("#foto-msg").textContent = /Não encontrado/.test(err.message)
+        ? "O painel no computador está desatualizado. Feche a janela preta do painel e abra o iniciar.bat de novo."
+        : "Não consegui salvar a foto: " + err.message;
+    }
+  };
+}
+$("#d-zoom").addEventListener("click", () => $("#d-zoom").close());
+function seguir(){
+  pausar(false); ultimo = ""; $("#cod").value = "";
+  if(!lendo) $("#cod").focus();   // leitor Bluetooth ou teclado: já fica pronto para o próximo
+}
+// Número vindo de "Digitalizar texto" do iPhone, colado ou digitado: acha o código no meio do texto e busca sozinho
+let ultimoAuto = "", ultimoAutoEm = 0;
+function codigoNoTexto(t){
+  for(const m of String(t).matchAll(/\d[\d\s.\-]{6,20}\d/g)){
+    const d = m[0].replace(/\D/g, ""); if(gs1Ok(d)) return d;
+  }
+  return "";
+}
+$("#cod").addEventListener("input", () => {
+  const d = codigoNoTexto($("#cod").value);
+  if(d && d !== ultimoAuto){ ultimoAuto = d; ultimoAutoEm = Date.now(); $("#cod").value = d; bip(); status("Código lido: " + d); buscar(d, true); }
+  if(!d) ultimoAuto = "";
+});
+$("#b-nums").onclick = () => { const i = $("#cod"); i.value = ""; i.focus(); status("Agora toque e segure no campo e escolha “Digitalizar texto”.", "aviso"); };
+$("#f-cod").addEventListener("submit", e => {
+  e.preventDefault();
+  if(codigoNoTexto($("#cod").value) === ultimoAuto && Date.now() - ultimoAutoEm < 2000) return;   // a busca automática já foi feita
+  buscar($("#cod").value);
+});
+
+async function ultimas(){
+  try{
+    const r = await api("/api/conferidos");
+    if(r.servidor !== "9") status("⚠️ O painel no computador está desatualizado. Feche a janela preta do painel e abra o iniciar.bat de novo.", "aviso");
+    $("#tot").textContent = "· " + r.total + (r.total === 1 ? " produto já conferido" : " produtos já conferidos");
+    // agrupa por dia: "Hoje", "Ontem" e depois a data; cada dia mostra quantos produtos foram contados
+    const dias = {}, ordem = [];
+    r.itens.forEach(h => { const d = String(h.quando || "").slice(0, 10); if(!dias[d]){ dias[d] = []; ordem.push(d); } dias[d].push(h); });
+    const hojeD = new Date(), ymd = dt => dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0");
+    const ontemD = new Date(hojeD.getTime() - 86400000);
+    const nomeDia = d => d === ymd(hojeD) ? "Hoje" : d === ymd(ontemD) ? "Ontem" : d.slice(8, 10) + "/" + d.slice(5, 7) + "/" + d.slice(0, 4);
+    $("#ultimas").innerHTML = r.itens.length ? ordem.map(d =>
+      `<li class="dia-cab"><b>${esc(nomeDia(d))}</b><span>${dias[d].length} ${dias[d].length === 1 ? "contagem" : "contagens"}</span></li>` +
+      dias[d].map(h => `<li class="clicavel" data-id="${h.id}" tabindex="0" title="Toque para editar"><b>${esc(h.para || "—")}</b><span>${esc(h.nome)}</span><small>${hora(h.quando)}${h.origem && h.origem !== "painel" ? " · " + esc(h.origem) : ""}</small><i class="seta">✎</i></li>`).join("")).join("")
+      : "<li><span>Nenhuma contagem ainda.</span></li>";
+  }catch(e){}
+}
+ultimas();
+
+// ---------- desfazer a última contagem de um produto (volta ao número e à data de antes; o preço não muda)
+async function desfazerContagem(id){
+  if(!confirm("Desfazer a última contagem deste produto? O estoque volta ao número de antes (o preço não muda).")) return null;
+  const d = await api("/api/produto/" + id + "/desfazer-contagem", {method:"POST", body:JSON.stringify({quem})});
+  await ultimas();
+  return d;
+}
+$("#resultado").addEventListener("click", async e => {
+  const b = e.target.closest(".desf"); if(!b) return;
+  try{
+    const d = await desfazerContagem(b.dataset.id); if(!d) return;
+    $("#resultado").innerHTML = `<div class="aviso a-ok">Contagem desfeita: ${esc(d.nome)} voltou para <b>${d.estoque == null ? "sem contagem" : d.estoque}</b>.</div>`;
+  }catch(er){ $("#resultado").innerHTML = `<div class="aviso a-bad">${esc(er.message)}</div>`; }
+});
+
+// ---------- editar um produto direto na lista "Últimas contagens"
+const num2 = v => { const s = String(v ?? "").trim().replace(",", "."); return s === "" ? "" : Number(s).toFixed(2); };
+async function abrirEdicao(li){
+  const aberto = li.querySelector(".ed");
+  document.querySelectorAll("#ultimas .ed").forEach(x => x.remove());
+  if(aberto) return;                                   // tocar de novo fecha
+  const id = li.dataset.id;
+  const ed = document.createElement("div"); ed.className = "ed"; ed.textContent = "Carregando…"; li.appendChild(ed);
+  let p, cats = [];
+  try{ [p, cats] = await Promise.all([api("/api/produto/" + id), carregarGrupos()]); }
+  catch(e){ ed.textContent = "Não consegui abrir: " + e.message; return; }
+  ed.innerHTML = `
+    <label>Nome<input class="e-nome" value="${esc(p.nome)}" maxlength="150"></label>
+    <div class="lin2">
+      <label>Preço (R$)<input class="e-preco" inputmode="decimal" value="${p.preco != null ? Number(p.preco).toFixed(2).replace(".", ",") : ""}" placeholder="sem preço"></label>
+      <label>Quantidade contada<input class="e-qtd" type="number" inputmode="numeric" min="0" step="1" value="${p.estoque ?? ""}"></label>
+    </div>
+    <label>Categoria da loja<select class="e-cat"><option value="">— sem categoria —</option>${cats.map(g => `<option value="${esc(g.id)}" ${String(g.id) === String(p.categoria_id || "") ? "selected" : ""}>${esc(g.nome)}</option>`).join("")}</select></label>
+    <label>Código de barras<input class="e-ean" inputmode="numeric" value="${esc(p.ean || "")}"></label>
+    <div class="e-foto"><div class="e-fprev">${p.foto ? `<img class="foto-c" src="${esc(mini(p.foto, 320))}" alt="">` : `<div class="foto-c sem">Sem foto</div>`}</div>
+      <label class="btn-foto ${p.foto ? "" : "destaque"}">${p.foto ? "📷 Trocar a foto" : "📷 Tirar foto do produto"}<input type="file" class="e-fin" accept="image/*" capture="environment" hidden></label></div>
+    <div class="msg"></div>
+    <button type="button" class="e-desfazer">↩ Desfazer a última contagem</button>
+    <div class="btns"><button type="button" class="e-cancelar">Cancelar</button><button type="button" class="pri e-salvar">Salvar</button></div>`;
+  const msg = ed.querySelector(".msg");
+  ed.querySelector(".e-fin").onchange = async e => {
+    const f = e.target.files[0]; if(!f) return;
+    msg.className = "msg"; msg.textContent = "Enviando a foto…";
+    try{
+      const d = await enviarFoto(id, f);
+      ed.querySelector(".e-fprev").innerHTML = `<img class="foto-c" src="${esc(mini(d.foto, 320))}" alt="">`;
+      msg.textContent = "Foto salva.";
+    }catch(er){ msg.className = "msg erro"; msg.textContent = "Não consegui salvar a foto: " + er.message; }
+  };
+  ed.querySelector(".e-cancelar").onclick = () => ed.remove();
+  ed.querySelector(".e-desfazer").onclick = async () => {
+    try{ const d = await desfazerContagem(id); if(d) ed.remove(); }
+    catch(er){ msg.className = "msg erro"; msg.textContent = er.message; }
+  };
+  ed.querySelector(".e-salvar").onclick = async () => {
+    const corpo = {quem}, v = s => ed.querySelector(s).value;
+    if(v(".e-nome").trim() !== p.nome) corpo.nome = v(".e-nome");
+    const np = num2(v(".e-preco")), pa = p.preco != null ? Number(p.preco).toFixed(2) : "";
+    if(np !== "" && isNaN(Number(np))){ msg.className = "msg erro"; msg.textContent = "Preço inválido."; return; }
+    if(np !== pa){
+      if(np === "" && pa !== "" && !confirm("Apagar o preço deste produto? (hoje: R$ " + pa.replace(".", ",") + ")")) return;
+      corpo.preco = np;
+    }
+    const q = v(".e-qtd").trim();
+    if(q !== String(p.estoque ?? "")){
+      if(q === "" || isNaN(parseInt(q)) || parseInt(q) < 0){ msg.className = "msg erro"; msg.textContent = "A quantidade precisa ser um número, zero ou mais."; return; }
+      corpo.estoque = parseInt(q);
+    }
+    if(String(v(".e-cat")) !== String(p.categoria_id || "")) corpo.categoria_id = v(".e-cat");
+    if(v(".e-ean").replace(/\D/g, "") !== (p.ean || "")) corpo.ean = v(".e-ean");
+    if(Object.keys(corpo).length === 1){ msg.className = "msg"; msg.textContent = "Nada mudou."; return; }
+    msg.className = "msg"; msg.textContent = "Salvando…";
+    try{
+      await api("/api/produto/" + id, {method:"POST", body:JSON.stringify(corpo)});
+      await ultimas();
+    }catch(e){ msg.className = "msg erro"; msg.textContent = e.message; }
+  };
+}
+$("#ultimas").addEventListener("click", e => {
+  if(e.target.closest(".ed")) return;
+  const li = e.target.closest("li.clicavel"); if(li) abrirEdicao(li);
+});
+$("#ultimas").addEventListener("keydown", e => {
+  if((e.key === "Enter" || e.key === " ") && e.target.matches("li.clicavel")){ e.preventDefault(); abrirEdicao(e.target); }
+});
+</script>
+</body>
+</html>

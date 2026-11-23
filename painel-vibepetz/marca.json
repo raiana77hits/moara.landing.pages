@@ -1,0 +1,14 @@
+{
+  "_leia": "Identidade deste painel. Mude aqui o nome, as cores, a porta, o divisor de preco dos apps e os canais. Depois feche a janela preta, abra de novo e de Ctrl+F5 no navegador.",
+  "loja": "VibePetz",
+  "titulo": "Painel de Estoque",
+  "porta": 8766,
+  "divisor_apps": 0.70,
+  "canais": ["nuvemshop", "ifood", "99food"],
+  "cores": {
+    "principal": "#1E3FAE",
+    "escuro": "#152E86",
+    "suave": "#E6ECFB",
+    "apoio": "#B07A00"
+  }
+}

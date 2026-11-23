@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Entrar · {{LOJA}}</title>
+<style>
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#F3F5F4;color:#18252A;font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:16px}
+form{background:#fff;border:1px solid #D8DEDC;border-top:4px solid {{COR_PRINCIPAL}};border-radius:8px;padding:24px;width:min(360px,100%);display:flex;flex-direction:column;gap:12px}
+h1{margin:0;font-size:22px}
+p{margin:0;color:#5A686E;font-size:14px}
+input{font:inherit;padding:12px;border:1px solid #D8DEDC;border-radius:6px}
+button{font:600 16px inherit;font-family:inherit;padding:12px;border:0;border-radius:6px;background:{{COR_PRINCIPAL}};color:#fff;cursor:pointer}
+#erro{color:#B03A2E;font-size:14px;min-height:20px}
+</style>
+</head>
+<body>
+<form id="f">
+  <h1>{{TITULO}}</h1>
+  <p>{{LOJA}}</p>
+  <label for="s">Senha</label>
+  <input id="s" type="password" autocomplete="current-password" autofocus required>
+  <button>Entrar</button>
+  <div id="erro" role="alert"></div>
+</form>
+<script>
+document.getElementById("f").addEventListener("submit", async e => {
+  e.preventDefault();
+  const r = await fetch("/api/login", {method:"POST", body:JSON.stringify({senha:document.getElementById("s").value})});
+  if(r.ok){ location.href = new URLSearchParams(location.search).get("ir") === "conferir" ? "/conferir" : "/"; return; }
+  document.getElementById("erro").textContent = (await r.json()).erro || "Não foi possível entrar.";
+});
+</script>
+</body>
+</html>

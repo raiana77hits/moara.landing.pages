@@ -1,0 +1,1849 @@
+<!doctype html>
+<!-- tela-build: 9.7 -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="{{COR_PRINCIPAL}}">
+<title>{{TITULO}} · {{LOJA}}</title>
+<script>window.MARCA = {{MARCA_JSON}};</script>
+<style>
+:root{
+  --bg:#F3F5F4;--surface:#fff;--ink:#18252A;--muted:#5A686E;--line:#D8DEDC;
+  --marca:{{COR_PRINCIPAL}};--marca-escuro:{{COR_ESCURA}};--marca-suave:{{COR_SUAVE}};--teal:{{COR_APOIO}};
+  --ok:#2E7D4F;--ok-bg:#E3F2E8;--warn:#9A6A00;--warn-bg:#FBF0D2;--bad:#B03A2E;--bad-bg:#F8E1DE;
+  --idle:#5A686E;--idle-bg:#E8ECEB;
+  --mono:ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;overflow-x:hidden}
+[hidden]{display:none!important}
+button,.btn{font:600 14px/1.2 inherit;font-family:inherit;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;padding:9px 14px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+.pri{background:var(--marca);border-color:var(--marca);color:#fff}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid var(--marca);outline-offset:1px}
+
+header{background:var(--surface);border-bottom:3px solid var(--marca);padding:14px 20px;display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center}
+header h1{margin:0;font-size:20px}
+.sub{color:var(--muted);font-size:13px}
+.acoes{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:18px;padding:18px 20px;max-width:1500px;margin:0 auto}
+nav h2{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+nav h2:first-child{margin-top:0}
+nav .f{display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left;border:0;background:none;padding:7px 8px;font-weight:500;border-radius:4px}
+nav .f:hover{background:var(--idle-bg)}
+nav .f.on{background:var(--marca-suave);color:var(--marca);font-weight:700}
+nav .f b{font:500 12px var(--mono);color:var(--muted)}
+.nav-topo{display:none}
+
+.aviso{background:var(--warn-bg);color:var(--warn);border-radius:6px;padding:9px 12px;margin-bottom:12px;font-size:13px}
+.busca-linha{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.busca-linha input[type=search]{flex:1;min-width:200px;padding:10px 12px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:16px;background:var(--surface);color:var(--ink)}
+select{padding:10px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:16px;background:var(--surface);color:inherit}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:10px 0 4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border-radius:999px;padding:8px 14px;font-weight:500;white-space:nowrap}
+.chip.on{background:var(--marca);border-color:var(--marca);color:#fff;font-weight:700}
+.chip small{opacity:.7;margin-left:6px;font-weight:500}
+#ativos{margin-top:8px}
+.ativo{background:var(--marca-suave);color:var(--marca);border-color:var(--marca);font-size:13px;padding:6px 10px}
+.conta{color:var(--muted);font-size:13px;margin:10px 2px 6px}
+.so-mobile{display:none}
+
+.lista{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.cab,.lin{display:grid;grid-template-columns:56px minmax(200px,3fr) 1.2fr .8fr 1fr 1.3fr 1.3fr 1.3fr;gap:0 12px;align-items:center;padding:9px 14px}
+.cab{background:var(--bg);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.lin{border-top:1px solid var(--line)}
+.lin:hover{background:#FAFBFA}
+.nome{cursor:pointer;font-weight:700;overflow-wrap:anywhere}
+.foto{width:48px;height:48px;border-radius:8px;object-fit:cover;background:var(--idle-bg);cursor:pointer;display:block}
+.foto.sem{display:flex;align-items:center;justify-content:center;text-align:center;font-size:10px;line-height:1.1;color:var(--muted);border:1px dashed var(--line);padding:2px}
+.gp{display:contents}
+.foto-grande{display:block;max-width:100%;max-height:320px;margin:0 auto;border-radius:12px}
+.btn-foto2{display:block;text-align:center;font-weight:600;padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);cursor:pointer}
+.btn-foto2.destaque{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
+.btn-foto2:focus-within{outline:3px solid var(--marca);outline-offset:2px}
+.meta{display:block;color:var(--muted);font:12px var(--mono);font-weight:400;margin-top:2px}
+.grupo{color:var(--muted);font-size:13px}
+.grupo::first-letter,.cn::first-letter{text-transform:uppercase}
+.cn{display:inline-block}
+.preco{font-family:var(--mono);text-align:right;white-space:nowrap}
+.est input{width:84px;padding:7px 8px;border:1px solid var(--line);border-radius:6px;font:700 16px var(--mono);text-align:right;background:var(--surface);color:var(--ink)}
+.est input.salvo{border-color:var(--ok);background:var(--ok-bg)}
+.est input.erro{border-color:var(--bad);background:var(--bad-bg)}
+.est small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.canais{display:contents}
+.rot{display:none}
+.pill{display:inline-block;font:600 12px/1.25 inherit;padding:5px 9px;border-radius:999px;margin:1px 0}
+.p-ok{color:var(--ok);background:var(--ok-bg)}.p-warn{color:var(--warn);background:var(--warn-bg)}
+.p-bad{color:var(--bad);background:var(--bad-bg)}.p-idle{color:var(--idle);background:var(--idle-bg)}
+.vazio{padding:40px;text-align:center;color:var(--muted)}
+.pag{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin:12px 0 4px}
+
+dialog{border:1px solid var(--line);border-radius:10px;padding:0;width:min(720px,94vw);max-height:90vh;color:var(--ink);background:var(--surface)}
+#dcats{width:min(1000px,96vw)}
+#dcats .corpo{background:var(--bg,#f3f5f4)}
+#dcats #cats.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}
+#dcats .tile{display:flex;flex-direction:column;align-items:flex-start;gap:8px;text-align:left;border-radius:20px;padding:18px 16px;min-height:124px;background:var(--surface);border:1px solid var(--line);box-shadow:0 1px 3px rgba(0,0,0,.06);transition:transform .12s,box-shadow .12s}
+#dcats .tile:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(0,0,0,.1);border-color:var(--marca)}
+#dcats .tile .ic{font-size:38px;line-height:1}
+#dcats .tile .l{font-size:16px;font-weight:700;line-height:1.25;color:var(--ink)}
+#dcats .tile .n2{font-size:13px;color:var(--muted);background:var(--marca-suave);padding:2px 9px;border-radius:999px}
+dialog::backdrop{background:rgba(24,37,42,.45)}
+.topo{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start}
+.topo h3{margin:0;font-size:18px;flex:1;overflow-wrap:anywhere}
+.corpo{padding:16px 18px;display:flex;flex-direction:column;gap:16px;overflow:auto;max-height:calc(90vh - 70px)}
+dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px;margin:0}
+dt{color:var(--muted)}dd{margin:0;overflow-wrap:anywhere}
+h4{margin:0 0 6px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.rolagem{overflow-x:auto}
+.mini{border-collapse:collapse;width:100%;font-size:13px}
+.mini th,.mini td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left}
+.mini th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
+textarea{width:100%;min-height:70px;padding:10px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:16px}
+.pv[hidden]{display:none}
+.busca-lista{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:16px;background:var(--surface);color:var(--ink);margin:6px 0}
+.menu-loja{position:relative}
+.menu-loja summary{list-style:none;cursor:pointer}.menu-loja summary::-webkit-details-marker{display:none}
+.menu-itens{position:absolute;right:0;top:calc(100% + 6px);z-index:20;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:6px;min-width:230px;display:flex;flex-direction:column;gap:2px}
+.menu-itens button{text-align:left;border:0;background:transparent;padding:11px 14px;border-radius:8px;font-size:15px}
+.menu-itens button:hover{background:var(--marca-suave)}
+.edit-box{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.edit-box summary{cursor:pointer;font-weight:700;color:var(--marca-escuro)}
+.edit-box label.campo{display:block;margin:8px 0 2px;font-size:13px;color:var(--muted)}
+.edit-box input,.edit-box select{width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:16px;background:var(--surface);color:var(--ink)}
+.abas{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.abas button.on{background:var(--marca);border-color:var(--marca);color:#fff;font-weight:700}
+.ent{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0;display:flex;flex-direction:column;gap:6px}
+.ent .d{font-weight:700}.ent .m{color:var(--muted);font-size:13px}
+.ent .sug{display:flex;gap:6px;flex-wrap:wrap}
+.ent .sug button{font-size:13px;padding:6px 10px;text-align:left}
+.ent .res button{display:block;width:100%;text-align:left;margin:2px 0;font-size:14px}
+.ent .linha{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ent input[type=number]{width:90px;padding:8px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:16px;background:var(--surface);color:var(--ink)}
+.ent input[type=search]{flex:1;min-width:160px;padding:8px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:16px;background:var(--surface);color:var(--ink)}
+.escolhido{color:var(--ok);font-weight:700;font-size:14px}
+.imp{display:flex;flex-direction:column;gap:14px}
+.imp section{border:1px solid var(--line);border-radius:6px;padding:12px 14px}
+.imp p{margin:4px 0 8px;color:var(--muted);font-size:13px}
+
+.op{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--line);border-radius:10px;margin:8px 0;cursor:pointer}
+.op input{margin-top:3px;width:20px;height:20px;flex:none}
+.op small{color:var(--muted)}
+.lista-prev{max-height:42vh;overflow:auto;border:1px solid var(--line);border-radius:10px;margin:8px 0}
+.pv{padding:9px 12px;border-bottom:1px solid var(--line);font-size:14px}
+label.pv{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
+.sel-barra{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.sel-barra button{padding:10px 14px}
+.dica-sel{color:var(--muted);font-size:14px;margin:6px 0}
+.pv:last-child{border-bottom:0}
+.campo{display:block;margin:10px 0;font-weight:600}
+.campo input{display:block;width:100%;margin-top:4px;padding:12px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:16px;background:var(--surface);color:var(--ink)}
+.ok-msg{background:var(--ok-bg);color:var(--ok);border-radius:8px;padding:10px 12px;margin-top:8px}
+.erro-msg{background:var(--bad-bg);color:var(--bad);border-radius:8px;padding:10px 12px;margin-top:8px}
+.bk{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.bk:last-child{border-bottom:0}
+.tela-inicio{display:none}
+.tabbar{display:none}
+#alerta-versao{background:var(--bad);color:#fff;padding:14px 16px;font-size:16px;font-weight:600;line-height:1.35;position:sticky;top:0;z-index:50}
+
+/* ======================= celular ======================= */
+@media (max-width:900px){
+  html{scroll-padding-bottom:120px;scroll-padding-top:150px}
+  body{font-size:17px;padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+  header{display:none}
+  .layout{display:block;padding:0;max-width:none}
+  .so-mobile{display:inline-flex}
+  .so-desktop{display:none}
+  .chips.so-mobile{display:flex;width:100%}
+  .aviso{display:none}
+
+  body[data-v="inicio"] .tela-inicio{display:block}
+  body[data-v="inicio"] .tela-produtos{display:none}
+  body[data-v="produtos"] .tela-inicio{display:none}
+
+  /* barra de abas */
+  .tabbar{display:grid;grid-template-columns:repeat(3,1fr);position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -4px 16px rgba(0,0,0,.06)}
+  .tabbar a{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 9px;text-decoration:none;color:var(--muted);font-size:14px;font-weight:700}
+  .tabbar .ic{font-size:30px;line-height:1}
+  .tabbar a.on{color:var(--marca)}
+
+  /* início */
+  .hero{background:linear-gradient(180deg,var(--marca) 0%,var(--marca-escuro) 100%);color:#fff;padding:calc(26px + env(safe-area-inset-top)) 18px 26px;border-radius:0 0 28px 28px}
+  .hero-sup{font-size:12px;letter-spacing:.14em;opacity:.85;font-weight:700}
+  .hero h1{font-size:36px;line-height:1.08;margin:8px 0 6px}
+  .hero p{margin:0 0 18px;font-size:17px;opacity:.92}
+  .btn-grande{display:flex;align-items:center;gap:16px;background:#fff;color:var(--marca);border-radius:20px;padding:18px;text-decoration:none;font-weight:800;font-size:22px;line-height:1.15;box-shadow:0 8px 20px rgba(0,0,0,.2)}
+  .btn-grande .ic{font-size:44px;line-height:1}
+  .btn-grande small{display:block;font-weight:500;font-size:15px;color:var(--muted);margin-top:3px}
+  .busca-grande{display:flex;gap:8px;margin-top:14px}
+  .busca-grande input{flex:1;min-width:0;border:0;border-radius:16px;padding:18px 16px;font-size:18px;background:#fff;color:var(--ink)}
+  .busca-grande button{border:0;border-radius:16px;background:rgba(255,255,255,.22);color:#fff;font-size:18px;padding:0 20px}
+  .bloco{padding:26px 16px 0}
+  .bloco h2{font-size:24px;margin:0 0 14px;line-height:1.15}
+  .prog{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px}
+  .prog-num{font-size:19px}
+  .prog-num b{font-size:40px;color:var(--marca);line-height:1}
+  .barra{height:16px;background:var(--idle-bg);border-radius:999px;overflow:hidden;margin:14px 0 8px}
+  .barra i{display:block;height:100%;width:0;background:var(--marca);border-radius:999px;transition:width .4s}
+  #p-pct{color:var(--muted);font-size:15px}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .tile{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:8px;text-align:left;border-radius:20px;padding:18px 16px;min-height:128px;background:var(--surface);border:1px solid var(--line);font-weight:500;font-size:17px}
+  .tile .n{font-size:38px;font-weight:800;line-height:1}
+  .tile .l{font-size:17px;line-height:1.25;color:var(--ink);font-weight:600}
+  .tile .ic{font-size:40px;line-height:1}
+  .tile .n2{font-size:14px;color:var(--muted)}
+  .tile.ok{background:var(--ok-bg);border-color:#bddcc9}.tile.ok .n{color:var(--ok)}
+  .tile.bad{background:var(--bad-bg);border-color:#ecc3bd}.tile.bad .n{color:var(--bad)}
+  .tile.warn{background:var(--warn-bg);border-color:#ecdba5}.tile.warn .n{color:var(--warn)}
+  .lojas{display:flex;flex-direction:column;gap:12px}
+  .loja{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px;display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center}
+  .loja .nm{font-size:21px;font-weight:800}
+  .loja .tx{color:var(--muted);font-size:15px}
+  .loja .big{font-size:42px;font-weight:800;color:var(--ok);line-height:1;text-align:right}
+  .loja-acoes{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  .loja-acoes button{border-radius:14px;padding:15px 8px;font-size:16px}
+  .btn-lista{display:flex;align-items:center;justify-content:flex-start;text-align:left;gap:16px;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px;font-size:19px;font-weight:700;margin-bottom:12px;text-decoration:none;color:var(--ink)}
+  .btn-lista .ic{font-size:32px;line-height:1}
+  .rodape{color:var(--muted);font-size:14px;padding:14px 20px 8px;text-align:center}
+
+  /* produtos */
+  .busca{position:sticky;top:0;z-index:10;background:var(--bg);padding:calc(10px + env(safe-area-inset-top)) 12px 8px;border-bottom:1px solid var(--line)}
+  .busca-linha{flex-wrap:nowrap}
+  .busca-linha input[type=search]{min-width:0;padding:16px 14px;font-size:18px;border-radius:14px}
+  #b-filtros{padding:16px 18px;white-space:nowrap;font-size:17px;border-radius:14px}
+  .chip{font-size:17px;padding:11px 18px}
+  .ativo{font-size:16px;padding:10px 14px}
+  .conta{margin:12px 16px 8px;font-size:16px}
+  #nav{position:fixed;inset:0;z-index:30;background:var(--bg);overflow:auto;display:none;padding:0 0 32px}
+  #nav.aberto{display:block}
+  .nav-topo{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg);padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));border-bottom:1px solid var(--line);font-size:22px}
+  .nav-topo button{font-size:17px;padding:13px 18px;border-radius:12px}
+  #nav-lista{padding:4px 16px}
+  nav .f{padding:18px 10px;font-size:19px;border-bottom:1px solid var(--line);border-radius:0}
+  nav .f b{font-size:16px}
+  nav h2{margin:22px 0 2px;font-size:13px}
+
+  .lista{border-radius:0;border-left:0;border-right:0}
+  .cab{display:none}
+  .lin{grid-template-columns:104px 1fr;grid-template-areas:"foto nome" "foto gp" "est canais";gap:10px 14px;padding:18px 16px;align-items:start}
+  .foto{grid-area:foto;width:104px;height:104px;border-radius:14px;font-size:13px}
+  .nome{grid-area:nome;font-size:19px;line-height:1.28}
+  .meta{font-size:13px;margin-top:4px}
+  .gp{grid-area:gp;display:flex;justify-content:space-between;align-items:center;gap:8px;align-self:start}
+  .grupo{font-size:14px}
+  .preco{font-size:20px;font-weight:700}
+  .est{grid-area:est}
+  .est input{width:100%;padding:15px 8px;font-size:24px}
+  .est small{font-size:13px;margin-top:4px}
+  .canais{grid-area:canais;display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}
+  .rot{display:inline}
+  .det{display:none}
+  .pill{font-size:15px;padding:9px 13px}
+  .pag{margin:16px 12px;justify-content:space-between}
+  .pag button{flex:1;padding:18px;font-size:18px;border-radius:14px}
+  .pag .conta{margin:0;flex:none;font-size:15px}
+
+  dialog{width:100vw;max-width:100vw;max-height:100vh;height:100vh;border-radius:0;border:0;font-size:17px}
+  .topo h3{font-size:21px}
+  .topo button{font-size:17px;padding:12px 16px}
+  .corpo{max-height:calc(100vh - 78px)}
+  dl{grid-template-columns:1fr;gap:0}
+  dt{margin-top:10px;font-size:14px}
+  .mini{font-size:15px}
+  textarea{font-size:17px}
+  .imp button{padding:16px;font-size:17px}
+  .imp input[type=file]{font-size:16px}
+  .op{font-size:17px}.pv{font-size:16px}.bk button{padding:12px 16px}
+  label.pv input{width:26px;height:26px}.sel-barra button{padding:13px 16px}
+}
+
+/* ======================= blocos que abrem e fecham (celular e computador) ======================= */
+.bloco h2{cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.bloco h2::after{content:"▾";font-size:.75em;color:var(--muted);flex:none;padding:2px 8px;border-radius:8px}
+.bloco h2:hover::after{background:var(--idle-bg)}
+.bloco.fechado h2::after{content:"▸"}
+.bloco.fechado > :not(h2){display:none!important}
+
+/* ======================= computador: página de cartões, igual ao celular ======================= */
+@media (min-width:901px){
+  body{padding-top:62px}
+  header{display:none}
+  #alerta-versao{top:62px}
+  .tabbar{display:flex;position:fixed;top:0;left:0;right:0;z-index:40;height:62px;align-items:center;gap:6px;padding:0 24px;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:0 2px 10px rgba(0,0,0,.05)}
+  .tabbar::before{content:"{{TITULO}}";margin-right:auto;font-weight:800;font-size:18px;color:var(--marca)}
+  .tabbar a{display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:12px;text-decoration:none;color:var(--muted);font-weight:700;font-size:16px}
+  .tabbar a .ic{font-size:22px;line-height:1}
+  .tabbar a:hover{background:var(--idle-bg)}
+  .tabbar a.on{color:var(--marca);background:var(--marca-suave)}
+
+  body[data-v="inicio"] .tela-inicio{display:block}
+  body[data-v="inicio"] .tela-produtos{display:none}
+  body[data-v="produtos"] .tela-inicio{display:none}
+  body[data-v="inicio"] #nav{display:none}
+  body[data-v="inicio"] .layout{display:block;max-width:1280px;padding:0 24px 40px}
+
+  .hero{background:linear-gradient(180deg,var(--marca) 0%,var(--marca-escuro) 100%);color:#fff;padding:34px 32px 32px;border-radius:0 0 32px 32px;display:grid;grid-template-columns:1fr 1.5fr;gap:18px 20px;align-items:stretch}
+  .hero-sup,.hero h1,.hero p{grid-column:1/-1}
+  .hero-sup{font-size:12px;letter-spacing:.14em;opacity:.85;font-weight:700}
+  .hero h1{font-size:44px;line-height:1.08;margin:0}
+  .hero p{margin:0 0 6px;font-size:18px;opacity:.92}
+  .btn-grande{display:flex;align-items:center;gap:16px;background:#fff;color:var(--marca);border-radius:20px;padding:16px 20px;text-decoration:none;font-weight:800;font-size:22px;line-height:1.15;box-shadow:0 8px 20px rgba(0,0,0,.2)}
+  .btn-grande .ic{font-size:42px;line-height:1}
+  .btn-grande small{display:block;font-weight:500;font-size:15px;color:var(--muted);margin-top:3px}
+  .busca-grande{display:flex;gap:8px;margin:0}
+  .busca-grande input{flex:1;min-width:0;border:0;border-radius:16px;padding:0 20px;font-size:18px;background:#fff;color:var(--ink)}
+  .busca-grande button{border:0;border-radius:16px;background:rgba(255,255,255,.22);color:#fff;font-size:18px;padding:0 28px}
+
+  .bloco{padding:30px 0 0}
+  .bloco h2{font-size:22px;margin:0 0 14px;line-height:1.15}
+  .prog{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px 24px}
+  .prog-num{font-size:19px}
+  .prog-num b{font-size:40px;color:var(--marca);line-height:1}
+  .barra{height:16px;background:var(--idle-bg);border-radius:999px;overflow:hidden;margin:14px 0 8px}
+  .barra i{display:block;height:100%;width:0;background:var(--marca);border-radius:999px;transition:width .4s}
+  #p-pct{color:var(--muted);font-size:15px}
+
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  #cats.tiles{grid-template-columns:repeat(5,1fr)}
+  .tile{display:flex;flex-direction:column;align-items:flex-start;gap:8px;text-align:left;border-radius:20px;padding:18px 16px;min-height:120px;background:var(--surface);border:1px solid var(--line);font-weight:500;font-size:17px}
+  .tile .n{font-size:36px;font-weight:800;line-height:1}
+  .tile .l{font-size:16px;line-height:1.25;color:var(--ink);font-weight:600}
+  .tile .ic{font-size:38px;line-height:1}
+  .tile .n2{font-size:14px;color:var(--muted)}
+  .tile:hover{box-shadow:0 6px 16px rgba(0,0,0,.08);transform:translateY(-1px)}
+  .tile.ok{background:var(--ok-bg);border-color:#bddcc9}.tile.ok .n{color:var(--ok)}
+  .tile.bad{background:var(--bad-bg);border-color:#ecc3bd}.tile.bad .n{color:var(--bad)}
+  .tile.warn{background:var(--warn-bg);border-color:#ecdba5}.tile.warn .n{color:var(--warn)}
+
+  .lojas{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .loja{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px;display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center}
+  .loja .nm{font-size:21px;font-weight:800}
+  .loja .tx{color:var(--muted);font-size:15px}
+  .loja .big{font-size:40px;font-weight:800;color:var(--ok);line-height:1;text-align:right}
+  .loja-acoes{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  .loja-acoes button{border-radius:14px;padding:13px 8px;font-size:15px}
+
+  .bloco.ferramentas{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .bloco.ferramentas h2{grid-column:1/-1}
+  .btn-lista{display:flex;align-items:center;gap:14px;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;font-size:17px;font-weight:700;text-align:left;text-decoration:none;color:var(--ink);cursor:pointer}
+  .btn-lista:hover{background:var(--marca-suave)}
+  .btn-lista .ic{font-size:30px;line-height:1}
+  .rodape{color:var(--muted);font-size:14px;padding:22px 20px 8px;text-align:center}
+}
+</style>
+</head>
+<body data-v="inicio">
+<div id="alerta-versao" hidden>⚠️ O painel no computador está desatualizado. Feche a janela preta do painel (e qualquer outra) e abra o <b>iniciar.bat</b> de novo. Enquanto isso, algumas coisas, como as fotos, não funcionam.</div>
+<header>
+  <div class="tit">
+    <h1>{{TITULO}}</h1>
+    <div class="sub">{{LOJA}}<span id="datas"></span></div>
+  </div>
+  <div class="acoes">
+    <a class="btn pri" href="/conferir">Conferir prateleira</a>
+    <details class="menu-loja" id="menu-loja"><summary class="btn pri">Loja online ▾</summary><div class="menu-itens">
+      <button id="b-sync">Enviar estoque</button><button id="b-foto">Enviar fotos</button>
+      <button id="b-cad">Cadastrar produtos novos</button><button id="b-pub">Publicar produtos</button>
+      <button id="b-ifood">Planilhas dos apps (iFood e 99)</button></div></details>
+    <button id="b-org">Organizar categorias</button>
+    <button id="b-mov">Notas e vendas</button>
+    <button id="b-imp">Atualizar dados</button>
+    <a class="btn" id="b-exp" href="#">Baixar lista (CSV)</a>
+  </div>
+</header>
+
+<div class="layout">
+  <nav id="nav" aria-label="Filtros">
+    <div class="nav-topo"><b>Filtros</b><button class="pri" id="nav-x">Ver produtos</button></div>
+    <div id="nav-lista"></div>
+  </nav>
+
+  <main class="principal">
+    <!-- INÍCIO: só no celular -->
+    <section class="tela-inicio" id="tela-inicio">
+      <div class="hero">
+        <div class="hero-sup">{{LOJA_MAIUSCULO}}</div>
+        <h1>{{TITULO}}</h1>
+        <p>Toque em um bloco para ver os produtos.</p>
+        <a class="btn-grande" href="/conferir"><span class="ic">📷</span><span>Conferir prateleira<small>Bipar o código de barras</small></span></a>
+        <form class="busca-grande" id="f-inicio"><input type="search" id="q-inicio" placeholder="Buscar produto ou código" aria-label="Buscar produto" enterkeyhint="search"><button>Buscar</button></form>
+      </div>
+
+      <div id="aviso-backup" class="aviso" hidden></div>
+
+      <div class="bloco">
+        <h2>Conferência</h2>
+        <div class="prog">
+          <div class="prog-num"><b id="p-conf">0</b> de <span id="p-tot">0</span> produtos conferidos</div>
+          <div class="barra"><i id="p-barra"></i></div>
+          <div id="p-pct"></div>
+        </div>
+      </div>
+
+      <div class="bloco">
+        <h2>Precisa de atenção</h2>
+        <div class="tiles" id="tiles-atencao"></div>
+      </div>
+
+      <div class="bloco">
+        <h2>Lojas online</h2>
+        <div class="lojas" id="lojas"></div>
+      </div>
+
+      <div class="bloco">
+        <h2>Categorias</h2>
+        <div class="tiles"><button class="tile" id="b-cats"><span class="ic">🗂️</span><span class="l">Categorias</span><span class="n2" id="n-cats"></span></button></div>
+      </div>
+
+      <div class="bloco ferramentas">
+        <h2>Ferramentas</h2>
+        <button class="btn-lista" id="b-sync2"><span class="ic">🚚</span>Enviar estoque para a Nuvemshop</button>
+        <button class="btn-lista" id="b-cad2"><span class="ic">🆕</span>Cadastrar produtos novos no site</button>
+        <button class="btn-lista" id="b-ifood2"><span class="ic">🍔</span>Planilhas dos apps (iFood e 99)</button>
+        <button class="btn-lista" id="b-pub2"><span class="ic">🟢</span>Publicar produtos no site</button>
+        <button class="btn-lista" id="b-foto2"><span class="ic">📷</span>Enviar fotos para a Nuvemshop</button>
+        <button class="btn-lista" id="b-org2"><span class="ic">🗂️</span>Organizar categorias dos produtos</button>
+        <a class="btn-lista" href="/prioridades"><span class="ic">🚦</span>Prioridades: o que contar e comprar</a>
+        <button class="btn-lista" id="b-ifa"><span class="ic">🍔</span>iFood (API): conectar e testar</button>
+        <button class="btn-lista" id="b-mov2"><span class="ic">🧾</span>Notas e vendas (estoque estimado)</button>
+        <button class="btn-lista" id="b-cruz"><span class="ic">🔀</span>Cruzamento de dados (preços)</button>
+        <button class="btn-lista" id="b-imp2"><span class="ic">🔄</span>Atualizar dados</button>
+        <a class="btn-lista" id="b-exp2" href="#"><span class="ic">📄</span>Baixar lista (CSV)</a>
+        <a class="btn-lista" id="b-zip" href="/api/fotos.zip"><span class="ic">🖼️</span><span id="t-zip">Baixar fotos tiradas</span></a>
+      </div>
+      <p class="rodape" id="rodape"></p>
+    </section>
+
+    <!-- PRODUTOS -->
+    <section class="tela-produtos" id="tela-produtos">
+      <div class="aviso">O que você muda aqui fica neste painel. Só vai para a Nuvemshop quando você usa o menu <b>Loja online</b> (sempre com prévia e desfazer). Nada é enviado ao iFood, à 99Food ou ao Gestor Z.</div>
+      <div class="busca">
+        <div class="busca-linha">
+          <input type="search" id="q" placeholder="Buscar por nome, código de barras ou SKU" aria-label="Buscar produto" enterkeyhint="search">
+          <select id="grupo" class="so-desktop" aria-label="Grupo"><option value="">Todas as categorias</option></select>
+          <button id="b-filtros" class="so-mobile">Filtros</button>
+        </div>
+        <div class="chips so-mobile" id="chips" aria-label="Categorias"></div>
+        <div id="ativos"></div>
+      </div>
+      <div class="conta" id="conta"></div>
+      <div class="lista">
+        <div class="cab"><span></span><span>Produto</span><span>Grupo</span><span style="text-align:right">Preço</span><span>Estoque oficial</span><span>Nuvemshop</span><span>iFood</span><span>99Food</span></div>
+        <div id="linhas"></div>
+        <div class="vazio" id="vazio" hidden>Nenhum produto encontrado.</div>
+      </div>
+      <div class="pag"><button id="ant">Anterior</button><span id="pg" class="conta"></span><button id="prox">Próxima</button></div>
+    </section>
+  </main>
+</div>
+
+<div class="tabbar" role="navigation" aria-label="Menu principal">
+  <a href="#" data-v="inicio"><span class="ic">🏠</span>Início</a>
+  <a href="#produtos" data-v="produtos"><span class="ic">📦</span>Produtos</a>
+  <a href="/conferir"><span class="ic">📷</span>Conferir</a>
+</div>
+
+<dialog id="dcruz">
+  <div class="topo"><h3>Cruzamento de dados: preços</h3><button id="cz-x">Fechar</button></div>
+  <div class="corpo imp" id="cz-corpo"></div>
+</dialog>
+<dialog id="dcats"><div class="topo"><h3>Categorias</h3><button id="cat-x">Fechar</button></div><div class="corpo"><div class="tiles" id="cats"></div></div></dialog>
+<dialog id="dlg"><div class="topo"><h3 id="d-nome"></h3><button id="d-x">Fechar</button></div><div class="corpo" id="d-corpo"></div></dialog>
+
+<dialog id="dsync">
+  <div class="topo"><h3>Enviar estoque para a Nuvemshop</h3><button id="s-x">Fechar</button></div>
+  <div class="corpo imp" id="s-corpo"></div>
+</dialog>
+
+<dialog id="difa">
+  <div class="topo"><h3>iFood (API): conectar e testar</h3><button id="if-x">Fechar</button></div>
+  <div class="corpo imp" id="if-corpo"></div>
+</dialog>
+
+<dialog id="dcad">
+  <div class="topo"><h3>Cadastrar produtos novos no site</h3><button id="c-x">Fechar</button></div>
+  <div class="corpo imp" id="c-corpo"></div>
+</dialog>
+
+<dialog id="dorg">
+  <div class="topo"><h3>Organizar categorias</h3><button id="o-x">Fechar</button></div>
+  <div class="corpo imp" id="o-corpo"></div>
+</dialog>
+
+<dialog id="difood">
+  <div class="topo"><h3>Planilhas dos apps</h3><button id="ip-x">Fechar</button></div>
+  <div class="corpo imp" id="ip-corpo"></div>
+</dialog>
+
+<dialog id="dpub">
+  <div class="topo"><h3>Publicar produtos no site</h3><button id="p-x">Fechar</button></div>
+  <div class="corpo imp" id="p-corpo"></div>
+</dialog>
+
+<dialog id="dfoto">
+  <div class="topo"><h3>Enviar fotos para a Nuvemshop</h3><button id="f-x">Fechar</button></div>
+  <div class="corpo imp" id="f-corpo"></div>
+</dialog>
+
+<dialog id="dmov">
+  <div class="topo"><h3>Notas e vendas</h3><button id="m-x">Fechar</button></div>
+  <div class="corpo imp">
+    <div class="abas" id="m-abas"></div>
+    <div id="m-corpo"></div>
+  </div>
+</dialog>
+
+<dialog id="dimp">
+  <div class="topo"><h3>Atualizar dados</h3><button id="i-x">Fechar</button></div>
+  <div class="corpo imp">
+    <section>
+      <b>Nuvemshop</b>
+      <p>Lê todos os produtos do site (só leitura, leva cerca de 1 minuto).</p>
+      <button class="pri" id="i-nuvem">Ler a Nuvemshop agora</button>
+    </section>
+    <section>
+      <b>Pedidos do site</b>
+      <p id="i-ped-txt">O painel lê os pedidos novos sozinho a cada 10 minutos, para o estoque estimado descontar as vendas do site.</p>
+      <button id="i-ped">Ler os pedidos agora</button>
+    </section>
+    <section>
+      <b>Cadastro do Gestor Z</b>
+      <p>Arquivo CSV ou planilha .xlsx com as colunas id_produto, codigo, gtin, descricao, venda.</p>
+      <input type="file" id="f-gz" accept=".csv,.xlsx">
+    </section>
+    <section>
+      <b>Cruzamento iFood e 99Food</b>
+      <p>Arquivo CSV do cruzamento dos canais (colunas ean, gz_codigo, ifood_status, n99_status).</p>
+      <input type="file" id="f-pn" accept=".csv">
+    </section>
+    <div id="msg"></div>
+  </div>
+</dialog>
+
+<script>
+const VERSAO = "9";
+const $ = s => document.querySelector(s);
+// divisor de preco dos apps: vem de marca.json pela rota /api/marca
+const DIV_APPS = String((window.MARCA && window.MARCA.divisor_apps) || 0.70).replace(".", ",");
+const DIV_APPS_PCT = (((1 / Number(DIV_APPS.replace(",", "."))) - 1) * 100).toFixed(2).replace(".", ",");
+const est = {q:"", filtro:"todos", grupo:"", pagina:1, total:0};
+let RESUMO = null;
+const NAV = [
+  ["Conferência", [["todos","Todos os produtos"],["nao_conferido","Falta conferir"],["conferido","Já conferidos"],["zerado","Estoque zero"]]],
+  ["Estoque estimado", [["tem_estimado","Com estimativa"],["est_negativo","Vendeu mais do que contei"],["est_baixo","Estimado em 3 ou menos"]]],
+  ["Problemas", [["vende_sem_estoque","Sem estoque, mas à venda"],["parado_com_estoque","Com estoque, mas fora de venda"]]],
+  ["Contados ainda não enviados", [["novo_anota","Anota Aí"],["novo_ifood","iFood"],["novo_n99","99Food"],["novo_site","Site (Nuvemshop)"]]],
+  ["Nuvemshop", [["vendendo_nuvemshop","À venda"],["no_nuvemshop","Cadastrado"],["fora_nuvemshop","Não está"]]],
+  ["iFood", [["vendendo_ifood","À venda"],["no_ifood","Cadastrado"],["fora_ifood","Não está"]]],
+  ["99Food", [["vendendo_99food","À venda"],["no_99food","Cadastrado"],["fora_99food","Não está"]]],
+  ["Cadastro", [["sem_gestorz","Fora do Gestor Z"],["sem_ean","Sem código de barras real"],["em_nenhum_canal","Em nenhuma loja online"],["sem_foto","Sem foto"],["foto_tirada","Fotos tiradas na prateleira"],["cadastro_manual","Cadastrados à mão"]]],
+];
+const NOME_FILTRO = {};
+NAV.forEach(([t, its]) => its.forEach(([k, n]) => NOME_FILTRO[k] = (["Nuvemshop","iFood","99Food"].includes(t) ? t + ": " : t.startsWith("Contados") ? "Contados e não enviados: " : "") + n));
+const ATENCAO = [
+  ["nao_conferido","Falta conferir","warn"],["conferido","Já conferidos","ok"],
+  ["zerado","Estoque zero","bad"],["vende_sem_estoque","Sem estoque, mas à venda","bad"],
+  ["parado_com_estoque","Com estoque, mas fora de venda","warn"],["sem_ean","Sem código de barras real",""],
+  ["sem_gestorz","Fora do Gestor Z",""],["em_nenhum_canal","Em nenhuma loja online",""],
+  ["sem_foto","Sem foto","warn"],["foto_tirada","Fotos tiradas na prateleira","ok"],
+  ["cadastro_manual","Cadastrados à mão: falta cadastrar nas lojas","warn"],
+  ["est_negativo","Vendeu mais do que contei","bad"],["est_baixo","Estimado em 3 ou menos","warn"],
+];
+const LOJAS = [["nuvemshop","Site (Nuvemshop)","🌐"],["ifood","iFood","🍔"],["99food","99Food","🛵"]];
+const ICONES = [["embala","📦"],["descart","🥤"],["utilid","🍳"],["higiene","🧼"],["limpeza","🧽"],["papelar","✏️"],["escrit","📝"],["brinq","🧸"],["festa","🎉"],["balc","🛍️"],["merce","🛒"],["diverso","🧩"],["cozinha","🍽️"],["eletr","🔌"],["jardim","🌱"],["pet","🐾"],["decor","🖼️"],["cosmet","💄"],["aliment","🥫"],["bebida","🥤"],["ferrag","🔧"],["vela","🕯️"]];
+const icone = nome => { const n = String(nome).toLowerCase(); for(const [k, i] of ICONES) if(n.includes(k)) return i; return "🏷️"; };
+const mini = (u, t) => u && /-\d+-\d+\.\w+$/.test(u) ? u.replace(/-\d+-\d+(\.\w+)$/, "-" + t + "-0$1") : u;
+const cap = s => { s = String(s || "").toLowerCase(); return s.charAt(0).toUpperCase() + s.slice(1); };
+const num = n => Number(n || 0).toLocaleString("pt-BR");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const brl = v => v == null ? "" : "R$ " + Number(v).toFixed(2).replace(".", ",");
+const data = s => s ? s.slice(8,10)+"/"+s.slice(5,7)+" "+s.slice(11,16) : "";
+async function api(url, opt){
+  const r = await fetch(url, opt);
+  if(r.status === 401){ location.href = "/login"; throw new Error("login"); }
+  const j = await r.json();
+  if(!r.ok) throw new Error(j.erro || "Erro"); return j;
+}
+
+/* ---------------------------------------------------------- telas (celular) */
+function aplicarVista(){
+  const v = location.hash === "#produtos" ? "produtos" : "inicio";
+  document.body.dataset.v = v;
+  document.querySelectorAll(".tabbar [data-v]").forEach(a => a.classList.toggle("on", a.dataset.v === v));
+  window.scrollTo({top:0});
+}
+window.addEventListener("hashchange", aplicarVista);
+
+/* blocos da tela inicial: seta para ocultar, lembra a escolha neste aparelho */
+document.querySelectorAll("#tela-inicio .bloco").forEach(b => {
+  const t = b.querySelector("h2"); if(!t) return;
+  const chave = "bloco:" + t.textContent.trim();
+  let fechado = false; try{ fechado = localStorage.getItem(chave) === "1"; }catch(e){}
+  b.classList.toggle("fechado", fechado);
+  t.setAttribute("role", "button"); t.tabIndex = 0; t.setAttribute("aria-expanded", String(!fechado));
+  const alternar = () => {
+    const f = b.classList.toggle("fechado"); t.setAttribute("aria-expanded", String(!f));
+    try{ localStorage.setItem(chave, f ? "1" : "0"); }catch(e){}
+  };
+  t.onclick = alternar;
+  t.onkeydown = e => { if(e.key === "Enter" || e.key === " "){ e.preventDefault(); alternar(); } };
+});
+function irPara(o){
+  est.filtro = o.filtro || "todos"; est.grupo = o.grupo || ""; est.q = o.q || ""; est.pagina = 1;
+  $("#q").value = est.q; $("#grupo").value = est.grupo;
+  desenharNav(); desenharChips(); carregar();
+  if(location.hash === "#produtos") aplicarVista(); else location.hash = "#produtos";
+}
+
+/* ------------------------------------------------------------- desenhos */
+function desenharNav(){
+  const c = RESUMO ? RESUMO.filtros : {};
+  $("#nav-lista").innerHTML = NAV.map(([t, itens]) => `<h2>${t}</h2>` + itens.map(([k, n]) =>
+    `<button class="f ${k===est.filtro?"on":""}" data-f="${k}"><span>${n}</span><b>${num(c[k])}</b></button>`).join("")).join("");
+  const dest = est.filtro.startsWith("novo_") ? est.filtro.slice(5) : "", em = dest ? ((RESUMO && RESUMO.meta) || {})["envio_" + dest + "_em"] : "";
+  $("#ativos").innerHTML = (est.filtro !== "todos"
+    ? `<button class="chip ativo" id="x-filtro">${esc(NOME_FILTRO[est.filtro])} ✕</button>` : "") +
+    (dest ? `<div class="aviso" style="margin:8px 0">Estes são os produtos <b>contados depois</b> do último envio${em ? " (marcado em " + esc(data(em)) + ")" : " (você ainda não marcou nenhum envio)"}. Baixe a lista, suba no destino e depois toque em <button type="button" id="b-marcar" data-d="${dest}" class="pri">Já enviei: marcar agora</button> para a lista zerar.</div>` : "");
+  $("#b-filtros").textContent = est.filtro !== "todos" ? "Filtros ●" : "Filtros";
+}
+async function lerCategorias(botao, depois){
+  const t = botao.textContent; botao.disabled = true; botao.textContent = "Lendo as categorias da loja…";
+  try{ const r = await api("/api/nuvemshop/categorias/ler", {method:"POST", body:"{}"}); await carregarResumo(); await depois(); return r; }
+  catch(e){ botao.disabled = false; botao.textContent = t; alert("Não consegui ler as categorias da loja: " + e.message + "\n\nSe for permissão, abra o aplicativo da Nuvemshop e libere a leitura de “Categorias” (produtos)."); }
+}
+const listaCats = () => (RESUMO.categorias_n && RESUMO.categorias_n.length) ? RESUMO.categorias_n : (RESUMO.grupos_n || []).map(x => ({key:x.grupo, nome:x.grupo, n:x.n}));
+const curto = n => String(n).split(" > ").pop();
+function desenharChips(){
+  if(!RESUMO) return;
+  $("#chips").innerHTML = `<button class="chip ${est.grupo ? "" : "on"}" data-g=""><span class="cn">Todos</span><small>${num(RESUMO.total)}</small></button>` +
+    listaCats().map(x => `<button class="chip ${x.key === est.grupo ? "on" : ""}" data-g="${esc(x.key)}" title="${esc(x.nome)}"><span class="cn">${esc(curto(x.nome))}</span><small>${num(x.n)}</small></button>`).join("");
+}
+const fmtN = v => Number(v).toLocaleString("pt-BR", {maximumFractionDigits:1});
+function textoEst(p){
+  if(p.est_aviso === "peso") return "<br>vende por peso: sem estimativa";
+  if(p.estimado == null) return "";
+  return `<br><b style="color:${p.estimado < 0 ? "var(--bad)" : "inherit"}">estimado ${fmtN(p.estimado)}</b>` +
+    (p.est_aviso === "periodo" ? `<br><small title="A planilha de vendas inclui o dia da contagem; as vendas desse período não foram descontadas.">⚠ pode estar acima do real</small>` : "");
+}
+function desenharInicio(){
+  const r = RESUMO; if(!r) return; const f = r.filtros;
+  const conf = f.conferido || 0, tot = r.total || 0, pct = tot ? Math.round(conf / tot * 1000) / 10 : 0;
+  $("#p-conf").textContent = num(conf); $("#p-tot").textContent = num(tot);
+  $("#p-barra").style.width = Math.max(pct, conf ? 2 : 0) + "%";
+  $("#p-pct").textContent = String(pct).replace(".", ",") + "% da lista";
+  $("#tiles-atencao").innerHTML = ATENCAO.map(([k, nome, tom]) =>
+    `<button class="tile ${tom}" data-f="${k}"><span class="n">${num(f[k])}</span><span class="l">${nome}</span></button>`).join("");
+  $("#lojas").innerHTML = LOJAS.map(([c, nome, ic]) => `<div class="loja">
+    <div><div class="nm">${ic} ${nome}</div><div class="tx">à venda agora</div></div>
+    <div class="big">${num(f["vendendo_" + c])}</div>
+    <div class="loja-acoes"><button class="pri" data-f="vendendo_${c}">Ver à venda</button><button data-f="fora_${c}">Não está (${num(f["fora_" + c])})</button></div></div>`).join("");
+  const be = (r.meta || {}).backup_extra, ab = $("#aviso-backup");
+  if(be === "ok"){ ab.hidden = true; }
+  else{
+    ab.hidden = false; ab.className = "aviso a-warn";
+    ab.innerHTML = be === "erro"
+      ? "⚠ <b>Backup fora do computador falhou</b>" + ((r.meta || {}).backup_extra_detalhe ? " (" + esc(r.meta.backup_extra_detalhe) + ")" : "") + ". Confira se o pendrive/pasta está ligado. A cópia dentro do painel continua sendo feita."
+      : "⚠ <b>Seu estoque só tem cópia neste computador.</b> Se ele queimar ou for roubado, perde tudo. Veja no LEIA-ME “Backup fora do computador” (1 minuto para ligar).";
+  }
+    $("#t-zip").textContent = "Baixar fotos tiradas (" + num(r.fotos_tiradas) + ")";
+  const semSite = !(r.categorias_n && r.categorias_n.length);
+  const aviso = document.getElementById("aviso-cats");
+  if(aviso) aviso.remove();
+  if(semSite) $("#cats").insertAdjacentHTML("beforebegin", `<div id="aviso-cats" class="aviso">Estas são as categorias do Gestor Z. Para usar as <b>categorias da loja</b>: <button id="b-lercats" class="pri" style="margin-left:6px">Ler categorias da loja</button></div>`);
+  if(semSite) document.getElementById("b-lercats").onclick = e => lerCategorias(e.target, async () => { desenharInicio(); desenharChips(); });
+  $("#n-cats").textContent = num(listaCats().length) + " categorias · toque para ver";
+  $("#cats").innerHTML = listaCats().map(x =>
+    `<button class="tile" data-g="${esc(x.key)}"><span class="ic">${icone(curto(x.nome))}</span><span class="l">${esc(cap(curto(x.nome)))}</span><span class="n2">${num(x.n)} ${x.n === 1 ? "produto" : "produtos"}</span></button>`).join("");
+}
+function datasTexto(){
+  const m = RESUMO ? RESUMO.meta : {}, p = [];
+  if(m.nuvemshop_sync_em) p.push("Nuvemshop lida em " + data(m.nuvemshop_sync_em));
+  if(m.painel_importado_em) p.push("iFood e 99Food de " + data(m.painel_importado_em));
+  if(m.backup_extra_em) p.push("backup externo em " + data(m.backup_extra_em));
+  return p.join(" · ") || "sem dados ainda: toque em Atualizar dados";
+}
+
+async function carregarResumo(){
+  const r = await api("/api/resumo");
+  RESUMO = r;
+  $("#alerta-versao").hidden = r.servidor === VERSAO;
+  const g = $("#grupo");
+  g.innerHTML = '<option value="">Todas as categorias</option>' + listaCats().map(x => `<option value="${esc(x.key)}">${esc(x.nome)} (${num(x.n)})</option>`).join("");
+  g.value = est.grupo;
+  desenharNav(); desenharChips(); desenharInicio();
+  $("#datas").textContent = " · " + datasTexto();
+  $("#rodape").innerHTML = esc(datasTexto()) + "<br>Painel de Estoque · tela versão " + BUILD + " · programa versão " + esc(r.servidor || "?") + (r.pasta ? "<br><small>Pasta do programa: " + esc(r.pasta) + "</small>" : "");
+  $("#i-nuvem").disabled = !r.nuvemshop_configurada;
+  if(!r.nuvemshop_configurada) $("#i-nuvem").textContent = "Falta conectar: use “Enviar para as lojas”";
+}
+
+const ROT = {nuvemshop:"Site", ifood:"iFood", "99food":"99Food"};
+function canal(itens, nome){
+  const cs = itens.filter(c => c.canal === nome), rot = ROT[nome];
+  if(!cs.length) return `<span class="pill p-idle"><span class="rot">${rot}: </span>não está</span>`;
+  const vend = cs.filter(c => c.vendendo).length;
+  const cls = vend === cs.length ? "p-ok" : vend ? "p-warn" : "p-bad";
+  const txt = cs.length > 1 ? `${vend} de ${cs.length} à venda` : (cs[0].vendendo ? "à venda" : "fora de venda");
+  const det = cs.length === 1 && cs[0].estoque ? ` · ${cs[0].estoque}` : "";
+  return `<span class="pill ${cls}" title="${esc(cs.map(c => c.status).join(", "))}"><span class="rot">${rot}: </span>${esc(txt)}<span class="det">${esc(det)}</span></span>`;
+}
+
+async function carregar(){
+  const u = new URLSearchParams({q:est.q, filtro:est.filtro, grupo:est.grupo, pagina:est.pagina});
+  $("#b-exp").href = $("#b-exp2").href = "/api/exportar.csv?" + u;
+  const r = await api("/api/produtos?" + u);
+  est.total = r.total;
+  $("#linhas").innerHTML = r.itens.map(p => `<div class="lin" data-id="${p.id}">
+    ${p.foto ? `<img class="foto" loading="lazy" src="${esc(mini(p.foto, 320))}" alt="">` : `<div class="foto sem">sem foto</div>`}
+    <div class="nome">${esc(p.nome)}<span class="meta">${esc(p.ean || "sem código de barras")}${p.sku ? " · SKU " + esc(p.sku) : ""}${p.gz_codigo ? " · GZ " + esc(p.gz_codigo) : ""}</span></div>
+    <div class="gp"><div class="grupo">${esc((p.grupo || "").toLowerCase())}</div>
+    <div class="preco">${brl(p.preco)}</div></div>
+    <div class="est"><input type="number" min="0" step="1" inputmode="numeric" value="${p.estoque ?? ""}" placeholder="—" aria-label="Estoque de ${esc(p.nome)}"><small>${p.conferido_em ? "conferido " + data(p.conferido_em) : "não conferido"}${textoEst(p)}</small></div>
+    <div class="canais">${canal(p.canais,"nuvemshop")}${canal(p.canais,"ifood")}${canal(p.canais,"99food")}</div></div>`).join("");
+  $("#vazio").hidden = r.itens.length > 0;
+  const pags = Math.max(1, Math.ceil(r.total / r.por_pagina));
+  $("#conta").textContent = num(r.total) + (r.total === 1 ? " produto" : " produtos");
+  $("#pg").textContent = `Página ${est.pagina} de ${pags}`;
+  $("#ant").disabled = est.pagina <= 1; $("#prox").disabled = est.pagina >= pags;
+}
+
+async function salvarEstoque(inp){
+  const lin = inp.closest(".lin");
+  if(inp.value === inp.defaultValue) return;
+  try{
+    const p = await api("/api/produto/" + lin.dataset.id, {method:"POST", body:JSON.stringify({estoque: inp.value})});
+    inp.defaultValue = inp.value; inp.className = "salvo";
+    lin.querySelector(".est small").textContent = p.conferido_em ? "conferido " + data(p.conferido_em) : "não conferido";
+    api("/api/resumo").then(r => { RESUMO = r; desenharNav(); desenharInicio(); }).catch(() => {});
+  }catch(e){ inp.className = "erro"; inp.title = e.message; }
+}
+
+
+// ------------------------------------------------------------------ fotos
+async function reduzirFoto(file, lado){
+  lado = lado || 1280;
+  const url = URL.createObjectURL(file);
+  try{
+    const img = new Image(); img.src = url; await img.decode();
+    const k = Math.min(1, lado / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise((ok, no) => c.toBlob(b => b ? ok(b) : no(new Error("Não consegui preparar a foto.")), "image/jpeg", 0.82));
+  } finally { URL.revokeObjectURL(url); }
+}
+async function enviarFoto(id, file){
+  let quem = ""; try{ quem = localStorage.getItem("quem") || ""; }catch(e){}
+  const blob = await reduzirFoto(file);
+  return api("/api/foto/" + id, {method:"POST", body: blob, headers:{"Content-Type":"image/jpeg", "X-Quem": encodeURIComponent(quem)}});
+}
+
+async function abrir(id){
+  const p = await api("/api/produto/" + id);
+  let catsLista = []; try{ catsLista = (await api("/api/categorias")).itens; }catch(e){}
+  $("#d-nome").textContent = p.nome;
+  const nomes = {nuvemshop:"Nuvemshop", ifood:"iFood", "99food":"99Food"};
+  const fotoTxt = p.foto_local ? "📷 Trocar a foto tirada" : (p.foto ? "📷 Tirar outra foto" : "📷 Sem foto: tirar foto na prateleira");
+  $("#d-corpo").innerHTML = `
+    <div>${p.foto ? `<img class="foto-grande" src="${esc(mini(p.foto, 480))}" alt="">` : ""}
+      <label class="btn-foto2 ${p.foto ? "" : "destaque"}" for="f-det" style="margin-top:10px">${fotoTxt}<input type="file" id="f-det" accept="image/*" capture="environment" hidden></label>
+      <div id="det-foto-msg" class="sub" role="status"></div></div>
+    <details class="edit-box" id="edit-box"><summary>✏️ Editar produto (nome, preço, categoria)</summary>
+      <label class="campo" for="e-nome">Nome</label><input id="e-nome" value="${esc(p.nome)}" maxlength="150" autocomplete="off">
+      <label class="campo" for="e-preco">Preço de venda (R$)</label><input id="e-preco" inputmode="decimal" value="${p.preco != null ? String(p.preco).replace(".", ",") : ""}" autocomplete="off">
+      <label class="campo" for="e-ean">Código de barras</label><input id="e-ean" inputmode="numeric" value="${esc(p.ean || "")}" autocomplete="off">
+      <label class="campo" for="e-cat">Categoria da loja</label><select id="e-cat"><option value="">— sem categoria —</option>${catsLista.map(k => `<option value="${esc(k.id)}" ${k.id === p.categoria_id ? "selected" : ""}>${esc(k.nome)}</option>`).join("")}</select>
+      ${catsLista.length ? "" : '<button id="e-lercats" style="margin-top:6px">Ler categorias da loja agora</button>'}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="pri" id="e-salvar">Salvar no painel</button>
+      ${p.canais.filter(c => c.canal === "nuvemshop").length === 1 ? '<button id="e-site">Salvar e enviar ao site</button>' : ""}</div>
+      <div id="e-msg" role="status" style="margin-top:6px"></div></details>
+    <dl>
+      <dt>Código de barras</dt><dd>${esc(p.ean) || "—"}</dd>
+      <dt>SKU (Nuvemshop)</dt><dd>${esc(p.sku) || "—"}</dd>
+      <dt>Código Gestor Z</dt><dd>${esc(p.gz_codigo) || "—"}</dd>
+      <dt>Categoria da loja</dt><dd>${esc(p.categoria_nome) || "—"}</dd>
+      <dt>Grupo (Gestor Z)</dt><dd>${esc(p.grupo) || "—"}</dd>
+      ${p.origem === "manual" ? "<dt>Origem</dt><dd>Cadastrado à mão no painel (falta cadastrar nas lojas)</dd>" : ""}
+      <dt>Preço no caixa</dt><dd>${brl(p.preco) || "—"}</dd>
+      <dt>Custo</dt><dd>${p.custo ? brl(p.custo) : "—"}</dd>
+      <dt>Estoque oficial</dt><dd><b>${p.estoque ?? "não conferido"}</b>${p.conferido_em ? " · " + data(p.conferido_em) : ""}</dd>
+      <dt>Estoque estimado</dt><dd>${p.estimado != null ? "<b>" + fmtN(p.estimado) + "</b> (contagem + notas − vendas do caixa e do site; iFood e 99 ainda não entram)" : (p.est_aviso === "peso" ? "vende por peso: sem estimativa" : "precisa de contagem")}</dd>
+      <dt>Saldo no Gestor Z</dt><dd>${esc(p.gz_saldo) || "sem controle"}</dd>
+      <dt>Situação estimada</dt><dd>${esc(p.situacao) || "—"}</dd>
+      <dt>Ação sugerida</dt><dd>${esc(p.acao) || "—"}</dd>
+      <dt>Vendas no ano (caixa)</dt><dd>${p.vendas_ano ?? "—"}</dd>
+      <dt>Última compra</dt><dd>${esc(p.ultima_compra) || "—"}</dd>
+    </dl>
+    <div><h4>Lojas online</h4>${p.canais.length ? `<div class="rolagem"><table class="mini"><thead><tr><th>Loja</th><th>Nome lá</th><th>Preço</th><th>Estoque</th><th>Situação</th></tr></thead><tbody>${
+      p.canais.map(c => `<tr><td>${nomes[c.canal]}</td><td>${esc(c.nome) || "—"}</td><td>${brl(c.preco) || "—"}</td><td>${esc(c.estoque) || "—"}</td><td><span class="pill ${c.vendendo ? "p-ok" : "p-bad"}">${esc(c.status)}</span></td></tr>`).join("")}</tbody></table></div>` : "Este produto não está em nenhuma loja online."}</div>
+    ${p.movimento ? `<div><h4>Desde a contagem (${esc(p.movimento.contagem_em)})</h4>
+      <div class="rolagem"><table class="mini"><tbody>${
+        p.movimento.entradas.map(e => `<tr><td>${esc(e.emissao)}</td><td>entrou</td><td>+${fmtN(e.unidades)} un (${fmtN(e.quantidade)} × ${fmtN(e.fator)}) · ${esc(e.fornecedor)}</td></tr>`).join("") +
+        p.movimento.vendas.map(v => `<tr><td>${esc(v.inicio)} a ${esc(v.fim)}</td><td>vendeu</td><td>−${fmtN(v.qtd)} ${esc(v.unidade)} no caixa</td></tr>`).join("") +
+        (p.movimento.site || []).map(v => `<tr><td>${esc(v.dia)}</td><td>vendeu</td><td>−${fmtN(v.qtd)} no site (pedido ${esc(v.numero)})</td></tr>`).join("") ||
+        "<tr><td>Nenhuma nota nem venda importada depois da contagem.</td></tr>"}</tbody></table></div>
+      <p class="m" style="color:var(--muted);font-size:13px">Vendas do iFood e da 99 ainda não entram na conta.</p></div>` : ""}
+    <div><h4>Observação</h4><textarea id="d-obs">${esc(p.obs)}</textarea><div style="margin-top:8px"><button class="pri" id="d-salvar">Salvar observação</button></div></div>
+    <div><h4>Histórico</h4>${p.historico.length ? `<div class="rolagem"><table class="mini"><tbody>${
+      p.historico.map(h => `<tr><td>${data(h.quando)}</td><td>${esc(h.campo)}</td><td>${esc(h.de) || "—"} → ${esc(h.para) || "—"}</td></tr>`).join("")}</tbody></table></div>` : "Nenhuma alteração ainda."}</div>`;
+  const salvarEdicao = async () => {
+    const corpo = {nome:$("#e-nome").value, preco:$("#e-preco").value, ean:$("#e-ean").value, categoria_id:$("#e-cat").value, quem:quemContando()};
+    $("#e-msg").className = ""; $("#e-msg").textContent = "Salvando…";
+    await api("/api/produto/" + id, {method:"POST", body:JSON.stringify(corpo)});
+  };
+  if($("#e-lercats")) $("#e-lercats").onclick = e => lerCategorias(e.target, async () => { await abrir(id); $("#edit-box").open = true; });
+  $("#e-salvar").onclick = async () => {
+    try{ await salvarEdicao(); carregar(); carregarResumo(); await abrir(id); $("#edit-box").open = true; $("#e-msg").className = "ok-msg"; $("#e-msg").textContent = "Salvo no painel."; }
+    catch(e){ $("#e-msg").className = "erro-msg"; $("#e-msg").textContent = e.message; }
+  };
+  if($("#e-site")) $("#e-site").onclick = async () => {
+    try{
+      const campos = [];
+      if($("#e-nome").value.trim() !== p.nome) campos.push("nome");
+      if(Number(String($("#e-preco").value).replace(",", ".") || 0) !== Number(p.preco || 0)) campos.push("preco");
+      if(($("#e-cat").value || "") !== (p.categoria_id || "")) campos.push("categoria");
+      await salvarEdicao();
+      if(!campos.length){ $("#e-msg").className = "erro-msg"; $("#e-msg").textContent = "Nada mudou em nome, preço ou categoria, então não há o que enviar."; return; }
+      const rot = {nome:"o nome", preco:"o preço", categoria:"a categoria"};
+      if(!confirm("Vou mudar só " + campos.map(c => rot[c]).join(", ") + " deste produto também na Nuvemshop (os clientes veem se ele estiver publicado). Confirmar?")){ $("#e-msg").textContent = "Salvo só no painel."; return; }
+      $("#e-msg").textContent = "Enviando para a loja…";
+      await api("/api/nuvemshop/produto/" + id, {method:"POST", body:JSON.stringify({campos, quem:quemContando()})});
+      carregar(); carregarResumo(); await abrir(id); $("#edit-box").open = true; $("#e-msg").className = "ok-msg"; $("#e-msg").textContent = "Salvo no painel e enviado ao site.";
+    }catch(e){ $("#e-msg").className = "erro-msg"; $("#e-msg").textContent = e.message; }
+  };
+  $("#f-det").onchange = async e => {
+    const f = e.target.files[0]; e.target.value = ""; if(!f) return;
+    $("#det-foto-msg").textContent = "Enviando a foto…";
+    try{ await enviarFoto(id, f); await abrir(id); carregar(); carregarResumo(); }
+    catch(err){ $("#det-foto-msg").textContent = "Não consegui salvar a foto: " + err.message; }
+  };
+  $("#d-salvar").onclick = async () => { await api("/api/produto/" + id, {method:"POST", body:JSON.stringify({obs: $("#d-obs").value})}); abrir(id); };
+  if(!$("#dlg").open) $("#dlg").showModal();
+}
+
+function recarregar(topo){ if(topo) window.scrollTo({top:0}); desenharNav(); desenharChips(); carregar(); }
+
+/* ------------------------------------------------------------- eventos */
+let t;
+$("#q").addEventListener("input", e => { clearTimeout(t); t = setTimeout(() => { est.q = e.target.value; est.pagina = 1; carregar(); }, 250); });
+$("#q").addEventListener("keydown", e => { if(e.key === "Enter") e.target.blur(); });
+$("#f-inicio").addEventListener("submit", e => { e.preventDefault(); const v = $("#q-inicio").value.trim(); $("#q-inicio").blur(); $("#q-inicio").value = ""; irPara({q: v}); });
+$("#grupo").addEventListener("change", e => { est.grupo = e.target.value; est.pagina = 1; recarregar(false); });
+$("#chips").addEventListener("click", e => {
+  const b = e.target.closest(".chip"); if(!b) return;
+  est.grupo = b.dataset.g; est.pagina = 1; $("#grupo").value = est.grupo; recarregar(true);
+});
+$("#nav-lista").addEventListener("click", e => {
+  const b = e.target.closest(".f"); if(!b) return;
+  est.filtro = b.dataset.f; est.pagina = 1; $("#nav").classList.remove("aberto"); recarregar(true);
+});
+$("#b-cats").onclick = () => $("#dcats").showModal();
+$("#cat-x").onclick = () => $("#dcats").close();
+$("#cats").addEventListener("click", e => {
+  const b = e.target.closest("[data-g]"); if(!b) return;
+  $("#dcats").close(); irPara({grupo: b.dataset.g});
+});
+$("#tela-inicio").addEventListener("click", e => {
+  const b = e.target.closest("[data-f],[data-g]"); if(!b) return;
+  irPara(b.dataset.f ? {filtro: b.dataset.f} : {grupo: b.dataset.g});
+});
+$("#ativos").addEventListener("click", async e => {
+  const m = e.target.closest("#b-marcar");
+  if(m){
+    if(!confirm("Marcar que você já enviou os contados para este destino? A lista de 'não enviados' vai ficar vazia até você contar de novo. Isso não envia nada.")) return;
+    try{ await api("/api/envio/marcar", {method:"POST", body:JSON.stringify({destino:m.dataset.d})}); await carregarResumo(); recarregar(true); }
+    catch(er){ alert(er.message); }
+    return;
+  }
+ if(e.target.closest("#x-filtro")){ est.filtro = "todos"; est.pagina = 1; recarregar(false); } });
+$("#b-filtros").onclick = () => { $("#nav").classList.add("aberto"); $("#nav").scrollTop = 0; };
+$("#nav-x").onclick = () => $("#nav").classList.remove("aberto");
+$("#ant").onclick = () => { est.pagina--; recarregar(true); };
+$("#prox").onclick = () => { est.pagina++; recarregar(true); };
+$("#linhas").addEventListener("change", e => { if(e.target.matches("input")) salvarEstoque(e.target); });
+$("#linhas").addEventListener("keydown", e => {
+  if(e.key !== "Enter" || !e.target.matches("input")) return;
+  e.preventDefault();
+  const prox = e.target.closest(".lin").nextElementSibling; e.target.blur();
+  if(prox) prox.querySelector("input").focus();
+});
+$("#linhas").addEventListener("click", e => { const n = e.target.closest(".nome,.foto"); if(n) abrir(n.closest(".lin").dataset.id); });
+$("#d-x").onclick = () => $("#dlg").close();
+const abrirImportar = () => { $("#msg").textContent = ""; $("#dimp").showModal(); };
+$("#b-imp").onclick = abrirImportar; $("#b-imp2").onclick = abrirImportar;
+$("#i-x").onclick = () => $("#dimp").close();
+$("#b-sync").onclick = abrirSync; $("#b-sync2").onclick = abrirSync;
+$("#s-x").onclick = () => $("#dsync").close();
+
+
+/* ------------------------------------------------ enviar estoque para a Nuvemshop */
+let sinc = {modo:"zerar", previa:null, ultimo:"", sel:new Set()};
+const BUILD = "9.7";
+const quemContando = () => { try{ return localStorage.getItem("quem") || ""; }catch(e){ return ""; } };
+async function abrirSync(){ $("#dsync").showModal(); await desenharSync(); }
+async function desenharSync(){
+  const r = await api("/api/resumo"), c = $("#s-corpo");
+  if(!r.nuvemshop_configurada){
+    c.innerHTML = `<section><b>1. Conectar a Nuvemshop</b>
+      <p>Cole o token de acesso do aplicativo da loja. Ele fica guardado só neste computador, no arquivo config.json.</p>
+      <label class="campo">Token de acesso<input id="s-token" type="password" autocomplete="off"></label>
+      <label class="campo">Número da loja<input id="s-loja" inputmode="numeric" autocomplete="off" placeholder="só números"></label>
+      <button class="pri" id="s-conectar">Conectar</button><div id="s-msg" role="status"></div></section>`;
+    $("#s-conectar").onclick = async () => {
+      $("#s-msg").className = ""; $("#s-msg").textContent = "Conferindo o token…";
+      try{
+        const d = await api("/api/config/nuvemshop", {method:"POST", body:JSON.stringify({token:$("#s-token").value, loja:$("#s-loja").value})});
+        $("#s-token").value = ""; $("#s-msg").className = "ok-msg"; $("#s-msg").textContent = "Conectado: " + d.loja;
+        setTimeout(() => { carregarResumo(); desenharSync(); }, 900);
+      }catch(e){ $("#s-msg").className = "erro-msg"; $("#s-msg").textContent = e.message; }
+    };
+    return;
+  }
+  const bk = (await api("/api/nuvemshop/backups")).itens.filter(b => b.desfazer).slice(0, 5);
+  c.innerHTML = `<section><b>Nuvemshop conectada ✔</b>
+      <p>Primeiro você vê o que vai mudar. Só grava quando você confirmar, e sempre guarda um backup para desfazer.</p>
+      <label class="op"><input type="radio" name="modo" value="zerar" checked><span><b>Só zerar o que acabou</b> (recomendado)<br><small>Produtos contados com 0 passam a aparecer sem estoque no site.</small></span></label>
+      <label class="op"><input type="radio" name="modo" value="repor"><span><b>Zerar e repor as quantidades contadas</b><br><small>Também grava no site a quantidade contada dos outros produtos, e o site passa a controlar o estoque deles.</small></span></label>
+      <label class="op"><input type="radio" name="modo" value="estimado"><span><b>Enviar o estoque estimado</b> (contagem + notas − vendas)<br><small>Só dos produtos já contados que tiveram nota ou venda depois. É uma estimativa, não contagem. Nunca zera o site: se o estimado chegou a zero, o item vai para conferência na prateleira. Você marca o que quer enviar.</small></span></label>
+      <button class="pri" id="s-ver">Ver o que vai mudar</button></section>
+    <div id="s-previa"></div><div id="s-andamento" role="status"></div>
+    <section><b>Desfazer uma gravação</b>${bk.length ? bk.map(b => `<div class="bk"><span>${data(b.quando)} · ${b.itens} produtos</span><button data-bk="${esc(b.arquivo)}">Desfazer</button></div>`).join("") : "<p>Nenhuma gravação para desfazer.</p>"}</section>`;
+  $("#s-ver").onclick = verPrevia;
+  c.querySelectorAll("[data-bk]").forEach(b => b.onclick = () => desfazerSync(b.dataset.bk));
+  if(sinc.ultimo) $("#s-andamento").innerHTML = sinc.ultimo;     // o resultado continua na tela depois de redesenhar
+}
+async function verPrevia(){
+  sinc.modo = document.querySelector("input[name=modo]:checked").value;
+  sinc.ultimo = ""; $("#s-andamento").innerHTML = "";
+  $("#s-previa").innerHTML = "<p>Calculando…</p>";
+  try{
+    const p = await api("/api/nuvemshop/previa?modo=" + sinc.modo); sinc.previa = p;
+    const it = p.itens, lim = p.limite;
+    sinc.sel = new Set(sinc.modo === "zerar" ? it.slice(0, lim).map(i => i.var_site) : []);   // "repor": você marca o que quer enviar
+    const MAX_LISTA = 800;
+    $("#s-previa").innerHTML = `<section><b>Prévia: nada foi gravado ainda</b>
+      <p>${num(p.conferidos)} produtos conferidos · <b>${num(p.mudancas)}</b> vão mudar no site · ${num(p.ja_certos)} já estão certos${p.sem_loja ? " · " + num(p.sem_loja) + " conferidos que não estão no site" : ""}</p>
+      ${p.varias_variacoes ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)"><b>${num(p.varias_variacoes)} produto${p.varias_variacoes === 1 ? "" : "s"} contado${p.varias_variacoes === 1 ? "" : "s"} ficaram de fora</b> porque têm várias variações no site (cores ou tamanhos) e o painel não sabe qual delas a contagem representa. Ajuste esses direto na Nuvemshop.<br><small>${p.revisar.map(esc).join(" · ")}${p.varias_variacoes > p.revisar.length ? " · …" : ""}</small></p>` : ""}
+      ${it.length ? `<p class="dica-sel">Marque só o que você quer enviar agora. <b>Para um primeiro teste, marque 3 ou 4 itens.</b></p>
+      <div class="sel-barra"><button id="s-todos">Marcar todos</button><button id="s-nenhum">Desmarcar todos</button><span id="s-cont"></span></div>
+      <input type="search" class="busca-lista" data-lista="#s-lista" placeholder="Buscar produto nesta lista" aria-label="Buscar nesta lista"><div class="lista-prev" id="s-lista">${it.slice(0, MAX_LISTA).map(i => `<label class="pv"><input type="checkbox" data-v="${i.var_site}" ${sinc.sel.has(i.var_site) ? "checked" : ""}><span><b>${esc(i.nome)}</b>${i.publicado ? "" : ' <span class="pill p-idle">oculto</span>'}<br><small>site: ${esc(i.de)} → <b>${i.para}</b> · ${esc(i.motivo)}</small></span></label>`).join("")}${it.length > MAX_LISTA ? `<div class="pv"><small>… e mais ${it.length - MAX_LISTA} que não cabem na lista; envie estes primeiros e repita.</small></div>` : ""}</div>
+      <button class="pri" id="s-gravar"></button><p id="s-aviso-lim"></p>` : "<p>Nada para mudar agora. Conte mais produtos e volte aqui.</p>"}</section>`;
+    if(it.length){
+      const mostrar = it.slice(0, MAX_LISTA).map(i => i.var_site);
+      const atualizar = () => {
+        const n = sinc.sel.size, g = $("#s-gravar");
+        $("#s-cont").textContent = `${n} marcado${n === 1 ? "" : "s"}`;
+        g.textContent = `Gravar ${n} mudança${n === 1 ? "" : "s"} na loja`;
+        g.disabled = n === 0 || n > lim;
+        $("#s-aviso-lim").textContent = n > lim ? `Marque no máximo ${lim} por vez (você marcou ${n}).` : "";
+      };
+      $("#s-lista").addEventListener("change", e => { const c = e.target.closest("input[data-v]"); if(!c) return; c.checked ? sinc.sel.add(+c.dataset.v) : sinc.sel.delete(+c.dataset.v); atualizar(); });
+      $("#s-todos").onclick = () => { [...$("#s-lista").querySelectorAll(".pv:not([hidden]) input[data-v]")].slice(0, lim).forEach(c => sinc.sel.add(+c.dataset.v)); $("#s-lista").querySelectorAll("input[data-v]").forEach(c => c.checked = sinc.sel.has(+c.dataset.v)); atualizar(); };
+      $("#s-nenhum").onclick = () => { sinc.sel.clear(); $("#s-lista").querySelectorAll("input[data-v]").forEach(c => c.checked = false); atualizar(); };
+      $("#s-gravar").onclick = () => gravarSync(sinc.sel.size);
+      atualizar();
+    }
+  }catch(e){ $("#s-previa").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+}
+async function gravarSync(n){
+  if(!confirm(`Vou gravar ${n} mudança${n === 1 ? "" : "s"} na Nuvemshop agora. Antes eu guardo um backup para você poder desfazer. Confirmar?`)) return;
+  $("#s-previa").innerHTML = ""; sinc.ultimo = "";
+  try{
+    await api("/api/nuvemshop/aplicar", {method:"POST", body:JSON.stringify({modo:sinc.modo, vids:[...sinc.sel], quem:quemContando()})});
+    acompanhar("gravado");
+  }catch(e){ $("#s-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+}
+async function desfazerSync(arquivo){
+  if(!confirm("Vou devolver o estoque desses produtos ao valor que eles tinham antes da gravação. Confirmar?")) return;
+  sinc.ultimo = "";
+  try{
+    await api("/api/nuvemshop/desfazer", {method:"POST", body:JSON.stringify({arquivo, quem:quemContando()})});
+    acompanhar("desfeito");
+  }catch(e){ $("#s-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+}
+function acompanhar(verbo){
+  const iv = setInterval(async () => {
+    const s = await api("/api/tarefa");
+    if(s.rodando){ $("#s-andamento").innerHTML = `<div class="ok-msg">${esc(s.msg)}</div>`; return; }
+    clearInterval(iv);
+    if(s.erro){ $("#s-andamento").innerHTML = `<div class="erro-msg">Não deu certo: ${esc(s.erro)}</div>`; return; }
+    const r = s.resultado || {};
+    sinc.ultimo = `<div class="${r.falharam && r.falharam.length ? "erro-msg" : "ok-msg"}"><b>Pronto.</b> ${num(r.gravados)} ${verbo}${r.gravados === 1 ? "" : "s"} e conferidos na loja${r.pulados ? " · " + num(r.pulados) + " pulados (já estavam certos ou mudaram)" : ""}.${r.backup ? "<br>Backup: " + esc(r.backup) : ""}${r.falharam && r.falharam.length ? "<br>Não gravou: " + esc(r.falharam.join("; ")) : ""}</div>`;
+    $("#s-andamento").innerHTML = sinc.ultimo;
+    carregarResumo(); carregar(); desenharSync();
+  }, 1500);
+}
+
+async function enviar(input, url){
+  const f = input.files[0]; if(!f) return;
+  $("#msg").textContent = "Importando " + f.name + "...";
+  try{
+    const r = await api(url, {method:"POST", body: await f.arrayBuffer()});
+    $("#msg").textContent = "Pronto: " + Object.entries(r).map(([k,v]) => v + " " + k).join(", ") + ".";
+    carregarResumo(); carregar();
+  }catch(e){ $("#msg").textContent = "Não deu certo: " + e.message; }
+  input.value = "";
+}
+$("#f-gz").onchange = e => enviar(e.target, "/api/importar/gestorz");
+$("#f-pn").onchange = e => enviar(e.target, "/api/importar/painel");
+$("#i-ped").onclick = async () => {
+  $("#i-ped").disabled = true; $("#msg").textContent = "Lendo os pedidos do site…";
+  try{
+    await api("/api/sync/pedidos", {method:"POST"});
+    const iv = setInterval(async () => {
+      const s = await api("/api/tarefa");
+      $("#msg").textContent = s.erro ? "Não deu certo: " + s.erro : s.msg;
+      if(!s.rodando){ clearInterval(iv); $("#i-ped").disabled = false; if(s.resultado) $("#msg").textContent = `Pronto: ${s.resultado.pedidos} pedidos lidos. O estoque estimado foi recalculado.`; carregarResumo(); carregar(); }
+    }, 1500);
+  }catch(e){ $("#i-ped").disabled = false; $("#msg").textContent = "Não deu certo: " + e.message; }
+};
+$("#i-nuvem").onclick = async () => {
+  $("#i-nuvem").disabled = true;
+  await api("/api/sync/nuvemshop", {method:"POST"});
+  const iv = setInterval(async () => {
+    const s = await api("/api/tarefa");
+    $("#msg").textContent = s.erro ? "Não deu certo: " + s.erro : s.msg;
+    if(!s.rodando){
+      clearInterval(iv); $("#i-nuvem").disabled = false;
+      if(s.resultado) $("#msg").textContent = `Pronto: ${s.resultado.produtos} produtos e ${s.resultado.variacoes} variações lidos; ${s.resultado.sem_par} sem par no cadastro.`;
+      carregarResumo(); carregar();
+    }
+  }, 1500);
+};
+
+/* ------------------------------------------------ cruzamento de preços (o Gestor Z manda) */
+const cz = {tipo:"", marcados:new Set(), dados:null};
+$("#b-cruz").onclick = () => abrirCruzamento();
+$("#cz-x").onclick = () => $("#dcruz").close();
+async function abrirCruzamento(tipo, manter){
+  if(tipo !== undefined) cz.tipo = tipo;
+  const dlg = $("#dcruz"); if(!dlg.open) dlg.showModal(); const c = $("#cz-corpo");
+  const rolagem = manter ? c.scrollTop : 0;
+  if(!manter) c.innerHTML = "<p>Cruzando os preços…</p>";
+  let d;
+  try{ d = await api("/api/cruzamento" + (cz.tipo ? "?tipo=" + cz.tipo : "")); }
+  catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
+  // aba "sem preço oficial": já traz a melhor sugestão do Gestor Z de cada produto e deixa quem não tem sugestão no fim
+  cz.sugPorId = {};
+  if(cz.tipo === "sem_oficial" && d.itens.length){
+    try{ const sg = await api("/api/cruzamento/sugestoes"); sg.itens.forEach(x => { if(x.sugestao) cz.sugPorId[x.id] = x.sugestao; }); }catch(e){}
+    d.itens.sort((a, b) => (cz.sugPorId[b.id] ? cz.sugPorId[b.id].parecido : -1) - (cz.sugPorId[a.id] ? cz.sugPorId[a.id].parecido : -1));
+  }
+  cz.dados = d;
+  const br = v => v == null ? "—" : "R$ " + Number(v).toFixed(2).replace(".", ",");
+  const q = d.quando || {}, tx = (k, n) => q[k] ? n + " " + esc(data(q[k])) : n + " nunca";
+  const ruim = (i, f) => i.flags.includes(f) ? ' style="background:var(--bad-bg,#fde8e6);font-weight:700"' : "";
+  const aplicaveis = d.itens.filter(i => i.oficial || (cz.tipo === "sem_oficial" && i.painel));
+  c.innerHTML = `<section><b>O preço oficial é o do Gestor Z.</b>
+    <p style="font-size:13px">Esperado: <b>Site = preço do Gestor Z</b> · <b>iFood e 99Food = preço do Gestor Z ÷ ${String(d.divisor).replace(".", ",")}</b> · diferenças de até ${br(d.tolerancia)} não contam.</p>
+    <p style="font-size:12px;color:var(--muted)">Dados usados: ${tx("gestorz_importado_em", "Gestor Z")} · ${tx("nuvemshop_sync_em", "Nuvemshop lida em")} · ${tx("ifood_catalogo_em", "catálogo iFood de")} · ${tx("n99_catalogo_em", "catálogo 99 de")}. Para o cruzamento valer, importe o Gestor Z e os catálogos de novo.</p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${Object.entries(d.tipos).map(([k, n]) => `<button type="button" class="${cz.tipo === k ? "pri" : ""}" data-t="${k}">${esc(n)} (${num(d.contagens[k])})</button>`).join("")}<button type="button" class="${cz.tipo === "" ? "pri" : ""}" data-t="">Tudo com alerta</button></div></section>
+    <section>${d.itens.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${cz.tipo === "sem_oficial" ? '<button type="button" class="pri" id="cz-massa">🔎 Preencher os preços pelo Gestor Z (ver sugestões de todos)</button>' : ""}<button type="button" id="cz-todos">Marcar todos desta lista</button><button type="button" id="cz-nenhum">Desmarcar</button><button type="button" class="pri" id="cz-aplicar">Aplicar o preço oficial no painel (<span id="cz-n">0</span>)</button>${cz.tipo === "sem_oficial" ? '<button type="button" class="pri" id="cz-painel-oficial">Usar o preço que já está no painel como oficial nos marcados</button>' : ""}<button type="button" id="cz-csv">Baixar esta lista (CSV)</button></div>
+      <p style="font-size:12px;color:var(--muted)">“Aplicar” só muda o preço <b>no painel</b>. Depois use as ferramentas de envio (iFood API: “Só atualizar preço…”, Planilhas dos apps, Nuvemshop) para levar o preço certo às lojas. Nada é enviado por aqui.${d.cortou ? " Mostrando só os primeiros " + d.itens.length + " de " + d.total + "." : ""}</p>
+      <div class="rolagem"><table class="mini"><thead><tr><th></th><th>Produto</th><th>Oficial</th><th>Apps ÷</th><th>Painel</th><th>Site</th><th>iFood</th><th>99Food</th></tr></thead><tbody>${d.itens.map(i => `<tr data-id="${i.id}"><td>${i.oficial || (cz.tipo === "sem_oficial" && i.painel) ? `<input type="checkbox" data-i="${i.id}" ${cz.marcados.has(i.id) ? "checked" : ""}>` : ""}</td><td>${esc(i.nome)}<br><small style="color:var(--muted)">${esc(i.ean || "sem código")}${i.contado != null ? " · contado " + i.contado : ""}</small></td><td><b>${br(i.oficial)}</b>${i.oficial ? "" : `<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap"><input class="cz-pin" data-i="${i.id}" inputmode="decimal" placeholder="R$" style="width:70px"><button type="button" class="cz-salvar pri" data-i="${i.id}" style="font-size:12px">Salvar preço</button></div>${i.painel ? `<button type="button" class="cz-usar-painel" data-i="${i.id}" data-p="${i.painel}" style="font-size:12px;margin-top:3px">Usar ${br(i.painel)} (do painel)</button><br>` : ""}${cz.sugPorId[i.id] ? `<div style="margin-top:4px;font-size:12px;border-top:1px dashed var(--line);padding-top:3px">Sugestão do Gestor Z (${Math.round(cz.sugPorId[i.id].parecido * 100)}%): <b>${esc(cz.sugPorId[i.id].nome)}</b>${cz.sugPorId[i.id].tamanho_igual === false ? ' <b style="color:var(--bad)">(tamanho diferente)</b>' : ""}<br><button type="button" class="cz-usar-sug" data-i="${i.id}" data-r="${cz.sugPorId[i.id].id}" style="font-size:12px;margin-top:3px">Usar ${br(cz.sugPorId[i.id].preco)}</button></div>` : '<div style="margin-top:4px;font-size:12px;color:var(--muted)">sem sugestão no Gestor Z</div>'}`}</td><td>${br(i.esperado_apps)}</td><td${ruim(i, "painel")}>${br(i.painel)}</td><td${ruim(i, "site")}>${br(i.site)}</td><td${ruim(i, "ifood")}>${br(i.ifood)}</td><td${ruim(i, "n99")}>${br(i.n99)}</td></tr>`).join("")}</tbody></table></div>` : "<p>Nada com alerta nesta lista. 👍</p>"}</section>
+    <div id="cz-res" role="status"></div>`;
+  const cont = () => { const n = $("#cz-n"); if(n) n.textContent = cz.marcados.size; };
+  cont();
+  if(manter) c.scrollTop = rolagem;
+  // salvar um item NÃO recarrega a tela: tira só a linha, para você continuar de onde estava
+  const tirarLinha = (id, texto) => {
+    const tr = c.querySelector(`tr[data-id="${id}"]`); if(tr) tr.remove();
+    cz.marcados.delete(+id); cont();
+    const chip = c.querySelector(`button[data-t="${cz.tipo}"]`);
+    if(chip) chip.textContent = chip.textContent.replace(/\((\d[\d.]*)\)/, (m, n) => "(" + Math.max(0, parseInt(n.replace(".", ""), 10) - 1) + ")");
+    const r = $("#cz-res"); if(r) r.innerHTML = `<div class="ok-msg" style="padding:4px 8px">${esc(texto)}</div>`;
+  };
+  c.onclick = async e => {
+    const t = e.target.closest("button[data-t]"); if(t){ cz.marcados.clear(); abrirCruzamento(t.dataset.t); return; }
+    if(e.target.closest("#cz-todos")){ aplicaveis.forEach(i => cz.marcados.add(i.id)); abrirCruzamento(undefined, true); return; }
+    if(e.target.closest("#cz-nenhum")){ cz.marcados.clear(); abrirCruzamento(undefined, true); return; }
+    const sv = e.target.closest(".cz-salvar");
+    if(sv){
+      const v = c.querySelector(`.cz-pin[data-i="${sv.dataset.i}"]`).value;
+      if(!v.trim()){ alert("Digite o preço, por exemplo 12,50."); return; }
+      try{ await api("/api/cruzamento/definir", {method:"POST", body:JSON.stringify({pares:[[+sv.dataset.i, v]]}), headers:{"X-Quem":encodeURIComponent(quemContando())}}); tirarLinha(sv.dataset.i, "Preço salvo: R$ " + v.replace(".", ",")); }
+      catch(er){ alert(er.message); }
+      return;
+    }
+    const us2 = e.target.closest(".cz-usar-sug");
+    if(us2){
+      try{ await api("/api/cruzamento/aplicar-sugestoes", {method:"POST", body:JSON.stringify({pares:[[+us2.dataset.i, +us2.dataset.r]]}), headers:{"X-Quem":encodeURIComponent(quemContando())}}); tirarLinha(us2.dataset.i, "Preço do Gestor Z gravado: " + us2.textContent.replace("Usar ", "")); }
+      catch(er){ alert(er.message); }
+      return;
+    }
+    const up = e.target.closest(".cz-usar-painel");
+    if(up){
+      try{ await api("/api/cruzamento/definir", {method:"POST", body:JSON.stringify({pares:[[+up.dataset.i, up.dataset.p]]}), headers:{"X-Quem":encodeURIComponent(quemContando())}}); tirarLinha(up.dataset.i, "Preço do painel aceito como oficial."); }
+      catch(er){ alert(er.message); }
+      return;
+    }
+    if(e.target.closest("#cz-painel-oficial")){
+      const pares = d.itens.filter(i => cz.marcados.has(i.id) && i.painel).map(i => [i.id, i.painel]);
+      if(!pares.length){ alert("Marque ao menos um produto que já tenha preço no painel."); return; }
+      if(!confirm("Usar o preço que já está no painel como preço oficial em " + pares.length + " produto(s)? Isso não envia nada às lojas.")) return;
+      try{ const r = await api("/api/cruzamento/definir", {method:"POST", body:JSON.stringify({pares}), headers:{"X-Quem":encodeURIComponent(quemContando())}});
+        cz.marcados.clear(); await abrirCruzamento(undefined, true); $("#cz-res").innerHTML = `<div class="ok-msg">${num(r.aplicados)} produto(s) com preço oficial definido. Atualize a lista do iFood.</div>`; carregarResumo(); }
+      catch(er){ alert(er.message); }
+      return;
+    }
+    const s = e.target.closest(".cz-sug");
+    if(s){
+      const box = c.querySelector(`.cz-sug-box[data-i="${s.dataset.i}"]`); box.textContent = "procurando…";
+      try{ const r = await api("/api/produto/" + s.dataset.i + "/sugestoes-preco");
+        box.innerHTML = r.itens.length ? r.itens.map(x => `<button type="button" class="cz-usar" data-i="${s.dataset.i}" data-p="${x.preco}" style="font-size:12px;display:block;margin-top:3px" title="${esc(x.nome)}">Usar ${br(x.preco)} · ${esc(x.nome.slice(0, 28))}</button>`).join("") : "<small>nenhum parecido</small>";
+      }catch(er){ box.textContent = er.message; }
+      return;
+    }
+    const us = e.target.closest(".cz-usar");
+    if(us){
+      try{ await api("/api/produto/" + us.dataset.i, {method:"POST", body:JSON.stringify({preco: us.dataset.p, quem: quemContando()})}); abrirCruzamento(); }
+      catch(er){ alert(er.message); }
+      return;
+    }
+    if(e.target.closest("#cz-massa")){
+      $("#cz-res").innerHTML = "<p>Procurando no Gestor Z…</p>";
+      try{
+        const r = await api("/api/cruzamento/sugestoes"), br = v => "R$ " + Number(v).toFixed(2).replace(".", ",");
+        cz.sug = r.itens;
+        $("#cz-res").innerHTML = `<section><b>Preços do Gestor Z para produtos sem preço</b>
+          <p style="font-size:13px">Vêm marcados só os <b>muito parecidos</b> (mesmas palavras e mesmo tamanho). Os outros, <b>confira o nome</b> antes de marcar. Aplicar grava o preço no painel e não envia nada às lojas.</p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px"><button type="button" class="pri" id="cz-aplicar-sug">Aplicar os marcados</button><span id="cz-sug-n"></span></div>
+          <div class="rolagem"><table class="mini"><thead><tr><th></th><th>Seu produto</th><th>Produto do Gestor Z</th><th>Preço</th><th>Parecido</th></tr></thead><tbody>${r.itens.map((i, k) => i.sugestao ? `<tr><td><input type="checkbox" data-s="${k}" ${i.sugestao.auto ? "checked" : ""}></td><td>${esc(i.nome)}</td><td>${esc(i.sugestao.nome)}${i.sugestao.tamanho_igual === false ? ' <b style="color:var(--bad)">(tamanho diferente)</b>' : ""}</td><td><b>${br(i.sugestao.preco)}</b></td><td>${Math.round(i.sugestao.parecido * 100)}%${i.sugestao.auto ? " ✔" : ""}</td></tr>` : `<tr><td></td><td>${esc(i.nome)}</td><td colspan="3"><small>nenhum parecido no Gestor Z: informe o preço à mão</small></td></tr>`).join("")}</tbody></table></div></section>`;
+        const conta = () => { const n = $("#cz-res").querySelectorAll("input[data-s]:checked").length; $("#cz-sug-n").textContent = n + " marcado(s)"; };
+        conta(); $("#cz-res").onchange = conta;
+      }catch(er){ $("#cz-res").innerHTML = `<div class="erro-msg">${esc(er.message)}</div>`; }
+      return;
+    }
+    if(e.target.closest("#cz-aplicar-sug")){
+      const pares = [...$("#cz-res").querySelectorAll("input[data-s]:checked")].map(x => { const i = cz.sug[+x.dataset.s]; return [i.id, i.sugestao.id]; });
+      if(!pares.length){ alert("Marque ao menos um."); return; }
+      if(!confirm("Gravar no painel o preço do Gestor Z em " + pares.length + " produto(s)? Isso não envia nada às lojas.")) return;
+      try{ const r = await api("/api/cruzamento/aplicar-sugestoes", {method:"POST", body:JSON.stringify({pares}), headers:{"X-Quem":encodeURIComponent(quemContando())}});
+        await abrirCruzamento("sem_oficial", true); $("#cz-res").innerHTML = `<div class="ok-msg">${num(r.aplicados)} preço(s) gravado(s) no painel. Volte à janela do iFood e atualize a lista.</div>`; carregarResumo(); }
+      catch(er){ alert(er.message); }
+      return;
+    }
+    if(e.target.closest("#cz-aplicar")){
+      if(!cz.marcados.size){ alert("Marque ao menos um produto."); return; }
+      if(!confirm("Colocar no PAINEL o preço oficial do Gestor Z em " + cz.marcados.size + " produto(s)? Isso não envia nada às lojas.")) return;
+      try{ const r = await api("/api/cruzamento/aplicar", {method:"POST", body:JSON.stringify({ids:[...cz.marcados]}), headers:{"X-Quem":encodeURIComponent(quemContando())}});
+        cz.marcados.clear(); await abrirCruzamento(undefined, true); $("#cz-res").innerHTML = `<div class="ok-msg">${num(r.aplicados)} preço(s) corrigido(s) no painel. Agora leve para as lojas pelas ferramentas de envio.</div>`; carregarResumo(); }
+      catch(er){ alert(er.message); }
+      return;
+    }
+    if(e.target.closest("#cz-csv")){
+      const q2 = t => '"' + String(t ?? "").replace(/"/g, '""') + '"', n2 = v => v == null ? "" : String(v).replace(".", ",");
+      const linhas = [["Produto", "Código", "Contado", "Preço oficial (Gestor Z)", "Esperado iFood/99", "Painel", "Site", "iFood", "99Food", "Alertas"].map(q2).join(";")]
+        .concat(cz.dados.itens.map(i => [i.nome, i.ean, i.contado, n2(i.oficial), n2(i.esperado_apps), n2(i.painel), n2(i.site), n2(i.ifood), n2(i.n99), i.flags.map(f => cz.dados.tipos[f]).join(" | ")].map(q2).join(";")));
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + linhas.join("\r\n")], {type:"text/csv;charset=utf-8"}));
+      a.download = "cruzamento_precos.csv"; a.click();
+    }
+  };
+  c.onchange = e => { const x = e.target.closest("input[data-i]"); if(x){ x.checked ? cz.marcados.add(+x.dataset.i) : cz.marcados.delete(+x.dataset.i); cont(); } };
+}
+/* ------------------------------------------------ planilha do iFood */
+const ifd = {divisor:DIV_APPS, canal:"shop", aba:"ifood", novos:false};
+$("#b-ifood").onclick = () => abrirIfood(); $("#b-ifood2").onclick = () => abrirIfood();
+$("#ip-x").onclick = () => $("#difood").close();
+async function abrirIfood(){
+  $("#difood").showModal(); const c = $("#ip-corpo");
+  c.innerHTML = "<p>Calculando…</p>";
+  let p;
+  try{ p = await api("/api/ifood/previa?divisor=" + encodeURIComponent(ifd.divisor) + (ifd.novos ? "&so_novos=1" : "")); }
+  catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
+  const f = p.faltas, aviso = (k, t) => f[k] ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(f[k].n)} ficam de fora: ${t}<br><small>${f[k].nomes.map(esc).join(" · ")}${f[k].n > 8 ? " · …" : ""}</small></p>` : "";
+  const q = "divisor=" + encodeURIComponent(ifd.divisor) + "&canal=" + ifd.canal;
+  const qi = q + (ifd.novos ? "&so_novos=1" : "");     // só o iFood sabe filtrar "contados depois do último envio"
+  let n9 = null; try{ n9 = await api("/api/n99/previa?" + q); }catch(e){ n9 = {erro:e.message}; }
+  const ok99 = n9 && !n9.erro;
+  const catalogo99 = `<section><b>1. Catálogo da 99Food</b>
+      <p>${ok99 ? `Catálogo lido em ${data(n9.catalogo_em)} · ${num(n9.itens_99)} itens, ${num(n9.ativos_com_estoque)} com estoque.` : "Ainda não li o catálogo da 99Food."} No portal da 99: <i>Cardápio da loja</i> &gt; <i>Editar itens em lote</i> &gt; link <b>“Baixar dados de todos os itens”</b>. Envie esse arquivo (<i>grocery_shop_item_download….xlsx</i>): é dele que o painel sabe quais itens já existem na 99 e o que está ativo.</p>
+      <input type="file" id="n9-cat" accept=".xlsx"><div id="n9-msg" role="status"></div></section>`;
+  const regra99 = `<section><b>2. Regra de preço</b>
+      <p>Preço na 99Food = preço do painel ÷ <input id="if-div" inputmode="decimal" value="${esc(ifd.divisor)}" style="width:70px;padding:6px;border:1px solid var(--line);border-radius:6px"> <button id="if-aplicar">Recalcular</button></p>
+      <p style="color:var(--muted);font-size:13px">É a mesma regra do iFood: ÷ ${DIV_APPS} equivale a +${DIV_APPS_PCT}% sobre o preço do painel.</p></section>`;
+  const faltas99 = aviso("sem_preco", "sem preço no painel.") + aviso("sem_contagem", "cadastrado mas sem contagem.") + aviso("sem_codigo", "sem código de barras válido.");
+  const resultado99 = !ok99 ? `<section><b>3. O que vai na planilha</b>
+      <p>Do painel: <b>${num(p.total)}</b> produtos conferidos ou cadastrados, com preço e código de barras, prontos para a 99. Envie o catálogo da 99 no passo 1 para ver o que muda e liberar as planilhas de <b>Editar</b> e de <b>Novos</b>.</p>${faltas99}</section>` : `<section><b>3. O que vai na planilha</b>
+      <p style="color:var(--muted);font-size:13px">Item conferido no painel usa o mesmo estoque e o mesmo preço do iFood. Item <b>fora de venda ou em ruptura no iFood e sem contagem no painel</b> fica com estoque 0 na 99 (a 99 não destrava sozinha).</p>
+      <p><b>${num(n9.zerar)}</b> a zerar · <b>${num(n9.atualizar)}</b> a atualizar (painel) · ${num(n9.sem_mudar)} sem mudança · <b>${num(n9.conferir)}</b> para você conferir (ativos na 99 que não estão no iFood nem no painel; não mexi neles) · <b>${num(n9.novos)}</b> novos para adicionar${n9.novos_incertos ? " (" + num(n9.novos_incertos) + " com categoria incerta)" : ""}.</p>
+      ${faltas99}
+      ${n9.amostra.length ? `<div class="rolagem"><table class="mini"><thead><tr><th>Item</th><th>Estoque</th><th>Preço</th><th>Motivo</th></tr></thead><tbody>${n9.amostra.map(i => `<tr><td>${esc(i.nome)}</td><td>${i.qtd}</td><td>${esc(i.preco_txt)}</td><td>${esc(i.motivo)}</td></tr>`).join("")}</tbody></table></div><small>Mostrando as 12 primeiras mudanças.</small>` : ""}
+      <p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)"><b>Faça um teste primeiro:</b> baixe a planilha de teste (5 itens), envie no portal da 99 e confira. Só depois baixe a completa.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a class="btn" href="/api/n99/editar.xlsx?${q}&teste=1">Editar: planilha de teste (5)</a>
+        <a class="btn pri" href="/api/n99/editar.xlsx?${q}">Editar: planilha completa (${num(n9.zerar + n9.atualizar)})</a>
+        ${n9.novos ? `<a class="btn" href="/api/n99/adicionar.xlsx?${q}&teste=1">Novos: teste (5)</a><a class="btn" href="/api/n99/adicionar.xlsx?${q}">Novos: completa (${num(n9.novos)})</a>` : ""}
+        <a class="btn" href="/api/n99/revisar.csv?${q}">Lista para conferir</a></div></section>`;
+  const sec99 = catalogo99 + regra99 + resultado99;
+  const secIf = `<section><b>1. Catálogo do iFood</b>
+      <p>${p.catalogo_lido ? `Catálogo lido em ${data(p.catalogo_em)}.` : "Ainda não li o catálogo do iFood."} Envie a planilha exportada do portal do iFood (a que tem as colunas <i>ean_do_produto</i> e <i>em_venda</i>): é dela que o painel sabe quais itens estão em <b>ruptura</b> e quais já existem lá.</p>
+      <input type="file" id="if-cat" accept=".xlsx"><div id="if-cat-msg" role="status"></div></section>
+    <section><b>2. Regra de preço</b>
+      <p>Preço no iFood = preço do painel ÷ <input id="if-div" inputmode="decimal" value="${esc(ifd.divisor)}" style="width:70px;padding:6px;border:1px solid var(--line);border-radius:6px"> <button id="if-aplicar">Recalcular</button></p>
+      <p>Canal na planilha: <select id="if-canal">${[["shop","iFood Shop"],["app","iFood App"],["white","White Label"]].map(([k, n]) => `<option value="${k}" ${ifd.canal === k ? "selected" : ""}>${n}</option>`).join("")}</select></p></section>
+    <section><b>3. O que vai na planilha</b>
+      <p><label><input type="checkbox" id="if-novos" ${ifd.novos ? "checked" : ""}> <b>Só os contados depois do último envio</b></label>
+        <small style="color:var(--muted)"> (${(RESUMO && RESUMO.meta && RESUMO.meta.envio_ifood_em) ? "último envio marcado em " + esc(data(RESUMO.meta.envio_ifood_em)) : "você ainda não marcou nenhum envio: vai tudo"})</small>
+        <button type="button" id="if-marcar" style="margin-left:6px">Já enviei: marcar agora</button></p>
+      <p><b>${num(p.total)}</b> produtos (${num(p.no_ifood)} já no iFood · ${num(p.novos_no_ifood)} novos, que o iFood cadastra sozinho) · ${num(p.zerados)} com estoque 0 · <b>${num(p.ruptura)}</b> estão em ruptura no iFood e voltam com o estoque do painel para o iFood destravar.</p>
+      <p style="color:var(--muted);font-size:13px">Estoque = estimado do painel (contagem + notas − vendas). O iFood atualiza preço e estoque de quem já existe e cadastra quem não existe. Ativo = 1 quando tem estoque.</p>
+      ${aviso("ruptura_sem_contagem", "em ruptura no iFood, mas sem contagem no painel. Conte esses itens para eles voltarem a vender.")}${aviso("sem_preco", "sem preço no painel.")}${aviso("sem_contagem", "cadastrado mas sem contagem.")}${aviso("sem_codigo", "sem código de barras válido.")}
+      ${p.itens.length ? `<div class="rolagem"><table class="mini"><thead><tr><th>Produto</th><th>Caixa</th><th>iFood</th><th>Estoque</th></tr></thead><tbody>${p.itens.map(i => `<tr><td>${esc(i.nome)}</td><td>${brl(i.caixa)}</td><td>${brl(i.preco)}</td><td>${i.qtd}${i.ruptura ? " (ruptura)" : ""}</td></tr>`).join("")}</tbody></table></div><small>Mostrando os 12 primeiros.</small>` : ""}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        ${p.total ? Array.from({length:p.arquivos}, (_, k) => `<a class="btn pri" href="/api/ifood/planilha?${qi}&parte=${k + 1}">Baixar planilha${p.arquivos > 1 ? " " + (k + 1) + " de " + p.arquivos : ""}</a>`).join("") : ""}
+        <a class="btn" href="/api/ifood/revisar.csv?${qi}">Baixar lista para conferir</a></div>
+      <p style="color:var(--muted);font-size:13px">A coluna <i>Canal</i> vai preenchida com o canal escolhido acima (iFood Shop). Depois de baixar, suba a planilha no portal do iFood (importação por planilha).</p></section>`;
+  const tem99 = n9 && !n9.erro, temIf = p.catalogo_lido;
+  c.innerHTML = `<div class="abas" id="if-abas">
+    <button data-a="ifood" class="${ifd.aba === "ifood" ? "on" : ""}">🍔 iFood ${temIf ? "✓" : "(falta o catálogo)"}</button>
+    <button data-a="99" class="${ifd.aba === "99" ? "on" : ""}">🛵 99Food ${tem99 ? "✓" : "(falta o catálogo)"}</button></div>` + (ifd.aba === "99" ? sec99 : secIf);
+  $("#if-abas").onclick = e => { const b = e.target.closest("button[data-a]"); if(b){ ifd.aba = b.dataset.a; abrirIfood(); } };
+  if($("#n9-cat")) $("#n9-cat").onchange = async e => {
+    const f2 = e.target.files[0]; if(!f2) return; $("#n9-msg").textContent = "Lendo o catálogo da 99Food…";
+    try{ const r = await api("/api/importar/n99-catalogo", {method:"POST", body: await f2.arrayBuffer()}); $("#n9-msg").innerHTML = `<div class="ok-msg">Pronto: ${num(r.itens)} itens, ${num(r.ativos_com_estoque)} ativos com estoque.</div>`; setTimeout(abrirIfood, 1200); }
+    catch(err){ $("#n9-msg").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
+  };
+  if($("#if-novos")) $("#if-novos").onchange = e => { ifd.novos = e.target.checked; abrirIfood(); };
+  if($("#if-marcar")) $("#if-marcar").onclick = async () => {
+    if(!confirm("Marcar que você já subiu a planilha do iFood? Depois disso, com 'Só os contados depois do último envio' marcado, só aparece o que você contar de novo. Isso não envia nada.")) return;
+    try{ await api("/api/envio/marcar", {method:"POST", body:JSON.stringify({destino:"ifood"})}); await carregarResumo(); abrirIfood(); }
+    catch(er){ alert(er.message); }
+  };
+  if($("#if-canal")) $("#if-canal").onchange = e => { ifd.canal = e.target.value; abrirIfood(); };
+  if($("#if-aplicar")) $("#if-aplicar").onclick = () => { ifd.divisor = $("#if-div").value || DIV_APPS; abrirIfood(); };
+  if($("#if-cat")) $("#if-cat").onchange = async e => {
+    const f2 = e.target.files[0]; if(!f2) return; $("#if-cat-msg").textContent = "Lendo o catálogo…";
+    try{ const r = await api("/api/importar/ifood-catalogo", {method:"POST", body: await f2.arrayBuffer()}); $("#if-cat-msg").innerHTML = `<div class="ok-msg">Pronto: ${num(r.itens)} itens, ${num(r.em_venda)} em venda, ${num(r.ruptura)} em ruptura.</div>`; setTimeout(abrirIfood, 1200); }
+    catch(err){ $("#if-cat-msg").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
+  };
+}
+
+/* ------------------------------------------------ organizar categorias */
+const og = {conf:"alta", q:"", pagina:1, sel:new Map()};
+$("#b-org").onclick = () => abrirOrg(); $("#b-org2").onclick = () => abrirOrg();
+$("#o-x").onclick = () => { $("#dorg").close(); carregarResumo(); carregar(); };
+async function abrirOrg(){
+  $("#dorg").showModal(); await desenharOrg();
+}
+async function desenharOrg(){
+  const c = $("#o-corpo");
+  let cats = [], r;
+  try{ cats = (await api("/api/categorias")).itens; r = await api("/api/categorias/sugestoes?" + new URLSearchParams({confianca:og.conf, q:og.q, pagina:og.pagina})); }
+  catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
+  if(!cats.length || !r.treino){
+    c.innerHTML = `<section><b>Primeiro leia a loja</b><p>Para sugerir categorias o painel precisa conhecer as categorias da loja e os produtos que já têm categoria lá. Clique em <b>Atualizar dados</b> &gt; <b>Ler a Nuvemshop agora</b> (e depois, na tela inicial, <b>Ler categorias da loja</b>), e volte aqui.</p></section>`; return;
+  }
+  const ct = r.contagem, nivel = (k, nome) => `<button data-n="${k}" class="${og.conf === k ? "on" : ""}">${nome} (${num(ct[k] || 0)})</button>`;
+  const opcoes = id => `<option value="">— pular —</option>` + cats.map(k => `<option value="${esc(k.id)}" ${k.id === id ? "selected" : ""}>${esc(k.nome)}</option>`).join("");
+  c.innerHTML = `<section><b>Sugestões de categoria</b>
+    <p>O painel aprendeu com <b>${num(r.treino)}</b> produtos que já têm categoria na loja e sugeriu a categoria dos que não têm. <b>Nada vai para a loja</b>: a categoria fica no painel e é usada no cadastro de novos produtos. ${r.sem_sugestao ? num(r.sem_sugestao) + " produtos ficaram sem sugestão (nomes sem parecido)." : ""}</p>
+    <div class="abas" id="o-niveis">${nivel("alta", "Confiança alta")}${nivel("media", "Média")}${nivel("baixa", "Baixa")}</div>
+    ${og.conf === "alta" && ct.alta ? `<p><button class="pri" id="o-todas">Aplicar as ${num(ct.alta)} de confiança alta</button></p>` : ""}
+    <input type="search" id="o-q" class="busca-lista" placeholder="Buscar produto" value="${esc(og.q)}">
+    <div id="o-lista">${r.itens.length ? r.itens.map(i => `<div class="ent" data-pid="${i.pid}"><div class="d">${esc(i.nome)}</div><div class="m">${esc(i.grupo || "sem grupo")}</div>
+      ${og.conf === "baixa" ? `<div class="m">Palpite fraco: ${esc(i.categoria)}. Escolha a categoria certa para aplicar.</div>` : ""}
+      <select data-pid="${i.pid}">${opcoes(og.conf === "baixa" ? "" : i.categoria_id)}</select></div>`).join("") : "<p>Nada neste nível.</p>"}</div>
+    <div class="linha" style="display:flex;gap:8px;align-items:center;margin-top:8px"><button id="o-ant" ${og.pagina <= 1 ? "disabled" : ""}>←</button><span>Página ${og.pagina} de ${Math.max(1, Math.ceil(r.total / r.por_pagina))}</span><button id="o-prox" ${og.pagina * r.por_pagina >= r.total ? "disabled" : ""}>→</button>
+      ${r.itens.length ? '<button class="pri" id="o-pag">Aplicar esta página</button>' : ""}</div><div id="o-msg" role="status"></div></section>`;
+  $("#o-niveis").onclick = e => { const b = e.target.closest("button[data-n]"); if(b){ og.conf = b.dataset.n; og.pagina = 1; desenharOrg(); } };
+  let t3; $("#o-q").oninput = e => { clearTimeout(t3); t3 = setTimeout(() => { og.q = e.target.value; og.pagina = 1; desenharOrg(); }, 350); };
+  $("#o-ant").onclick = () => { og.pagina--; desenharOrg(); }; $("#o-prox").onclick = () => { og.pagina++; desenharOrg(); };
+  const feito = r => { $("#o-msg").className = "ok-msg"; $("#o-msg").textContent = num(r.aplicadas) + " produtos organizados."; carregarResumo(); setTimeout(desenharOrg, 900); };
+  if($("#o-todas")) $("#o-todas").onclick = async () => { if(!confirm(`Aplicar a categoria sugerida nos ${num(ct.alta)} produtos de confiança alta? É só no painel e dá para ajustar um a um depois.`)) return; $("#o-todas").disabled = true; feito(await api("/api/categorias/aplicar", {method:"POST", body:JSON.stringify({confianca:"alta", quem:quemContando()})})); };
+  if($("#o-pag")) $("#o-pag").onclick = async () => { const itens = [...document.querySelectorAll("#o-lista select")].map(s => ({pid:+s.dataset.pid, categoria_id:s.value})).filter(x => x.categoria_id); feito(await api("/api/categorias/aplicar", {method:"POST", body:JSON.stringify({itens, quem:quemContando()})})); };
+}
+
+/* ------------------------------------------------ busca dentro das listas dos diálogos */
+const visiveis = lista => [...document.querySelectorAll(lista + " .pv:not([hidden]) input[data-p]")].map(x => +x.dataset.p);
+document.addEventListener("input", e => {
+  const b = e.target.closest(".busca-lista"); if(!b) return;
+  const termos = b.value.toLowerCase().split(/\s+/).filter(Boolean);
+  document.querySelectorAll(b.dataset.lista + " .pv").forEach(r => {
+    const t = r.textContent.toLowerCase(); r.hidden = !termos.every(w => t.includes(w));
+  });
+});
+document.addEventListener("click", e => {          // fecha o menu "Loja online" depois de escolher
+  const m = $("#menu-loja"); if(m && m.open && (e.target.closest(".menu-itens button") || !e.target.closest("#menu-loja"))) m.open = false;
+});
+
+/* ------------------------------------------------ cadastrar produtos novos no site */
+const ca = {sel:new Set(), ultimo:""};
+$("#b-ifa").onclick = () => abrirIfoodApi();
+$("#if-x").onclick = () => $("#difa").close();
+async function abrirIfoodApi(){
+  $("#difa").showModal(); const c = $("#if-corpo");
+  const e = await api("/api/ifood-api/estado");
+  const ok = (x) => x ? "✔" : "—";
+  c.innerHTML = `<section><b>1. Conectar o painel à API do iFood</b> <small style="color:var(--muted)">(escolha de quais chaves você está salvando ou testando)</small>
+    <p>As chaves ficam só neste computador (no <code>config.json</code>). Aqui o painel só <b>confere a conexão</b>: não envia nada ao iFood.</p>
+    <label class="op"><input type="radio" name="if-amb" value="teste" ${e.ambiente !== "real" ? "checked" : ""}><span><b>Chaves da loja de teste</b> (usadas nos testes)<br><small>ID ${ok(e.teste.id)} · segredo ${ok(e.teste.segredo)}</small></span></label>
+    <label class="op"><input type="radio" name="if-amb" value="real" ${e.ambiente === "real" ? "checked" : ""}><span><b>Chaves da loja real</b><br><small>ID ${ok(e.real.id)} · segredo ${ok(e.real.segredo)} · loja ${ok(e.real.loja)}</small></span></label>
+    <p style="margin:10px 0 4px">Se já estiverem salvas, deixe em branco e clique em <b>Só testar</b>.</p>
+    <label class="campo">Client ID<input id="if-id" autocomplete="off" placeholder="código no formato 8-4-4-4-12"></label>
+    <label class="campo">Client Secret<input id="if-sec" type="password" autocomplete="off"></label>
+    <label class="campo">ID da loja (merchant)<input id="if-loja" autocomplete="off" placeholder="opcional"></label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="pri" id="if-salvar">Salvar e testar</button><button id="if-testar">Só testar</button></div>
+    </section><div id="if-res" role="status"></div>
+    <section><b>2. Enviar produtos ao iFood</b>
+      <div id="if-faixa" style="position:sticky;top:0;z-index:2;padding:8px 10px;border-radius:8px;font-weight:700;margin:6px 0"></div>
+      <p>Cria ou atualiza o produto (sem apagar nada). Primeiro você vê o que seria enviado.</p>
+      <label class="op"><input type="radio" name="if-dest" value="teste" checked><span><b>Loja de teste</b></span></label>
+      <label class="op"><input type="radio" name="if-dest" value="real"><span><b style="color:var(--bad)">Loja REAL</b> (clientes de verdade veem)<br><small>O <b>primeiro envio é de 1 produto só</b>, para você conferir no iFood. Depois, até 100 por vez. A carga completa (reset) nunca é feita na loja real. Precisa do ID, segredo e loja reais acima (ID ${ok(e.real.id)} · segredo ${ok(e.real.segredo)} · loja ${ok(e.real.loja)}).</small></span></label>
+      <label class="op"><input type="radio" name="if-modo" value="atualizar" checked><span><b>Atualizar produto</b> (preço, estoque e ativo)<br><small>Para produto que <b>já está no iFood</b>. Manda o preço (Gestor Z ÷ ${DIV_APPS}) e, se o produto foi contado, o estoque e o ativo juntos: estoque maior que zero = ativo; zero = inativo. <b>Sem contagem, muda só o preço.</b> Não mexe em categoria, foto nem descrição. Use o botão "💲 Atualizar preço e estoque do iFood".</small></span></label>
+      <label class="op"><input type="radio" name="if-modo" value="post"><span><b>Enviar o produto completo</b> (cadastrar produto novo)<br><small>Manda todos os dados (nome, preço, estoque, categoria). Pode trocar a categoria de produto que já existe lá. Não apaga nada.</small></span></label>
+      <label class="op"><input type="radio" name="if-modo" value="reset"><span><b>Carga completa</b> (só na loja de teste) <b style="color:var(--warn,#b54708)">cuidado</b><br><small>Substitui o catálogo inteiro da loja de TESTE pelos produtos marcados. Nunca na loja real.</small></span></label>
+      <label class="campo">Preço promocional (opcional, para todos os marcados)<input id="if-promo" inputmode="decimal" placeholder="ex.: 9,90 (precisa ser menor que o preço)"></label>
+      <div id="if-rapidas" style="margin:10px 0"></div>
+      <div id="if-comp"></div>
+      <input class="busca-lista" id="if-q" type="search" placeholder="Ou busque pelo nome ou código de barras" aria-label="Buscar produto">
+      <div id="if-cab"></div>
+      <div id="if-lista"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button id="if-ver">Ver o que seria enviado</button><button class="pri" id="if-env">Enviar</button></div>
+      <div id="if-prev" hidden></div>
+      <div id="if-env-res" role="status" style="margin-top:10px"></div>
+    </section>`;
+  const marcados = new Set();
+  const modoIf = () => document.querySelector("input[name=if-modo]:checked").value;
+  const pintarFaixa = () => {
+    const real = document.querySelector("input[name=if-dest]:checked").value === "real", f = $("#if-faixa");
+    f.textContent = real ? "DESTINO: LOJA REAL — clientes de verdade vão ver" : "DESTINO: LOJA DE TESTE — nada vai para clientes";
+    f.style.background = real ? "var(--bad-bg,#fde8e6)" : "var(--ok-bg,#e1f1e6)"; f.style.color = real ? "var(--bad,#b42318)" : "var(--ok,#067647)";
+    $("#if-env").textContent = real ? "Enviar para a loja REAL" : "Enviar para a loja de teste";
+  };
+  document.querySelectorAll("input[name=if-dest]").forEach(x => x.addEventListener("change", pintarFaixa)); pintarFaixa();
+  const destIf = () => document.querySelector("input[name=if-dest]:checked").value;
+  let tq; $("#if-q").oninput = () => { clearTimeout(tq); tq = setTimeout(async () => {
+    const q = $("#if-q").value.trim(); if(q.length < 2){ $("#if-lista").innerHTML = ""; return; }
+    const r = await api("/api/produtos?por_pagina=8&q=" + encodeURIComponent(q));
+    $("#if-lista").innerHTML = r.itens.map(i => `<label class="pv" style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-i="${i.id}" ${marcados.has(i.id) ? "checked" : ""}><span>${esc(i.nome)}<br><small>${esc(i.ean || "sem código")} · estoque ${i.estoque ?? "—"}</small></span></label>`).join("");
+  }, 300); };
+  $("#if-lista").onchange = e => { const x = e.target.closest("input[data-i]"); if(x) x.checked ? marcados.add(+x.dataset.i) : marcados.delete(+x.dataset.i); };
+  // ---- listas rápidas: escolher o que subir sem digitar nome de produto
+  let ultimaLista = null, verEnviados = false;
+  const brl2 = v => v == null ? "—" : "R$ " + Number(v).toFixed(2).replace(".", ",");
+  const limiteLote = () => document.querySelector("input[name=if-dest]:checked").value === "real" ? 100 : 20;
+  const contaMarcados = () => { const el = $("#if-cont"); if(el) el.textContent = marcados.size + " marcado(s) · limite por envio: " + limiteLote(); };
+  const pintarLista = () => {
+    if(!ultimaLista) return;
+    const L = ultimaLista, prontos = L.itens.filter(i => i.pronto).length;
+    $("#if-cab").innerHTML = `<div class="aviso" style="margin:8px 0"><b>${esc(L.nome)}</b>: ${L.itens.length}${L.cortou ? "+ (mostrando os primeiros " + L.itens.length + ")" : ""} produtos · <b>${prontos}</b> prontos para o iFood
+      ${L.itens.some(i => !i.pronto && (i.avisos || []).some(a => a.startsWith("sem preço"))) ? '<div style="margin:6px 0"><b style="color:var(--bad)">Há produtos sem preço nesta lista.</b> <button type="button" id="if-sem-preco" class="pri">Preencher os preços pelo Gestor Z</button></div>' : ""}
+      <div style="margin-top:4px;font-size:13px"><label><input type="checkbox" id="if-ver-env" ${verEnviados ? "checked" : ""}> Mostrar também os que já enviei à loja real</label>${L.escondidos ? " <span style='color:var(--muted)'>(" + L.escondidos + " já enviados estão escondidos)</span>" : ""}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button type="button" id="if-todos">Marcar os próximos prontos (até o limite)</button><button type="button" id="if-nenhum">Desmarcar</button><button type="button" id="if-csv">Baixar esta lista (CSV)</button><span id="if-cont" style="align-self:center;color:var(--muted)"></span></div></div>`;
+    $("#if-lista").innerHTML = L.itens.map(i => `<label class="pv" style="display:flex;gap:8px;align-items:flex-start;${i.pronto ? "" : "opacity:.75"}"><input type="checkbox" data-i="${i.id}" ${marcados.has(i.id) ? "checked" : ""} ${i.pronto ? "" : "disabled"}><span>${esc(i.nome)}<br><small>${esc(i.ean || "sem código")} · painel ${brl2(i.preco)} → iFood ${brl2(i.preco_ifood)}${i.ifood_atual != null ? " (hoje no iFood " + brl2(i.ifood_atual) + ")" : ""} · contado ${i.estoque ?? "—"}${i.estimado != null && Math.round(i.estimado) !== i.estoque ? " (estimado " + Math.round(i.estimado) + ")" : ""}${i.conferido_em ? " em " + esc(data(i.conferido_em)) : ""}<br>Site ${i.site ? "✔" : "—"} · iFood ${i.ifood ? "✔" : "—"} · 99Food ${i.n99 ? "✔" : "—"}${(i.motivos || []).length ? '<br><b style="color:var(--bad)">' + i.motivos.map(esc).join(" · ") + "</b>" : ""}${i.avisos.length ? '<br><span style="color:var(--warn)">' + i.avisos.map(esc).join("; ") + "</span>" : ""}</small></span></label>`).join("");
+    contaMarcados();
+  };
+  const carregarLista = async chave => {
+    $("#if-cab").innerHTML = "<p>Carregando…</p>"; $("#if-lista").innerHTML = "";
+    try{ ultimaLista = await api("/api/ifood-api/candidatos?lista=" + encodeURIComponent(chave) + (verEnviados ? "&todos=1" : "")); pintarLista(); }
+    catch(err){ $("#if-cab").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
+  };
+  try{
+    const rap = await api("/api/ifood-api/comparar");
+    $("#if-rapidas").innerHTML = `<b>Escolher sem digitar</b><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">` +
+      rap.listas.map(l => `<button type="button" data-l="${l.chave}"${l.chave === "preco_ifood" ? ' class="pri"' : ""}>${l.chave === "preco_ifood" ? "💲 Atualizar preço e estoque do iFood" : esc(l.nome)}</button>`).join("") +
+      `<button type="button" id="if-comparar" class="pri">📊 Comparar Site × iFood × 99</button></div>`;
+    $("#if-comparar").onclick = async () => {
+      const c2 = await api("/api/ifood-api/comparar");
+      const sn = x => x ? "✔" : "—";
+      $("#if-comp").innerHTML = `<div class="rolagem"><table class="mini"><thead><tr><th>Site</th><th>iFood</th><th>99Food</th><th>Produtos</th><th></th></tr></thead><tbody>` +
+        c2.combinacoes.sort((a, b) => b.n - a.n).map(r => `<tr><td>${sn(r.site)}</td><td>${sn(r.ifood)}</td><td>${sn(r.n99)}</td><td>${num(r.n)}</td><td><button type="button" data-l="combo:${r.site ? 1 : 0}${r.ifood ? 1 : 0}${r.n99 ? 1 : 0}">Ver</button></td></tr>`).join("") +
+        `</tbody></table></div><small style="color:var(--muted)">"iFood ✔" inclui o que você já enviou pela API. Quem entrou direto pelo portal do iFood só aparece se você importou o catálogo.</small>`;
+    };
+  }catch(err){ $("#if-rapidas").innerHTML = ""; }
+  $("#difa").onclick = e => {
+    const b = e.target.closest("button[data-l]");
+    if(b){
+      const modo = {preco_ifood: "atualizar", zerados: "atualizar"}[b.dataset.l];     // já deixa o modo certo escolhido
+      if(modo){ const rd = document.querySelector(`input[name=if-modo][value=${modo}]`); if(rd) rd.checked = true; }
+      carregarLista(b.dataset.l);
+    }
+    if(e.target.closest("#if-sem-preco")){ $("#difa").close(); abrirCruzamento("sem_oficial"); return; }
+    if(e.target.closest("#if-ver-env") && ultimaLista){ verEnviados = e.target.closest("#if-ver-env").checked; carregarLista(ultimaLista.lista); return; }
+    if(e.target.closest("#if-todos") && ultimaLista){
+      let n = marcados.size;
+      for(const i of ultimaLista.itens){ if(n >= limiteLote()) break; if(i.pronto && !marcados.has(i.id)){ marcados.add(i.id); n++; } }
+      pintarLista();
+    }
+    if(e.target.closest("#if-nenhum")){ marcados.clear(); pintarLista(); }
+    if(e.target.closest("#if-csv") && ultimaLista){
+      const q = t => '"' + String(t ?? "").replace(/"/g, '""') + '"';
+      const linhas = [["Produto", "Código de barras", "Preço no painel", "Preço no iFood", "Contado", "Estimado", "Contado em", "Site", "iFood", "99Food", "Avisos"].map(q).join(";")]
+        .concat(ultimaLista.itens.map(i => [i.nome, i.ean, i.preco, i.preco_ifood, i.estoque, i.estimado, i.conferido_em, i.site ? "sim" : "não", i.ifood ? "sim" : "não", i.n99 ? "sim" : "não", i.avisos.join(" | ")].map(q).join(";")));
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + linhas.join("\r\n")], {type:"text/csv;charset=utf-8"}));
+      a.download = "ifood_" + ultimaLista.lista.replace(/[^a-z0-9]+/gi, "_") + ".csv"; a.click();
+    }
+  };
+  $("#if-lista").addEventListener("change", contaMarcados);
+  $("#if-ver").onclick = async () => {
+    if(!marcados.size){ alert("Marque ao menos um produto."); return; }
+    let p;
+    try{ p = await api("/api/ifood-api/previa?modo=" + modoIf() + "&promo=" + encodeURIComponent($("#if-promo").value) + "&ids=" + [...marcados].join(",")); }
+    catch(err){ alert(err.message); return; }
+    const pv = $("#if-prev"); pv.hidden = false;
+    const ver = x => x ? "sim" : "não";
+    pv.innerHTML = p.itens.map(i => { const r = i.resumo || {};
+      return `<div class="aviso" style="margin:8px 0" data-pid="${i.pid}"><b>${esc(i.nome)}</b>${r.ja_no_ifood ? ' <span class="pill">já está no iFood</span>' : ""}
+        <div style="margin:4px 0;font-size:13px">Preço no iFood <b>${brl2(r.preco)}</b> · estoque <b>${r.estoque ?? "não muda"}</b> · ativo <b>${r.ativo == null ? "não muda" : ver(r.ativo)}</b>${modoIf() === "atualizar" ? "" : ` · foto <b>${r.imagem ? "vai" : "não vai"}</b>${r.imagem ? "" : " <small>(o iFood precisa de um endereço público de imagem; a foto da prateleira não serve)</small>"}`}</div>
+        ${r.preco == null ? '<div class="if-sug" style="margin-top:6px;font-size:13px">Sem preço: procurando no Gestor Z…</div>' : ""}
+        ${r.ja_no_ifood && modoIf() !== "atualizar" ? '<div style="color:var(--warn);font-size:13px">Já foi enviado antes: reenviar o produto completo pode trocar a categoria que está lá.</div>' : ""}
+        ${modoIf() === "atualizar" ? '<div style="font-size:12px;color:var(--muted)">Neste modo a categoria, a foto e a descrição <b>não são enviadas</b>: o que já está no iFood continua.</div>' : ""}
+        <div style="display:${modoIf() === "atualizar" ? "none" : "flex"};gap:6px;flex-wrap:wrap;align-items:end;margin-top:6px">
+          <label style="flex:1;min-width:130px">Departamento no iFood<input class="if-dep" value="${esc(r.departamento)}" style="width:100%"></label>
+          <label style="flex:1;min-width:130px">Categoria no iFood<input class="if-cat2" value="${esc(r.categoria)}" placeholder="ex.: Aromatizantes de ambiente" style="width:100%"></label>
+          <button type="button" class="if-salvar-cat">Salvar categoria</button></div>
+        ${i.avisos.length ? '<div style="color:var(--warn);font-size:13px;margin-top:4px">⚠ ' + i.avisos.map(esc).join("; ") + "</div>" : ""}
+        <details style="margin-top:6px"><summary>Ver o texto técnico enviado</summary><pre style="white-space:pre-wrap;font-size:12px;max-height:30vh;overflow:auto">${esc(p.endereco + "\n" + JSON.stringify(i.corpo, null, 2))}</pre></details></div>`; }).join("");
+    pv.querySelectorAll("[data-pid]").forEach(async card => {
+      const box = card.querySelector(".if-sug"); if(!box) return;
+      try{
+        const r2 = await api("/api/produto/" + card.dataset.pid + "/sugestoes-preco");
+        box.innerHTML = r2.itens.length
+          ? "Sem preço. Preço do Gestor Z de produtos parecidos: " + r2.itens.map(s => `<button type="button" class="if-usar-preco" data-pid="${card.dataset.pid}" data-preco="${s.preco}" title="${esc(s.nome)}">Usar ${brl2(s.preco)} · ${esc(s.nome.slice(0, 32))}</button>`).join(" ")
+          : "Sem preço e não achei produto parecido no Gestor Z. Informe o preço do produto.";
+      }catch(er){ box.textContent = "Sem preço."; }
+    });
+  };
+  $("#if-prev").onclick = async e => {
+    const u = e.target.closest(".if-usar-preco");
+    if(u){
+      try{ await api("/api/produto/" + u.dataset.pid, {method:"POST", body:JSON.stringify({preco: u.dataset.preco, quem: quemContando()})}); $("#if-ver").click(); }
+      catch(er){ alert(er.message); }
+      return;
+    }
+    const b = e.target.closest(".if-salvar-cat"); if(!b) return;
+    const card = b.closest("[data-pid]");
+    try{
+      await api("/api/produto/" + card.dataset.pid, {method:"POST", body:JSON.stringify({ifood_depto: card.querySelector(".if-dep").value, ifood_cat: card.querySelector(".if-cat2").value, quem: quemContando()})});
+      $("#if-ver").click();
+    }catch(er){ alert(er.message); }
+  };
+  $("#if-env").onclick = async () => {
+    if(!marcados.size){ alert("Marque ao menos um produto."); return; }
+    const modo = modoIf(), dest = destIf(); let confirmo = "";
+    if(dest === "real"){
+      if(modo === "reset"){ alert("A carga completa (reset) não é feita na loja real."); return; }
+      confirmo = prompt("LOJA REAL DO iFOOD: " + marcados.size + " produto(s) serão " + (modo === "patch" ? "atualizados (preço/promoção/estoque)" : modo === "atualizar" ? "atualizados (preço, estoque e ativo/inativo)" : "criados ou atualizados") + " e os clientes vão ver.\n\nO primeiro envio precisa ser de 1 produto só.\n\nDigite ENVIAR para confirmar:") || "";
+      if(confirmo.trim().toUpperCase() !== "ENVIAR") return;
+    }else if(modo === "reset"){
+      confirmo = prompt("CARGA COMPLETA (reset=true) na loja de TESTE: o catálogo atual dela será substituído pelos " + marcados.size + " produto(s) marcados.\n\nDigite RESET para confirmar:") || "";
+      if(confirmo.trim().toUpperCase() !== "RESET") return;
+    }else if(!confirm((modo === "patch" ? "Atualizar preço/promoção/estoque de " : modo === "atualizar" ? "Atualizar preço, estoque e ativo de " : "Enviar ") + marcados.size + " produto(s) para a LOJA DE TESTE do iFood? (nada vai para a loja real)")) return;
+    $("#if-env-res").textContent = "Enviando…";
+    try{
+      const r = await api("/api/ifood-api/enviar", {method:"POST", body:JSON.stringify({ids:[...marcados], ambiente:dest, modo, promo:$("#if-promo").value, confirmo}), headers:{"X-Quem":encodeURIComponent(quemContando())}});
+      if(r.ok){ marcados.clear(); if(ultimaLista) setTimeout(() => carregarLista(ultimaLista.lista), 300); }
+      $("#if-env-res").scrollIntoView({block:"nearest"});
+      $("#if-env-res").innerHTML = `<div class="${r.ok ? "ok-msg" : "erro-msg"}">${r.ok ? "O iFood aceitou" : "O iFood recusou"} (código ${r.status}) · ${r.enviados} produto(s). ${esc(r.mensagem || "")}<br><small>Resposta guardada em backups/${esc(r.backup)}</small><pre style="white-space:pre-wrap;font-size:12px;max-height:30vh;overflow:auto">${esc(JSON.stringify(r.resposta, null, 2))}</pre></div>`;
+    }catch(err){ $("#if-env-res").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
+  };
+  const amb = () => document.querySelector("input[name=if-amb]:checked").value;
+  const mostrar = (r) => { $("#if-res").innerHTML = r.erro ? `<div class="erro-msg">${esc(r.erro)}</div>` :
+    `<div class="ok-msg"><b>Conexão com o iFood ok</b> (${esc(r.ambiente)}).${(r.lojas||[]).length ? "<br>Lojas que a chave enxerga: " + r.lojas.map(l => esc(l.nome) + " (…" + esc(l.id_fim) + ")").join("; ") : ""}${r.aviso_lojas ? "<br>" + esc(r.aviso_lojas) : ""}${r.loja_configurada_aparece === false ? "<br><b>Atenção:</b> o ID da loja salvo não está entre as lojas que essa chave enxerga." : ""}</div>`; };
+  const chamar = async (url, corpo) => { $("#if-res").textContent = "Conferindo com o iFood…";
+    try{ mostrar(await api(url, {method:"POST", body:JSON.stringify(corpo)})); }catch(err){ mostrar({erro: err.message}); } };
+  $("#if-salvar").onclick = () => chamar("/api/ifood-api/conectar", {ambiente: amb(), client_id: $("#if-id").value, client_secret: $("#if-sec").value, merchant_id: $("#if-loja").value});
+  $("#if-testar").onclick = () => chamar("/api/ifood-api/testar", {ambiente: amb()});
+}
+$("#b-cad").onclick = () => abrirCadastrar(); $("#b-cad2").onclick = () => abrirCadastrar();
+$("#c-x").onclick = () => { $("#dcad").close(); carregarResumo(); carregar(); };
+async function abrirCadastrar(){
+  $("#dcad").showModal(); const c = $("#c-corpo");
+  const r = await api("/api/resumo");
+  if(!r.nuvemshop_configurada){ c.innerHTML = `<section><b>Conecte a Nuvemshop primeiro</b><p>Use o botão “Enviar para as lojas”.</p></section>`; return; }
+  c.innerHTML = "<p>Lendo os produtos novos e as categorias da loja…</p>";
+  let p, bk;
+  try{ [p, bk] = await Promise.all([api("/api/nuvemshop/cadastrar/previa"), api("/api/nuvemshop/cadastrar/backups")]); }
+  catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
+  const it = p.itens, lim = p.limite, cats = p.categorias || [];
+  ca.cat = {}; it.forEach(i => ca.cat[i.pid] = i.categoria_id || "");
+  ca.sel = new Set(it.slice(0, lim).map(i => i.pid));
+  const opcoes = id => `<option value="">— sem categoria —</option>` + cats.map(k => `<option value="${esc(k.id)}" ${k.id === id ? "selected" : ""}>${esc(k.nome)}</option>`).join("");
+  c.innerHTML = `<section><b>Produtos novos para cadastrar no site</b>
+    <p>Estes são os produtos que cadastramos no painel e ainda não existem na Nuvemshop. Eles são criados <b>ocultos</b> (o cliente não vê), do jeito que estão. Depois a gente confere e publica.</p>
+    <div style="margin:6px 0"><button id="c-lercats" class="${cats.length ? "" : "pri"}">${cats.length ? "Atualizar categorias da loja" : "Ler categorias da loja agora"}</button> <small style="color:var(--muted)">${cats.length ? num(cats.length) + " categorias lidas" : "Sem isso os produtos são criados sem categoria."}</small></div>
+    <div style="margin:6px 0"><button id="c-nota">Trazer itens que chegaram na nota e não têm cadastro</button></div>
+    ${it.length ? `<div class="sel-barra"><button id="c-todos">Marcar todos</button><button id="c-nenhum">Desmarcar todos</button><span id="c-cont"></span></div>
+    <input type="search" class="busca-lista" data-lista="#c-lista" placeholder="Buscar produto nesta lista" aria-label="Buscar nesta lista"><div class="lista-prev" id="c-lista" style="max-height:55vh">${it.map(i => `<div class="pv" style="flex-direction:column;align-items:stretch;gap:6px;border-bottom:1px solid var(--line);padding:10px 4px">
+      <label style="display:flex;gap:10px;align-items:center"><input type="checkbox" data-p="${i.pid}" ${ca.sel.has(i.pid) ? "checked" : ""}>${i.foto ? `<img src="${i.foto}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px">` : '<span class="pill p-idle">sem foto</span>'}<span><b>${esc(i.nome)}</b><br><small>${i.preco ? brl(i.preco) : "sem preço"} · estoque ${i.estoque ?? "—"} · ${esc(i.ean || "sem código")}</small>${(i.motivos||[]).length ? `<br><small style="color:var(--muted)">${esc(i.motivos.join(" · "))}</small>` : ""}</span></label>
+      <select data-c="${i.pid}" data-g="${esc(i.grupo || "")}" ${cats.length ? "" : "disabled"}>${opcoes(i.categoria_id || "")}</select>
+      ${i.faltas.length ? `<small style="color:var(--warn)">Falta: ${i.faltas.join(", ")}</small>` : ""}</div>`).join("")}</div>
+    <p style="color:var(--muted);font-size:13px">Dica: ao trocar a categoria de um produto, os outros do mesmo grupo  que ainda estão sem categoria passam a usar a mesma.</p>
+    <button class="pri" id="c-criar"></button>` : "<p>Nenhum produto novo esperando cadastro.</p>"}</section>
+    <div id="c-andamento" role="status"></div>
+    <section><b>Desfazer um cadastro</b><p>Só apaga da loja produtos que continuam ocultos.</p>${bk.itens.length ? bk.itens.slice(0, 5).map(b => `<div class="bk"><span>${data(b.quando)} · ${b.itens} produtos</span><button data-cbk="${esc(b.arquivo)}">Apagar esses produtos da loja</button></div>`).join("") : "<p>Nenhum cadastro para desfazer.</p>"}</section>`;
+  if(ca.ultimo) $("#c-andamento").innerHTML = ca.ultimo;
+  c.querySelectorAll("[data-cbk]").forEach(b => b.onclick = () => desfazerCadastrar(b.dataset.cbk));
+  $("#c-lercats").onclick = e => lerCategorias(e.target, abrirCadastrar);
+  $("#c-nota").onclick = async () => {
+    const p = await api("/api/cadastrar/so-nota");
+    if(!p.total){ alert("Todos os itens das notas já têm produto no painel."); return; }
+    const ex = p.amostra.slice(0, 6).map(a => "• " + a.nome).join("\n");
+    if(!confirm(`${p.total} itens chegaram em nota e não têm cadastro no painel.\n\nExemplos:\n${ex}\n\nCriar esses produtos no painel (sem preço e sem código de barras) para entrarem nesta lista? Nada é enviado ao site agora.`)) return;
+    const r = await api("/api/cadastrar/trazer-nota", {method:"POST", body:"{}"});
+    alert(`${r.criados} produtos trazidos da nota.`); abrirCadastrar();
+  };
+  if(!it.length) return;
+  const atualizar = () => {
+    const n = ca.sel.size, g = $("#c-criar");
+    $("#c-cont").textContent = `${n} marcado${n === 1 ? "" : "s"}`;
+    g.textContent = `Criar ${n} produto${n === 1 ? "" : "s"} na loja (ocultos)`; g.disabled = n === 0 || n > lim;
+  };
+  $("#c-lista").addEventListener("change", async e => {
+    const x = e.target.closest("input[data-p]");
+    if(x){ x.checked ? ca.sel.add(+x.dataset.p) : ca.sel.delete(+x.dataset.p); atualizar(); return; }
+    const sl = e.target.closest("select[data-c]"); if(!sl) return;
+    ca.cat[sl.dataset.c] = sl.value;
+    if(sl.dataset.g){                              // o mesmo grupo passa a valer para os outros sem categoria
+      const o = sl.options[sl.selectedIndex];
+      await api("/api/nuvemshop/categorias/mapa", {method:"POST", body:JSON.stringify({grupo:sl.dataset.g, categoria_id:sl.value, categoria_nome:sl.value ? o.textContent : ""})});
+      c.querySelectorAll(`select[data-g="${CSS.escape(sl.dataset.g)}"]`).forEach(o2 => { if(o2 !== sl && !ca.cat[o2.dataset.c]){ o2.value = sl.value; ca.cat[o2.dataset.c] = sl.value; } });
+    }
+  });
+  $("#c-todos").onclick = () => { ca.sel = new Set(visiveis("#c-lista").slice(0, lim)); c.querySelectorAll("#c-lista input[data-p]").forEach(x => x.checked = ca.sel.has(+x.dataset.p)); atualizar(); };
+  $("#c-nenhum").onclick = () => { ca.sel.clear(); c.querySelectorAll("#c-lista input[data-p]").forEach(x => x.checked = false); atualizar(); };
+  $("#c-criar").onclick = async () => {
+    const n = ca.sel.size;
+    if(!confirm(`Vou criar ${n} produto${n === 1 ? "" : "s"} novo${n === 1 ? "" : "s"} na Nuvemshop, ocultos (os clientes não veem). Dá para apagar depois. Confirmar?`)) return;
+    ca.ultimo = ""; $("#c-criar").disabled = true;
+    try{
+      await api("/api/nuvemshop/cadastrar/aplicar", {method:"POST", body:JSON.stringify({itens:[...ca.sel].map(pid => ({pid, categoria_id:ca.cat[pid] || ""})), quem:quemContando()})});
+      acompanharCadastrar("criado");
+    }catch(e){ $("#c-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+  };
+  atualizar();
+}
+async function desfazerCadastrar(arquivo){
+  if(!confirm("Vou APAGAR da loja os produtos que esse cadastro criou (só os que continuam ocultos). Confirmar?")) return;
+  ca.ultimo = "";
+  try{
+    await api("/api/nuvemshop/cadastrar/desfazer", {method:"POST", body:JSON.stringify({arquivo, quem:quemContando()})});
+    acompanharCadastrar("apagado");
+  }catch(e){ $("#c-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+}
+function acompanharCadastrar(verbo){
+  const iv = setInterval(async () => {
+    const s = await api("/api/tarefa");
+    if(s.rodando){ $("#c-andamento").innerHTML = `<div class="ok-msg">${esc(s.msg)}</div>`; return; }
+    clearInterval(iv);
+    if(s.erro){ $("#c-andamento").innerHTML = `<div class="erro-msg">Não deu certo: ${esc(s.erro)}</div>`; return; }
+    const r = s.resultado || {};
+    ca.ultimo = `<div class="${r.falharam && r.falharam.length ? "erro-msg" : "ok-msg"}"><b>Pronto.</b> ${num(r.gravados)} produto${r.gravados === 1 ? "" : "s"} ${verbo}${r.gravados === 1 ? "" : "s"}${r.pulados ? " · " + num(r.pulados) + " pulado(s)" : ""}.${r.backup ? "<br>Backup: " + esc(r.backup) : ""}${r.falharam && r.falharam.length ? "<br>Atenção: " + esc(r.falharam.join("; ")) : ""}</div>`;
+    abrirCadastrar();
+  }, 1500);
+}
+
+/* ------------------------------------------------ publicar produtos no site */
+const pu = {sel:new Set(), ultimo:"", dia:""};
+$("#b-pub").onclick = () => abrirPublicar(); $("#b-pub2").onclick = () => abrirPublicar();
+$("#p-x").onclick = () => { $("#dpub").close(); carregarResumo(); carregar(); };
+const dm = d => d ? d.slice(8, 10) + "/" + d.slice(5, 7) : "";
+async function abrirPublicar(dia){
+  $("#dpub").showModal(); const c = $("#p-corpo");
+  const r = await api("/api/resumo");
+  if(!r.nuvemshop_configurada){ c.innerHTML = `<section><b>Conecte a Nuvemshop primeiro</b><p>Use o botão “Enviar para as lojas”.</p></section>`; return; }
+  let p, bk;
+  try{
+    p = await api("/api/nuvemshop/publicar/previa?dia=" + encodeURIComponent(dia || pu.dia || ""));
+    if(!p.dia && p.dias.length){ p = await api("/api/nuvemshop/publicar/previa?dia=" + p.dias[0].dia); }
+    bk = await api("/api/nuvemshop/publicar/backups");
+  }catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
+  pu.dia = p.dia; const it = p.itens, lim = p.limite;
+  pu.sel = new Set(it.slice(0, lim).map(i => i.pid));
+  const rv = p.revisar, lista = (t, a) => a.length ? `<br><small>${a.map(esc).join(" · ")}${a.length >= 8 ? " · …" : ""}</small>` : "";
+  c.innerHTML = `<section><b>Prévia: nada foi publicado ainda</b>
+    <p>Um produto oculto só aparece para o cliente depois de publicado. Escolha o dia em que foi contado:</p>
+    <select id="p-dia">${p.dias.length ? p.dias.map(d => `<option value="${d.dia}" ${d.dia === p.dia ? "selected" : ""}>Contados em ${dm(d.dia)} · ${d.n} oculto${d.n === 1 ? "" : "s"} no site</option>`).join("") : "<option>Nenhum produto oculto e contado</option>"}</select>
+    ${p.dia ? `<p><b>${num(p.para_publicar)}</b> podem ser publicados (têm estoque contado e foto no site).</p>
+    ${p.sem_preco ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.sem_preco)} ficam de fora: sem preço. Ajuste o preço antes de publicar.${lista("", rv.sem_preco)}</p>` : ""}
+    ${p.sem_estoque ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.sem_estoque)} ficam de fora: contagem zero.${lista("", rv.sem_estoque)}</p>` : ""}
+    ${p.sem_foto ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.sem_foto)} ficam de fora: sem foto no site. Use “Enviar fotos” primeiro.${lista("", rv.sem_foto)}</p>` : ""}
+    ${p.varias_variacoes ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.varias_variacoes)} ficam de fora: têm várias variações. Publique direto na Nuvemshop.${lista("", rv.varias)}</p>` : ""}` : ""}
+    ${it.length ? `<p class="dica-sel"><b>Para o primeiro teste, desmarque tudo e deixe só 1 ou 2.</b> Máximo ${lim} por vez.</p>
+    <div class="sel-barra"><button id="p-todos">Marcar todos</button><button id="p-nenhum">Desmarcar todos</button><span id="p-cont"></span></div>
+    <input type="search" class="busca-lista" data-lista="#p-lista" placeholder="Buscar produto nesta lista" aria-label="Buscar nesta lista"><div class="lista-prev" id="p-lista">${it.map(i => `<label class="pv"><input type="checkbox" data-p="${i.pid}" ${pu.sel.has(i.pid) ? "checked" : ""}><img src="${esc(i.foto)}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px"><span><b>${esc(i.nome)}</b><br><small>estoque ${i.estoque} · ${brl(i.preco) || "sem preço"}</small></span></label>`).join("")}</div>
+    <button class="pri" id="p-pub"></button>` : ""}</section>
+    <div id="p-andamento" role="status"></div>
+    <section><b>Desfazer uma publicação</b>${bk.itens.length ? bk.itens.slice(0, 5).map(b => `<div class="bk"><span>${data(b.quando)} · ${b.itens} produtos</span><button data-pbk="${esc(b.arquivo)}">Ocultar de novo</button></div>`).join("") : "<p>Nenhuma publicação para desfazer.</p>"}</section>`;
+  if(pu.ultimo) $("#p-andamento").innerHTML = pu.ultimo;
+  $("#p-dia").onchange = e => abrirPublicar(e.target.value);
+  c.querySelectorAll("[data-pbk]").forEach(b => b.onclick = () => desfazerPublicar(b.dataset.pbk));
+  if(!it.length) return;
+  const atualizar = () => {
+    const n = pu.sel.size, g = $("#p-pub");
+    $("#p-cont").textContent = `${n} marcado${n === 1 ? "" : "s"}`;
+    g.textContent = `Publicar ${n} produto${n === 1 ? "" : "s"} no site`; g.disabled = n === 0 || n > lim;
+    c.querySelectorAll("#p-lista input").forEach(x => x.checked = pu.sel.has(+x.dataset.p));
+  };
+  $("#p-lista").addEventListener("change", e => { const x = e.target.closest("input[data-p]"); if(!x) return; x.checked ? pu.sel.add(+x.dataset.p) : pu.sel.delete(+x.dataset.p); atualizar(); });
+  $("#p-todos").onclick = () => { pu.sel = new Set(visiveis("#p-lista").slice(0, lim)); atualizar(); };
+  $("#p-nenhum").onclick = () => { pu.sel.clear(); atualizar(); };
+  $("#p-pub").onclick = async () => {
+    const n = pu.sel.size;
+    if(!confirm(`Vou publicar ${n} produto${n === 1 ? "" : "s"} no site. Depois disso os clientes passam a ver ${n === 1 ? "esse produto" : "esses produtos"} na loja. Dá para ocultar de novo. Confirmar?`)) return;
+    pu.ultimo = ""; $("#p-pub").disabled = true;
+    try{
+      await api("/api/nuvemshop/publicar/aplicar", {method:"POST", body:JSON.stringify({dia:pu.dia, pids:[...pu.sel], quem:quemContando()})});
+      acompanharPublicar("publicado");
+    }catch(e){ $("#p-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+  };
+  atualizar();
+}
+async function desfazerPublicar(arquivo){
+  if(!confirm("Vou ocultar de novo no site os produtos que essa publicação abriu. Confirmar?")) return;
+  pu.ultimo = "";
+  try{
+    await api("/api/nuvemshop/publicar/desfazer", {method:"POST", body:JSON.stringify({arquivo, quem:quemContando()})});
+    acompanharPublicar("ocultado");
+  }catch(e){ $("#p-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+}
+function acompanharPublicar(verbo){
+  const iv = setInterval(async () => {
+    const s = await api("/api/tarefa");
+    if(s.rodando){ $("#p-andamento").innerHTML = `<div class="ok-msg">${esc(s.msg)}</div>`; return; }
+    clearInterval(iv);
+    if(s.erro){ $("#p-andamento").innerHTML = `<div class="erro-msg">Não deu certo: ${esc(s.erro)}</div>`; return; }
+    const r = s.resultado || {};
+    pu.ultimo = `<div class="${r.falharam && r.falharam.length ? "erro-msg" : "ok-msg"}"><b>Pronto.</b> ${num(r.gravados)} produto${r.gravados === 1 ? "" : "s"} ${verbo}${r.gravados === 1 ? "" : "s"}${r.pulados ? " · " + num(r.pulados) + " pulado(s) (mudaram desde a prévia)" : ""}.${r.backup ? "<br>Backup: " + esc(r.backup) : ""}${r.falharam && r.falharam.length ? "<br>Não deu certo: " + esc(r.falharam.join("; ")) : ""}</div>`;
+    abrirPublicar(pu.dia);
+  }, 1500);
+}
+
+/* ------------------------------------------------ enviar fotos para a Nuvemshop */
+const fo = {sel:new Set(), ultimo:""};
+$("#b-foto").onclick = () => abrirFotos(); $("#b-foto2").onclick = () => abrirFotos();
+$("#f-x").onclick = () => { $("#dfoto").close(); carregarResumo(); carregar(); };
+async function abrirFotos(){
+  $("#dfoto").showModal(); const c = $("#f-corpo");
+  c.innerHTML = "<p>Calculando…</p>";
+  const r = await api("/api/resumo");
+  if(!r.nuvemshop_configurada){ c.innerHTML = `<section><b>Conecte a Nuvemshop primeiro</b><p>Use o botão “Enviar para as lojas” para colar o token.</p></section>`; return; }
+  let p, bk;
+  try{ [p, bk] = await Promise.all([api("/api/nuvemshop/fotos/previa"), api("/api/nuvemshop/fotos/backups")]); }
+  catch(e){ c.innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; return; }
+  const it = p.itens, lim = p.limite;
+  fo.sel = new Set(it.slice(0, 1).map(i => i.pid));
+  c.innerHTML = `<section><b>Prévia: nada foi enviado ainda</b>
+      <p>${num(p.fotos_tiradas)} fotos tiradas na prateleira · <b>${num(p.para_enviar)}</b> podem subir agora · ${num(p.ja_tem_foto_no_site)} já têm foto no site (não mexo) · ${num(p.fora_do_site)} são de produtos que ainda não estão no site</p>
+      ${p.ambiguas ? `<p class="erro-msg" style="background:var(--warn-bg);color:var(--warn)">${num(p.ambiguas)} ficaram de fora: mais de um produto do painel aponta para o mesmo produto do site.<br><small>${p.revisar.map(esc).join(" · ")}</small></p>` : ""}
+      <p>A foto vai como <b>primeira imagem</b> do produto no site. O leitor de “Ler a Nuvemshop” só mostra a foto do site depois de reler.</p>
+      ${it.length ? `<p class="dica-sel"><b>Comece com 1 foto</b> (já vem marcada), confira no admin da loja e depois marque o resto.</p>
+      <div class="sel-barra"><button id="f-um">Só a primeira</button><button id="f-todos">Marcar até ${lim}</button><button id="f-nenhum">Desmarcar</button><span id="f-cont"></span></div>
+      <input type="search" class="busca-lista" data-lista="#f-lista" placeholder="Buscar produto nesta lista" aria-label="Buscar nesta lista"><div class="lista-prev" id="f-lista">${it.map(i => `<label class="pv"><input type="checkbox" data-p="${i.pid}" ${fo.sel.has(i.pid) ? "checked" : ""}><img src="${i.foto}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:6px"><span><b>${esc(i.nome)}</b>${i.publicado ? "" : ' <span class="pill p-idle">oculto</span>'}<br><small>${esc(i.sku || "sem SKU")}</small></span></label>`).join("")}</div>
+      <button class="pri" id="f-enviar"></button>` : "<p>Nenhuma foto para enviar agora.</p>"}</section>
+    <div id="f-andamento" role="status"></div>
+    <section><b>Desfazer um envio de fotos</b>${bk.itens.length ? bk.itens.slice(0, 5).map(b => `<div class="bk"><span>${data(b.quando)} · ${b.itens} fotos</span><button data-fbk="${esc(b.arquivo)}">Remover essas fotos do site</button></div>`).join("") : "<p>Nenhum envio para desfazer.</p>"}</section>`;
+  if(fo.ultimo) $("#f-andamento").innerHTML = fo.ultimo;
+  c.querySelectorAll("[data-fbk]").forEach(b => b.onclick = () => desfazerFotos(b.dataset.fbk));
+  if(!it.length) return;
+  const atualizar = () => {
+    const n = fo.sel.size, g = $("#f-enviar");
+    $("#f-cont").textContent = `${n} marcada${n === 1 ? "" : "s"}`;
+    g.textContent = `Enviar ${n} foto${n === 1 ? "" : "s"} para a loja`; g.disabled = n === 0 || n > lim;
+    c.querySelectorAll("#f-lista input").forEach(x => x.checked = fo.sel.has(+x.dataset.p));
+  };
+  $("#f-lista").addEventListener("change", e => { const x = e.target.closest("input[data-p]"); if(!x) return; x.checked ? fo.sel.add(+x.dataset.p) : fo.sel.delete(+x.dataset.p); atualizar(); });
+  $("#f-um").onclick = () => { fo.sel = new Set(it.slice(0, 1).map(i => i.pid)); atualizar(); };
+  $("#f-todos").onclick = () => { fo.sel = new Set(visiveis("#f-lista").slice(0, lim)); atualizar(); };
+  $("#f-nenhum").onclick = () => { fo.sel.clear(); atualizar(); };
+  $("#f-enviar").onclick = async () => {
+    const n = fo.sel.size;
+    if(!confirm(`Vou enviar ${n} foto${n === 1 ? "" : "s"} para a Nuvemshop, como primeira imagem de ${n === 1 ? "1 produto" : n + " produtos"} que ainda não têm foto lá. Dá para desfazer depois. Confirmar?`)) return;
+    fo.ultimo = ""; $("#f-enviar").disabled = true;
+    try{
+      await api("/api/nuvemshop/fotos/aplicar", {method:"POST", body:JSON.stringify({pids:[...fo.sel], quem:quemContando()})});
+      acompanharFotos("enviada");
+    }catch(e){ $("#f-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+  };
+  atualizar();
+}
+async function desfazerFotos(arquivo){
+  if(!confirm("Vou remover da loja as fotos que este envio colocou. Confirmar?")) return;
+  fo.ultimo = "";
+  try{
+    await api("/api/nuvemshop/fotos/desfazer", {method:"POST", body:JSON.stringify({arquivo, quem:quemContando()})});
+    acompanharFotos("removida");
+  }catch(e){ $("#f-andamento").innerHTML = `<div class="erro-msg">${esc(e.message)}</div>`; }
+}
+function acompanharFotos(verbo){
+  const iv = setInterval(async () => {
+    const s = await api("/api/tarefa");
+    if(s.rodando){ $("#f-andamento").innerHTML = `<div class="ok-msg">${esc(s.msg)}</div>`; return; }
+    clearInterval(iv);
+    if(s.erro){ $("#f-andamento").innerHTML = `<div class="erro-msg">Não deu certo: ${esc(s.erro)}</div>`; return; }
+    const r = s.resultado || {};
+    fo.ultimo = `<div class="${r.falharam && r.falharam.length ? "erro-msg" : "ok-msg"}"><b>Pronto.</b> ${num(r.gravados)} foto${r.gravados === 1 ? "" : "s"} ${verbo}${r.gravados === 1 ? "" : "s"}${r.pulados ? " · " + num(r.pulados) + " pulada(s) (já tinham foto ou mudaram)" : ""}.${r.backup ? "<br>Backup: " + esc(r.backup) : ""}${r.falharam && r.falharam.length ? "<br>Não deu certo: " + esc(r.falharam.join("; ")) : ""}</div>`;
+    abrirFotos();
+  }, 1500);
+}
+
+/* ------------------------------------------------ notas e vendas (estoque estimado) */
+const mov = {aba:"importar", estado:"pendente", q:"", pagina:1, contados:true, sel:new Set()};
+const ABAS = [["importar","Importar"],["entradas","Itens das notas"],["historico","Importações"]];
+function abrirMov(aba){ mov.aba = aba || "importar"; $("#dmov").showModal(); desenharMov(); }
+$("#b-mov").onclick = () => abrirMov(); $("#b-mov2").onclick = () => abrirMov();
+$("#m-x").onclick = () => { $("#dmov").close(); carregarResumo(); carregar(); };
+const isoDia = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+async function desenharMov(){
+  $("#m-abas").innerHTML = ABAS.map(([k, n]) => {
+    const pend = k === "entradas" && RESUMO && RESUMO.importacoes && RESUMO.importacoes.entradas_pendentes;
+    return `<button data-a="${k}" class="${mov.aba === k ? "on" : ""}">${n}${pend ? " (" + num(pend) + ")" : ""}</button>`;
+  }).join("");
+  if(mov.aba === "importar") return desenharImportar();
+  if(mov.aba === "entradas") return desenharEntradas();
+  return desenharHistorico();
+}
+$("#m-abas").addEventListener("click", e => { const b = e.target.closest("button[data-a]"); if(b){ mov.aba = b.dataset.a; mov.pagina = 1; desenharMov(); } });
+function desenharImportar(){
+  const ult = RESUMO && RESUMO.importacoes && RESUMO.importacoes.ultima_venda;
+  let ini = isoDia(new Date(Date.now() - 86400000));
+  if(ult){ const d = new Date(ult + "T12:00:00"); d.setDate(d.getDate() + 1); ini = isoDia(d); }
+  $("#m-corpo").innerHTML = `
+    <section><b>Vendas do caixa (Gestor Z)</b>
+      <p>Relatório de vendas por item, em CSV ou Excel (.xlsx). Informe de que dia a que dia ele vale. Cada venda só pode ser importada uma vez: períodos não podem se cruzar.${ult ? " Última importada até " + esc(ult) + "." : ""}</p>
+      <div class="linha" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <label>De <input type="date" id="v-ini" value="${ini}"></label>
+        <label>Até <input type="date" id="v-fim" value="${ini > isoDia(new Date()) ? ini : isoDia(new Date())}"></label></div>
+      <input type="file" id="f-vendas" accept=".csv,.xlsx,text/csv"></section>
+    <section><b>Notas de entrada (fornecedores)</b>
+      <p>Arquivo CSV ou Excel (.xlsx) com os itens das notas. Pode reenviar o arquivo inteiro: só entram as notas novas.</p>
+      <input type="file" id="f-notas" accept=".csv,.xlsx,.pdf,text/csv" multiple> <small style="color:var(--muted)">(até 5 arquivos de uma vez: CSV, Excel ou PDF da nota)</small></section>
+    <div id="m-msg"></div>`;
+  $("#f-vendas").onchange = async e => {
+    const f = e.target.files[0]; if(!f) return;
+    const q = new URLSearchParams({inicio:$("#v-ini").value, fim:$("#v-fim").value, arquivo:f.name});
+    $("#m-msg").textContent = "Importando…";
+    try{
+      const r = await api("/api/importar/vendas?" + q, {method:"POST", body: await f.arrayBuffer(), headers:{"X-Quem":encodeURIComponent(quemContando())}});
+      $("#m-msg").innerHTML = `<div class="ok-msg">Pronto: ${num(r.linhas)} itens de ${esc(r.inicio)} a ${esc(r.fim)}. O estoque estimado foi recalculado.</div>`;
+      carregarResumo(); carregar();
+    }catch(err){ $("#m-msg").innerHTML = `<div class="erro-msg">${esc(err.message)}</div>`; }
+    e.target.value = "";
+  };
+  $("#f-notas").onchange = async e => {
+    const arqs = [...e.target.files].slice(0, 5); if(!arqs.length) return;
+    const sobra = e.target.files.length > 5 ? `<div class="erro-msg">Escolhi só os 5 primeiros arquivos; envie os outros depois.</div>` : "";
+    const saidas = [];
+    for(const [n, f] of arqs.entries()){
+      $("#m-msg").innerHTML = `Importando ${n + 1} de ${arqs.length}: ${esc(f.name)}…`;
+      try{
+        const r = await api("/api/importar/notas?" + new URLSearchParams({arquivo:f.name}), {method:"POST", body: await f.arrayBuffer(), headers:{"X-Quem":encodeURIComponent(quemContando())}});
+        const ch = r.chegada;
+        const np = r.nota_pdf;
+        saidas.push(`<div class="ok-msg"><b>${esc(f.name)}</b>: ${np ? "nota " + esc(np.nota) + " de " + esc(np.fornecedor) + " (soma dos itens R$ " + Number(np.soma_itens).toFixed(2).replace(".", ",") + ") · " : ""}${num(r.novas)} itens novos de nota${r.repetidas ? " (" + num(r.repetidas) + " já estavam)" : ""}.` +
+          (ch ? `<br><b>Chegou:</b> ${num(ch.produtos_ligados)} produtos já ligados entram no estoque estimado.${ch.sem_vinculo ? ` <b>${num(ch.sem_vinculo)} itens ainda sem ligação</b>: ligue na aba “Itens das notas” (ou use “Vincular os seguros” em Prioridades).` : ""}` +
+          ((ch.vendem || []).length ? `<br><b>Itens que vendem e chegaram:</b> ${ch.vendem.map(v => esc(v.nome) + " (+" + v.unidades + ")").join(" · ")}` : "") : "") + `</div>`);
+      }catch(err){ saidas.push(`<div class="erro-msg"><b>${esc(f.name)}</b>: ${esc(err.message)}</div>`); }
+    }
+    $("#m-msg").innerHTML = saidas.join("") + sobra;
+    carregarResumo();
+    e.target.value = "";
+  };
+}
+async function desenharHistorico(){
+  $("#m-corpo").innerHTML = "Carregando…";
+  const r = await api("/api/importacoes");
+  $("#m-corpo").innerHTML = r.itens.length ? r.itens.map(i => `<div class="ent"><div class="d">${i.tipo === "vendas" ? "Vendas" : "Notas"} · ${esc(i.inicio || "?")} a ${esc(i.fim || "?")}</div>
+    <div class="m">${esc(i.arquivo || "")} · ${num(i.linhas)} linhas${i.tipo === "notas" ? " (" + num(i.novas) + " novas)" : ""} · importado ${data(i.quando)} ${esc(i.quem || "")}</div>
+    <div><button data-rm="${i.id}">Remover esta importação</button></div></div>`).join("") : "Nada importado ainda.";
+}
+$("#m-corpo").addEventListener("click", async e => {
+  const b = e.target.closest("button[data-rm]"); if(!b) return;
+  if(!confirm("Remover esta importação? O estoque estimado será recalculado sem ela.")) return;
+  await api("/api/importacoes/remover", {method:"POST", body:JSON.stringify({id:+b.dataset.rm})});
+  carregarResumo(); desenharMov();
+});
+
+async function desenharEntradas(){
+  const r0 = await api("/api/entradas?" + new URLSearchParams({estado:mov.estado, q:mov.q, pagina:mov.pagina, contados:mov.contados ? "1" : "0"}));
+  const c = r0.contagem;
+  const cab = `<div class="linha" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+    <select id="e-estado">${[["pendente","Falta ligar"],["confirmado","Ligados"],["ignorar","Ignorados"],["todos","Todos"]].map(([k, n]) =>
+      `<option value="${k}" ${mov.estado === k ? "selected" : ""}>${n}${c[k] != null ? " (" + num(c[k]) + ")" : ""}</option>`).join("")}</select>
+    <input type="search" id="e-q" placeholder="Buscar item ou fornecedor" value="${esc(mov.q)}" style="flex:1;min-width:160px"></div>
+    <label class="pv" style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" id="e-cont" ${mov.contados ? "checked" : ""}> Só itens de produtos que já contei <small style="color:var(--muted)">(${num(r0.total)} aqui)</small></label>
+    ${mov.estado === "pendente" ? `<div class="linha" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px"><button id="e-todos">Marcar todos desta página</button><button id="e-ign-lote" ${mov.sel.size ? "" : "disabled"}>Ignorar marcados (${mov.sel.size})</button></div>` : ""}
+    <p style="color:var(--muted);font-size:13px;margin:0 0 6px">Para cada item da nota, escolha o produto e diga <b>quantas unidades vêm em cada caixa/pacote</b> (ex.: caixa com 12 → 12). Ignore o que não é para revenda.</p>`;
+  const pags = Math.max(1, Math.ceil(r0.total / r0.por_pagina));
+  $("#m-corpo").innerHTML = cab + (r0.itens.length ? r0.itens.map(cartaoEntrada).join("") : "<p>Nenhum item aqui.</p>") +
+    `<div class="linha" style="display:flex;gap:8px;align-items:center;margin-top:8px"><button id="e-ant" ${mov.pagina <= 1 ? "disabled" : ""}>←</button><span>Página ${mov.pagina} de ${pags}</span><button id="e-prox" ${mov.pagina >= pags ? "disabled" : ""}>→</button></div>`;
+  $("#e-cont").onchange = e => { mov.contados = e.target.checked; mov.pagina = 1; desenharEntradas(); };
+  if($("#e-todos")){
+    $("#e-todos").onclick = () => { document.querySelectorAll(".ent[data-pid] .marca").forEach(c => { c.checked = true; mov.sel.add(c.closest(".ent").dataset.cnpj + "|" + c.closest(".ent").dataset.cod); }); desenharEntradas(); };
+    $("#e-ign-lote").onclick = async () => {
+      if(!confirm("Ignorar " + mov.sel.size + " itens? Eles saem da lista e não entram no estoque (dá para desfazer na aba Ignorados).")) return;
+      const itens = [...mov.sel].map(k => { const [cnpj, cod] = k.split("|"); return {cnpj, cod}; });
+      await api("/api/entradas/ignorar-lote", {method:"POST", body:JSON.stringify({itens, quem:quemContando()})});
+      mov.sel.clear(); carregarResumo(); desenharEntradas();
+    };
+  }
+  $("#e-estado").onchange = e => { mov.estado = e.target.value; mov.pagina = 1; desenharEntradas(); };
+  let t2; $("#e-q").oninput = e => { clearTimeout(t2); t2 = setTimeout(() => { mov.q = e.target.value; mov.pagina = 1; desenharEntradas(); }, 350); };
+  $("#e-ant").onclick = () => { mov.pagina--; desenharEntradas(); };
+  $("#e-prox").onclick = () => { mov.pagina++; desenharEntradas(); };
+}
+function cartaoEntrada(i){
+  const info = `<div class="d">${esc(i.descricao)}</div><div class="m">${esc(i.fornecedor)} · código ${esc(i.cod)} · vem em “${esc(i.un)}” · ${fmtN(i.quantidade)} no total em ${num(i.notas)} nota${i.notas === 1 ? "" : "s"} · última ${esc(i.ultima)}</div>`;
+  const dados = `data-cnpj="${esc(i.cnpj)}" data-cod="${esc(i.cod)}"`;
+  if(i.estado === "confirmado") return `<div class="ent" ${dados}>${info}<div class="escolhido">→ ${esc(i.produto)} · ${fmtN(i.fator)} un por ${esc(i.un)}</div><div><button data-ac="remover">Desfazer ligação</button></div></div>`;
+  if(i.estado === "ignorar") return `<div class="ent" ${dados}>${info}<div class="m">Ignorado (não entra no estoque)</div><div><button data-ac="remover">Voltar para a lista</button></div></div>`;
+  const chave = i.cnpj + "|" + i.cod;
+  const rapido = i.rapido ? `<button class="pri" data-ac="rapido" data-pid="${i.sugestoes[0].id}" data-fator="${i.fator_sugerido}">Ligar com a sugestão (×${fmtN(i.fator_sugerido)})</button>` : "";
+  return `<div class="ent" ${dados} data-pid=""><label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" class="marca" ${mov.sel.has(chave) ? "checked" : ""} style="margin-top:4px"><span style="flex:1">${info}</span></label>
+    ${rapido ? `<div class="m">Parece ser: <b>${esc(i.sugestoes[0].nome)}</b>${i.sugestoes[0].contado ? " (já contado)" : ""} · confira se a caixa realmente tem ${fmtN(i.fator_sugerido)} un.</div><div>${rapido}</div>` : ""}
+    <div class="sug">${(i.sugestoes || []).map(s => `<button data-ac="usar" data-pid="${s.id}" data-nome="${esc(s.nome)}">${esc(s.nome)}</button>`).join("")}</div>
+    <div class="linha"><input type="search" class="busca" placeholder="Procurar outro produto"><button data-ac="novo">Cadastrar produto novo</button></div>
+    <div class="res"></div>
+    <div class="escolhido"></div>
+    <div class="linha"><label>Unidades por caixa/pacote <input type="number" class="fator" min="1" step="any" value="${i.fator_sugerido}"></label>
+      <button class="pri" data-ac="ok" disabled>Ligar</button><button data-ac="ignorar">Ignorar item</button></div></div>`;
+}
+function escolher(card, id, nome){
+  card.dataset.pid = id; card.querySelector(".escolhido").textContent = "Produto: " + nome;
+  card.querySelector("[data-ac=ok]").disabled = false; card.querySelector(".res").innerHTML = "";
+}
+$("#m-corpo").addEventListener("change", e => {
+  const c = e.target.closest(".marca"); if(!c) return;
+  const card = c.closest(".ent"), k = card.dataset.cnpj + "|" + card.dataset.cod;
+  c.checked ? mov.sel.add(k) : mov.sel.delete(k);
+  const bt = $("#e-ign-lote"); if(bt){ bt.disabled = !mov.sel.size; bt.textContent = "Ignorar marcados (" + mov.sel.size + ")"; }
+});
+$("#m-corpo").addEventListener("input", async e => {
+  const inp = e.target.closest(".busca"); if(!inp) return;
+  const card = inp.closest(".ent"), q = inp.value.trim();
+  clearTimeout(inp._t);
+  inp._t = setTimeout(async () => {
+    if(q.length < 2){ card.querySelector(".res").innerHTML = ""; return; }
+    const r = await api("/api/produtos?" + new URLSearchParams({q, por_pagina:6}));
+    card.querySelector(".res").innerHTML = r.itens.map(p => `<button data-ac="usar" data-pid="${p.id}" data-nome="${esc(p.nome)}">${esc(p.nome)}${p.ean ? " · " + esc(p.ean) : ""}</button>`).join("") || "<small>Nenhum produto assim.</small>";
+  }, 250);
+});
+$("#m-corpo").addEventListener("click", async e => {
+  const b = e.target.closest("button[data-ac]"); if(!b) return;
+  const card = b.closest(".ent"), ac = b.dataset.ac;
+  const base = {cnpj:card.dataset.cnpj, cod:card.dataset.cod, quem:quemContando()};
+  const enviar = async corpo => { await api("/api/entradas/vinculo", {method:"POST", body:JSON.stringify({...base, ...corpo})}); carregarResumo(); carregar(); desenharEntradas(); };
+  try{
+    if(ac === "rapido") return await enviar({estado:"confirmado", produto_id:+b.dataset.pid, fator:b.dataset.fator});
+    if(ac === "usar") return escolher(card, b.dataset.pid, b.dataset.nome);
+    if(ac === "ok") return await enviar({estado:"confirmado", produto_id:+card.dataset.pid, fator:card.querySelector(".fator").value});
+    if(ac === "ignorar") return await enviar({estado:"ignorar"});
+    if(ac === "remover") return await enviar({estado:"remover"});
+    if(ac === "novo"){
+      const nome = prompt("Nome do produto novo:", card.querySelector(".d").textContent); if(!nome) return;
+      const ean = prompt("Código de barras (só números, de 6 a 14 dígitos):"); if(!ean) return;
+      const p = await api("/api/produto-novo", {method:"POST", body:JSON.stringify({nome, ean, quem:quemContando()})});
+      escolher(card, p.id, p.nome);
+    }
+  }catch(err){ alert(err.message); }
+});
+
+aplicarVista(); carregarResumo(); carregar();
+</script>
+</body>
+</html>
