@@ -435,7 +435,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
       </div>
       <div class="conta" id="conta"></div>
       <div class="lista">
-        <div class="cab"><span></span><span>Produto</span><span>Grupo</span><span style="text-align:right">Preço</span><span>Estoque oficial</span><span>Nuvemshop</span><span>iFood</span><span>99Food</span></div>
+        <div class="cab" id="cab-lista"><span></span><span>Produto</span><span>Grupo</span><span style="text-align:right">Preço</span><span>Estoque oficial</span></div>
         <div id="linhas"></div>
         <div class="vazio" id="vazio" hidden>Nenhum produto encontrado.</div>
       </div>
@@ -891,6 +891,16 @@ $("#cats").addEventListener("click", e => {
   $("#dcats").close(); irPara({grupo: b.dataset.g});
 });
 // esconde o que for de uma loja que este painel nao usa (marca.json)
+$("#cab-lista").insertAdjacentHTML("beforeend",
+  CANAIS_ON.map(c => `<span>${CANAIS_NOMES[c]}</span>`).join(""));
+if(CANAIS_ON.length !== 3){
+  const col = "56px minmax(200px,3fr) 1.2fr .8fr 1fr" + " 1.3fr".repeat(CANAIS_ON.length);
+  document.querySelectorAll(".cab,.lin").forEach(e => e.style.gridTemplateColumns = col);
+  const est = document.createElement("style");
+  est.textContent = `@media(min-width:901px){.cab,.lin{grid-template-columns:${col}!important}}`;
+  document.head.appendChild(est);
+}
+
 $("#aviso-produtos").textContent = "O que você muda aqui fica neste painel. "
   + (CANAIS_ON.includes("nuvemshop")
      ? "Só vai para a Nuvemshop quando você usa o menu Loja online (sempre com prévia e desfazer). Nada é enviado ao iFood nem à 99Food."

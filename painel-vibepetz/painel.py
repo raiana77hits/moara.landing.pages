@@ -531,11 +531,17 @@ def importar_estoque_geral(con, raw, data_contagem="", quem="painel"):
         if pid is None:
             pid = por_nome.get(_cab(nome)) if nome else None
         preco = valor(g(l, "preco"))
-        campos = dict(nome=nome or cod_ifood, grupo=txt(g(l, "grupo")),
-                      ean=ean_txt, ean_norm=ean_n, preco=preco, preco_gz=preco,
-                      categoria_nome=txt(g(l, "cat_anota")) or None,
-                      foto_drive=(txt(g(l, "arquivo_foto")) if sim(g(l, "foto_drive")) else None),
-                      atualizado_em=agora())
+        campos = dict(nome=nome or cod_ifood, atualizado_em=agora())
+        for chave, valor_ in (("grupo", txt(g(l, "grupo"))), ("ean", ean_txt),
+                              ("categoria_nome", txt(g(l, "cat_anota"))),
+                              ("foto_drive", txt(g(l, "arquivo_foto")) if sim(g(l, "foto_drive")) else "")):
+            if valor_:                      # célula vazia não apaga o que já está no painel
+                campos[chave] = valor_
+        if ean_n:
+            campos["ean_norm"] = ean_n
+        if preco is not None:
+            campos["preco"] = preco
+            campos["preco_gz"] = preco
         if pid is None:
             cols = ",".join(campos)
             vals = ",".join(":" + k for k in campos)
@@ -552,7 +558,7 @@ def importar_estoque_geral(con, raw, data_contagem="", quem="painel"):
             por_ifood.setdefault(cod_ifood, pid)
         if nome:
             por_nome.setdefault(_cab(nome), pid)
-        if campos["foto_drive"]:
+        if campos.get("foto_drive"):
             com_foto += 1
 
         qtd = valor(g(l, "qtd"))
@@ -566,7 +572,13 @@ def importar_estoque_geral(con, raw, data_contagem="", quem="painel"):
                              str(int(qtd)), f"planilha de estoque ({dia}) · {quem}"))
             contados += 1
 
-        con.execute("DELETE FROM canais WHERE produto_id=? AND canal IN ('anota','ifood')", (pid,))
+        # só mexe no canal quando a planilha traz dado dele: planilha parcial não apaga nada
+        tem_anota = col["no_anota"] is not None and txt(g(l, "no_anota")) != ""
+        tem_ifood = col["sit_ifood"] is not None and txt(g(l, "sit_ifood")) != ""
+        if tem_anota:
+            con.execute("DELETE FROM canais WHERE produto_id=? AND canal='anota'", (pid,))
+        if tem_ifood or cod_ifood:
+            con.execute("DELETE FROM canais WHERE produto_id=? AND canal='ifood'", (pid,))
         if sim(g(l, "no_anota")):
             foto = txt(g(l, "foto_anota")).lower()
             situacao = ("No cardápio" if foto.startswith("s") else
