@@ -1,23 +1,26 @@
 {
-  "_leia": "Identidade deste painel. Mude aqui o nome, as cores, a porta, o divisor de preco dos apps e os canais. Depois feche a janela preta, abra de novo e de Ctrl+F5 no navegador.",
+  "_leia": "Identidade e jeito deste painel: nome, cores, porta, divisor de preco dos apps, lojas (canais), destinos de envio e se a loja tem sistema de caixa. Depois de mudar: feche a janela preta, abra de novo e de Ctrl+F5 no navegador.",
   "loja": "Vibe Pet",
   "titulo": "Painel de Estoque",
   "porta": 8766,
   "divisor_apps": 0.7,
+  "arredondar_preco": "cima",
   "canais": [
+    "anota",
     "ifood",
     "99food"
   ],
-  "cores": {
-    "principal": "#1E3FAE",
-    "escuro": "#152E86",
-    "suave": "#E6ECFB",
-    "apoio": "#B07A00"
-  },
   "destinos": [
     "anota",
     "ifood",
     "n99"
   ],
-  "arredondar_preco": "cima"
+  "usa_caixa": false,
+  "usa_planilha_geral": true,
+  "cores": {
+    "principal": "#1E3FAE",
+    "escuro": "#152E86",
+    "suave": "#E6ECFB",
+    "apoio": "#B07A00"
+  }
 }

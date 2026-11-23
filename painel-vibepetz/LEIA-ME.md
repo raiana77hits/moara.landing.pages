@@ -1,11 +1,11 @@
 # Painel de Estoque · Vibe Pet
 
-Cadastro central dos produtos da Vibe Pet, com a situação de cada um no iFood e na 99Food.
-Roda só neste computador. **Não altera nada nas lojas online nem no Gestor Z.**
+Cadastro central dos produtos da Vibe Pet, com a situação de cada um na **Anota Aí**, no **iFood**
+e na **99Food**. Roda só neste computador. **Não altera nada nas lojas online.**
 
-A Vibe Pet **não tem Nuvemshop**: as telas da Nuvemshop ficam escondidas. A **Anota Aí** aparece
-como destino em "Contados ainda não enviados" (para você saber o que falta subir lá), ainda sem
-leitura automática do catálogo.
+A Vibe Pet não tem Nuvemshop nem sistema de caixa: o painel é alimentado pela **planilha de
+estoque geral** da loja. As telas que não servem para cá (Nuvemshop, vendas do caixa, notas de
+entrada, estoque estimado) ficam escondidas.
 
 É o mesmo painel da Casa de Embalagens, em pasta separada: **banco de dados próprio, porta própria
 e cores próprias**. Os dois podem ficar abertos ao mesmo tempo; um não enxerga o outro.
@@ -50,7 +50,10 @@ escrito no meio do programa. Abra no Bloco de Notas para mudar:
 - **divisor_apps**: a conta do preço dos apps. 0,70 significa *preço do Gestor Z ÷ 0,70*.
 - **arredondar_preco**: `"cima"` sempre sobe para o centavo seguinte (R$ 20,00 ÷ 0,70 = 28,5714
   vira **28,58**); `"normal"` arredonda do jeito comum (28,57). A Vibe Pet usa `"cima"`.
-- **canais**: quais lojas online este painel acompanha, entre `nuvemshop`, `ifood` e `99food`.
+- **usa_caixa**: `false` esconde tudo que depende de sistema de caixa (vendas, notas de entrada,
+  estoque estimado, prioridades e a importação do Gestor Z). A Vibe Pet usa `false`.
+- **usa_planilha_geral**: `true` liga a importação da planilha de estoque geral.
+- **canais**: quais lojas este painel acompanha, entre `anota`, `nuvemshop`, `ifood` e `99food`.
   O que não estiver na lista some da tela (cartões, filtros, etiquetas e ferramentas daquela loja).
 - **destinos**: quais lojas aparecem em "Contados ainda não enviados", entre `anota` (Anota Aí),
   `ifood`, `n99` (99Food) e `site` (Nuvemshop).
@@ -60,6 +63,28 @@ Depois de salvar: feche a janela preta, abra o `iniciar.bat` de novo e dê **Ctr
 Se escrever algo errado (uma cor inválida, por exemplo), o painel **não quebra**: ele usa o valor
 padrão e escreve o aviso na janela preta.
 
+## A planilha de estoque geral (é por aqui que tudo entra)
+
+Em **Ferramentas → Atualizar dados → Planilha de estoque geral da loja**:
+
+1. Diga **o dia em que a contagem foi feita** (não é a data de hoje: é o dia em que a loja contou).
+2. Escolha o arquivo `.xlsx`.
+
+O painel lê, de cada linha: nome, código de barras, preço e quantidade da loja, se está no Anota
+Aí (com preço, categoria e foto), e a situação no iFood (código, nome, preço e quantidade).
+Pode reenviar o mesmo arquivo quantas vezes quiser: ele **atualiza**, não duplica.
+
+O que o painel **não inventa**: célula vazia continua vazia. Os granéis que estão só no Anota e no
+iFood entram sem preço e **sem contagem**, e aparecem em "Falta conferir".
+
+Colunas que ele procura (pelo nome do título, em qualquer ordem): Grupo · Nome no estoque da loja ·
+Código loja / EAN · Preço loja · Qtd loja · Categoria no Anota · Nome no Anota · Preço Anota ·
+No Anota? · Código no iFood · Nome no iFood · Situação no iFood · Preço iFood atual · Qtd iFood ·
+Foto no Drive? · Arquivo da foto · Foto no Anota?
+
+> Na planilha de 04/11 os títulos "Categoria no Anota" e "Nome no Anota" estão trocados. O painel
+> percebe sozinho (categoria se repete muito, nome quase não se repete) e arruma.
+
 ## O que já funciona e o que falta ligar
 
 Funciona desde agora: produtos, conferência pelo celular, notas e vendas, estoque estimado,
@@ -67,12 +92,11 @@ prioridades, cruzamento de preços, planilhas e as telas de envio (com prévia).
 
 Falta, e fazemos juntas, uma coisa de cada vez:
 
-1. **Importar o cadastro da Vibe Pet** (planilha do Gestor Z: CSV ou XLSX) em
-   *Ferramentas → Atualizar dados*. Enquanto não importar, o painel fica vazio — é o esperado.
-2. **iFood (API)**: a Vibe Pet precisa do **aplicativo dela** no Portal do Parceiro e da
+1. **iFood (API)**: a Vibe Pet precisa do **aplicativo dela** no Portal do Parceiro e da
    homologação do módulo Item. As chaves da Casa de Embalagens **não servem** aqui.
-3. **99Food**: importar o catálogo quando a loja abrir (o modelo de planilha ainda não chegou).
-4. **Anota Aí**: ligar a leitura do catálogo, quando soubermos de que jeito ela exporta.
+2. **99Food**: importar o catálogo quando a loja abrir (o modelo de planilha ainda não chegou).
+3. **Anota Aí**: hoje os dados dela entram pela planilha. Integração automática depende de a
+   Anota Aí liberar uma API de cardápio para o lojista — ainda não confirmado.
 
 **A pasta `static/modelos` não veio neste pacote** (são as planilhas-modelo do iFood e da 99).
 Quando for usar *Planilhas dos apps*, copie a pasta `static\modelos` do painel da Casa de
