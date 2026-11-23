@@ -4230,7 +4230,7 @@ def tentar_login(con, ip, senha):
 MAX_FOTO = 8 * 1024 * 1024
 
 
-def salvar_foto(con, pid, dados, quem):
+def salvar_foto(con, pid, dados, quem, de_arquivo=""):
     if not con.execute("SELECT 1 FROM produtos WHERE id=?", (pid,)).fetchone():
         raise ValueError("Produto não encontrado.")
     if len(dados) < 1000 or len(dados) > MAX_FOTO or dados[:3] != b"\xff\xd8\xff":
@@ -4242,9 +4242,59 @@ def salvar_foto(con, pid, dados, quem):
     con.execute("INSERT INTO fotos(produto_id,quando,quem) VALUES(?,?,?) ON CONFLICT(produto_id) "
                 "DO UPDATE SET quando=excluded.quando, quem=excluded.quem", (pid, agora(), quem))
     con.execute("INSERT INTO historico(produto_id,quando,campo,de,para,origem) VALUES(?,?,?,?,?,?)",
-                (pid, agora(), "foto", "", "foto tirada na prateleira", quem))
+                (pid, agora(), "foto", "",
+                 ("foto do computador: " + de_arquivo)[:80] if de_arquivo else "foto tirada na prateleira",
+                 quem))
     con.commit()
     return detalhe(con, pid)
+
+
+def casar_fotos(con, nomes):
+    """Diz a qual produto pertence cada arquivo de foto, pelo nome do arquivo.
+
+    Procura, nesta ordem: o nome exato que veio na planilha ("Arquivo da foto"),
+    o código de barras (os números do nome do arquivo), o SKU e o código do iFood."""
+    if not isinstance(nomes, list):
+        raise ValueError("Lista de arquivos inválida.")
+    if len(nomes) > 500:
+        raise ValueError("São até 500 fotos por vez. Separe em partes menores.")
+    por_arquivo, por_ean, por_sku, por_ifood = {}, {}, {}, {}
+    for r in con.execute("SELECT id, nome, sku, ean_norm, foto_drive, "
+                         "(SELECT 1 FROM fotos f WHERE f.produto_id=produtos.id) tem "
+                         "FROM produtos"):
+        if r["foto_drive"]:
+            por_arquivo.setdefault(r["foto_drive"].strip().lower(), r)
+        if r["ean_norm"]:
+            por_ean.setdefault(r["ean_norm"], r)
+        if (r["sku"] or "").strip():
+            por_sku.setdefault(r["sku"].strip().lower(), r)
+    for r in con.execute("SELECT c.id_externo, p.id, p.nome, p.sku, p.ean_norm, "
+                         "(SELECT 1 FROM fotos f WHERE f.produto_id=p.id) tem "
+                         "FROM canais c JOIN produtos p ON p.id=c.produto_id "
+                         "WHERE c.canal='ifood' AND c.id_externo <> ''"):
+        por_ifood.setdefault(r["id_externo"].strip().lower(), r)
+
+    itens, vistos = [], {}
+    for nome in nomes:
+        arq = str(nome or "").strip()
+        base = os.path.basename(arq)
+        sem_ext = base.rsplit(".", 1)[0].strip().lower()
+        achado = (por_arquivo.get(base.lower()) or por_ifood.get(sem_ext)
+                  or por_sku.get(sem_ext) or por_ean.get(norm_ean(sem_ext)))
+        if achado is None:
+            itens.append({"arquivo": base, "id": None, "produto": "",
+                          "motivo": "não achei um produto com esse código"})
+            continue
+        if achado["id"] in vistos:
+            itens.append({"arquivo": base, "id": None, "produto": achado["nome"],
+                          "motivo": "outro arquivo desta lista já é desse produto (%s)"
+                                    % vistos[achado["id"]]})
+            continue
+        vistos[achado["id"]] = base
+        itens.append({"arquivo": base, "id": achado["id"], "produto": achado["nome"],
+                      "ja_tem_foto": bool(achado["tem"]), "motivo": ""})
+    return {"itens": itens, "achados": sum(1 for i in itens if i["id"]),
+            "sem_produto": sum(1 for i in itens if not i["id"])}
 
 
 def zip_fotos(con):
@@ -4745,9 +4795,12 @@ class Handler(BaseHTTPRequestHandler):
                 d = json.loads(self._corpo() or b"{}")
                 _tarefa(desfazer_nuvemshop, str(d.get("arquivo") or ""), (d.get("quem") or "painel")[:40])
                 return self._json({"ok": True})
+            if u.path == "/api/fotos/casar":
+                return self._json(casar_fotos(con, (json.loads(self._corpo() or b"{}")).get("arquivos") or []))
             if u.path.startswith("/api/foto/"):
                 return self._json(salvar_foto(con, int(u.path.rsplit("/", 1)[1]), self._corpo(),
-                                              unquote(self.headers.get("X-Quem") or "")))
+                                              unquote(self.headers.get("X-Quem") or ""),
+                                              unquote(self.headers.get("X-Arquivo") or "")[:60]))
             if u.path == "/api/produto-novo":
                 return self._json(criar_produto_manual(con, json.loads(self._corpo() or b"{}")))
             if u.path == "/api/sem-cadastro":

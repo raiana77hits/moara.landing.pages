@@ -62,6 +62,8 @@ select{padding:10px;border:1px solid var(--line);border-radius:6px;font:inherit;
 .foto.sem{display:flex;align-items:center;justify-content:center;text-align:center;font-size:10px;line-height:1.1;color:var(--muted);border:1px dashed var(--line);padding:2px}
 .gp{display:contents}
 .foto-grande{display:block;max-width:100%;max-height:320px;margin:0 auto;border-radius:12px}
+.foto-botoes{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.foto-botoes .btn-foto2{flex:1;min-width:150px;margin-top:0}
 .btn-foto2{display:block;text-align:center;font-weight:600;padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);cursor:pointer}
 .btn-foto2.destaque{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
 .btn-foto2:focus-within{outline:3px solid var(--marca);outline-offset:2px}
@@ -413,6 +415,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
         <button class="btn-lista" id="b-cruz"><span class="ic">🔀</span>Cruzamento de dados (preços)</button>
         <button class="btn-lista" id="b-imp2"><span class="ic">🔄</span>Atualizar dados</button>
         <a class="btn-lista" id="b-exp2" href="#"><span class="ic">📄</span>Baixar lista (CSV)</a>
+        <button class="btn-lista" id="b-fotos-pc"><span class="ic">📁</span>Subir fotos do computador</button>
         <a class="btn-lista" id="b-zip" href="/api/fotos.zip"><span class="ic">🖼️</span><span id="t-zip">Baixar fotos tiradas</span></a>
       </div>
       <p class="rodape" id="rodape"></p>
@@ -494,6 +497,20 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
   <div class="corpo imp">
     <div class="abas" id="m-abas"></div>
     <div id="m-corpo"></div>
+  </div>
+</dialog>
+
+<dialog id="dfpc">
+  <div class="topo"><h3>Subir fotos do computador</h3><button id="fp-x">Fechar</button></div>
+  <div class="corpo">
+    <section>
+      <p>Escolha várias fotos de uma vez. O painel descobre de qual produto é cada uma
+        <b>pelo nome do arquivo</b>: o código de barras (<code>7898104093645.jpeg</code>), o nome que
+        está na planilha, o SKU ou o código do iFood.</p>
+      <label class="btn-foto2 destaque" for="f-pc">📁 Escolher as fotos<input type="file" id="f-pc" accept="image/*" multiple hidden></label>
+    </section>
+    <section id="fp-previa" hidden></section>
+    <div id="fp-msg" role="status"></div>
   </div>
 </dialog>
 
@@ -755,10 +772,12 @@ async function reduzirFoto(file, lado){
     return await new Promise((ok, no) => c.toBlob(b => b ? ok(b) : no(new Error("Não consegui preparar a foto.")), "image/jpeg", 0.82));
   } finally { URL.revokeObjectURL(url); }
 }
-async function enviarFoto(id, file){
+async function enviarFoto(id, file, arquivo){
   let quem = ""; try{ quem = localStorage.getItem("quem") || ""; }catch(e){}
   const blob = await reduzirFoto(file);
-  return api("/api/foto/" + id, {method:"POST", body: blob, headers:{"Content-Type":"image/jpeg", "X-Quem": encodeURIComponent(quem)}});
+  const h = {"Content-Type":"image/jpeg", "X-Quem": encodeURIComponent(quem)};
+  if(arquivo) h["X-Arquivo"] = encodeURIComponent(String(arquivo).slice(0, 60));
+  return api("/api/foto/" + id, {method:"POST", body: blob, headers: h});
 }
 
 async function abrir(id){
@@ -769,7 +788,10 @@ async function abrir(id){
   const fotoTxt = p.foto_local ? "📷 Trocar a foto tirada" : (p.foto ? "📷 Tirar outra foto" : "📷 Sem foto: tirar foto na prateleira");
   $("#d-corpo").innerHTML = `
     <div>${p.foto ? `<img class="foto-grande" src="${esc(mini(p.foto, 480))}" alt="">` : ""}
-      <label class="btn-foto2 ${p.foto ? "" : "destaque"}" for="f-det" style="margin-top:10px">${fotoTxt}<input type="file" id="f-det" accept="image/*" capture="environment" hidden></label>
+      <div class="foto-botoes">
+        <label class="btn-foto2 ${p.foto ? "" : "destaque"}" for="f-det">${fotoTxt}<input type="file" id="f-det" accept="image/*" capture="environment" hidden></label>
+        <label class="btn-foto2" for="f-det-arq">📁 Escolher foto pronta<input type="file" id="f-det-arq" accept="image/*" hidden></label>
+      </div>
       <div id="det-foto-msg" class="sub" role="status"></div></div>
     <details class="edit-box" id="edit-box"><summary>✏️ Editar produto (nome, preço, categoria)</summary>
       <label class="campo" for="e-nome">Nome</label><input id="e-nome" value="${esc(p.nome)}" maxlength="150" autocomplete="off">
@@ -834,12 +856,14 @@ async function abrir(id){
       carregar(); carregarResumo(); await abrir(id); $("#edit-box").open = true; $("#e-msg").className = "ok-msg"; $("#e-msg").textContent = "Salvo no painel e enviado ao site.";
     }catch(e){ $("#e-msg").className = "erro-msg"; $("#e-msg").textContent = e.message; }
   };
-  $("#f-det").onchange = async e => {
+  const mandarFotoDaFicha = async e => {
     const f = e.target.files[0]; e.target.value = ""; if(!f) return;
     $("#det-foto-msg").textContent = "Enviando a foto…";
-    try{ await enviarFoto(id, f); await abrir(id); carregar(); carregarResumo(); }
+    try{ await enviarFoto(id, f, f.name); await abrir(id); carregar(); carregarResumo(); }
     catch(err){ $("#det-foto-msg").textContent = "Não consegui salvar a foto: " + err.message; }
   };
+  $("#f-det").onchange = mandarFotoDaFicha;
+  $("#f-det-arq").onchange = mandarFotoDaFicha;
   $("#d-salvar").onclick = async () => { await api("/api/produto/" + id, {method:"POST", body:JSON.stringify({obs: $("#d-obs").value})}); abrir(id); };
   if(!$("#dlg").open) $("#dlg").showModal();
 }
@@ -1020,6 +1044,57 @@ async function enviar(input, url){
   }catch(e){ $("#msg").textContent = "Não deu certo: " + e.message; }
   input.value = "";
 }
+/* ---------------------------------------- subir fotos prontas do computador */
+const fpc = {arquivos: [], casados: null};
+$("#b-fotos-pc").onclick = () => {
+  fpc.arquivos = []; fpc.casados = null;
+  $("#fp-previa").hidden = true; $("#fp-msg").textContent = "";
+  $("#dfpc").showModal();
+};
+$("#fp-x").onclick = () => $("#dfpc").close();
+$("#f-pc").onchange = async e => {
+  fpc.arquivos = [...e.target.files]; e.target.value = "";
+  if(!fpc.arquivos.length) return;
+  $("#fp-msg").textContent = "Vendo de qual produto é cada foto…";
+  let r;
+  try{ r = await api("/api/fotos/casar", {method:"POST", body: JSON.stringify({arquivos: fpc.arquivos.map(f => f.name)})}); }
+  catch(err){ $("#fp-msg").className = "erro-msg"; $("#fp-msg").textContent = err.message; return; }
+  fpc.casados = r;
+  const ok = r.itens.filter(i => i.id), novas = ok.filter(i => !i.ja_tem_foto), trocas = ok.filter(i => i.ja_tem_foto);
+  const ruins = r.itens.filter(i => !i.id);
+  $("#fp-msg").className = ""; $("#fp-msg").textContent = "";
+  $("#fp-previa").hidden = false;
+  $("#fp-previa").innerHTML = `
+    <p><b>${ok.length} de ${r.itens.length} fotos</b> têm produto no painel:
+      ${novas.length} em produtos sem foto${trocas.length ? ` · ${trocas.length} vão <b>trocar</b> a foto que já existe` : ""}.</p>
+    ${ruins.length ? `<p class="aviso">${ruins.length} não consegui casar (o nome do arquivo não bate com nenhum código):
+      ${esc(ruins.slice(0, 6).map(i => i.arquivo).join(", "))}${ruins.length > 6 ? "…" : ""}</p>` : ""}
+    <div class="rolagem" style="max-height:220px"><table class="mini"><tbody>${
+      ok.slice(0, 60).map(i => `<tr><td>${esc(i.arquivo)}</td><td>${esc(i.produto)}</td><td>${i.ja_tem_foto ? "troca a foto" : "nova"}</td></tr>`).join("")
+    }</tbody></table></div>
+    ${ok.length > 60 ? `<p style="font-size:12px;color:var(--muted)">Mostrando as 60 primeiras de ${ok.length}.</p>` : ""}
+    ${ok.length ? `<p><button class="pri" id="fp-enviar">Salvar as ${ok.length} fotos no painel</button>
+      <span style="font-size:13px;color:var(--muted)"> — fica só no painel, não vai para loja nenhuma.</span></p>` : ""}`;
+  const bt = $("#fp-enviar");
+  if(bt) bt.onclick = async () => {
+    bt.disabled = true;
+    const porNome = {}; fpc.arquivos.forEach(f => { porNome[f.name] = f; });
+    let feitas = 0, falhas = [];
+    for(const i of ok){
+      const f = porNome[i.arquivo];
+      if(!f){ falhas.push(i.arquivo + ": arquivo sumiu"); continue; }
+      $("#fp-msg").textContent = `Salvando ${feitas + 1} de ${ok.length}: ${i.arquivo}…`;
+      try{ await enviarFoto(i.id, f, i.arquivo); feitas++; }
+      catch(err){ falhas.push(i.arquivo + ": " + err.message); }
+    }
+    $("#fp-msg").className = falhas.length ? "aviso" : "";
+    $("#fp-msg").innerHTML = `Pronto: <b>${feitas}</b> foto(s) salvas no painel.` +
+      (falhas.length ? `<br>Não deu em ${falhas.length}: ${esc(falhas.slice(0, 5).join(" · "))}` : "");
+    bt.disabled = false;
+    carregarResumo(); carregar();
+  };
+};
+
 $("#f-gz").onchange = e => enviar(e.target, "/api/importar/gestorz");
 $("#f-eg").onchange = e => {
   const dia = $("#d-planilha").value;

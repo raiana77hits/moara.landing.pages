@@ -85,6 +85,25 @@ Foto no Drive? · Arquivo da foto · Foto no Anota?
 > Na planilha de 04/11 os títulos "Categoria no Anota" e "Nome no Anota" estão trocados. O painel
 > percebe sozinho (categoria se repete muito, nome quase não se repete) e arruma.
 
+## Fotos: tirar na hora ou subir as que você já tem
+
+Em cada produto (no computador e no celular) há dois botões lado a lado:
+**📷 Tirar foto** (abre a câmera) e **📁 Escolher foto pronta** (abre os arquivos do aparelho).
+
+Para subir **muitas de uma vez**: Ferramentas → **📁 Subir fotos do computador**. Escolha a pasta
+inteira de fotos; o painel descobre de qual produto é cada arquivo **pelo nome dele**, nesta ordem:
+
+1. o nome exato que está na coluna "Arquivo da foto" da planilha;
+2. o código de barras nos números do nome (`7898104093645.jpeg`);
+3. o SKU;
+4. o código do iFood (os `SM…` dos granéis).
+
+Antes de salvar ele mostra a lista: quantas casaram, quantas vão **trocar** uma foto que já existe
+e quais não deu para casar (com o nome do arquivo, para você renomear e tentar de novo).
+
+As fotos ficam **só no painel** (pasta `fotos`, ao lado do `banco.db`). Nada é enviado para o iFood,
+para a 99Food nem para a Anota Aí.
+
 ## O que já funciona e o que falta ligar
 
 Funciona desde agora: produtos, conferência pelo celular, notas e vendas, estoque estimado,

@@ -75,6 +75,8 @@ li small{color:var(--muted);white-space:nowrap}
 .mira{position:absolute;left:6%;right:6%;top:50%;height:0;border-top:2px solid rgba(255,60,60,.9);pointer-events:none}
 .status{border-radius:8px;padding:11px 13px;font-size:15px;background:var(--idle-bg);color:var(--ink)}
 .status.aviso{background:var(--warn-bg);color:var(--warn)}
+.foto-botoes{display:flex;gap:8px;flex-wrap:wrap}
+.foto-botoes .btn-foto{flex:1;min-width:150px}
 .btn-foto{display:block;text-align:center;font:600 16px inherit;font-family:inherit;padding:14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer}
 .btn-foto:focus-within{outline:3px solid var(--marca);outline-offset:2px}
 [hidden]{display:none!important}
@@ -176,7 +178,10 @@ async function reduzirFoto(file, lado){
 async function enviarFoto(id, file){
   let quem = ""; try{ quem = localStorage.getItem("quem") || ""; }catch(e){}
   const blob = await reduzirFoto(file);
-  return api("/api/foto/" + id, {method:"POST", body: blob, headers:{"Content-Type":"image/jpeg", "X-Quem": encodeURIComponent(quem)}});
+  const h = {"Content-Type":"image/jpeg", "X-Quem": encodeURIComponent(quem)};
+  // foto que já existia no aparelho (galeria): guarda o nome do arquivo no histórico
+  if(file && file.name && !/^image\.(jpe?g|png)$/i.test(file.name)) h["X-Arquivo"] = encodeURIComponent(String(file.name).slice(0, 60));
+  return api("/api/foto/" + id, {method:"POST", body: blob, headers: h});
 }
 
 // ---------------------------------------------------------------- câmera
@@ -514,10 +519,13 @@ async function buscar(texto, daCamera){
   res.querySelectorAll("button").forEach(b => b.onclick = () => cartao(itens[b.dataset.i]));
 }
 
-const NOMES = {nuvemshop:"Site", ifood:"iFood", "99food":"99Food"};
+const NOMES = {anota:"Anota Aí", nuvemshop:"Site", ifood:"iFood", "99food":"99Food"};
+// só as lojas que este painel usa (marca.json)
+const CANAIS_ON = ((window.MARCA && window.MARCA.canais) || ["nuvemshop","ifood","99food"])
+                  .filter(c => NOMES[c]);
 function cartao(p){
   pausar(true);
-  const pills = Object.keys(NOMES).map(c => {
+  const pills = CANAIS_ON.map(c => {
     const cs = p.canais.filter(x => x.canal === c);
     if(!cs.length) return `<span class="pill p-idle">${NOMES[c]}: não está</span>`;
     const v = cs.some(x => x.vendendo);
@@ -588,8 +596,11 @@ function desenharFoto(p){
   const el = img.querySelector("img");
   if(el) el.onclick = () => { $("#z-img").src = el.dataset.full; $("#d-zoom").showModal(); };
   const texto = p.foto_local ? "📷 Tirar outra foto" : (p.foto ? "📷 Tirar outra foto (a do site pode estar errada)" : "📷 Sem foto: tirar foto na prateleira");
-  acao.innerHTML = `<label class="btn-foto ${p.foto ? "" : "destaque"}" for="f-prod">${texto}<input type="file" id="f-prod" accept="image/*" capture="environment" hidden></label><div id="foto-msg" role="status"></div>`;
-  $("#f-prod").onchange = async e => {
+  acao.innerHTML = `<div class="foto-botoes">
+    <label class="btn-foto ${p.foto ? "" : "destaque"}" for="f-prod">${texto}<input type="file" id="f-prod" accept="image/*" capture="environment" hidden></label>
+    <label class="btn-foto" for="f-prod-arq">📁 Escolher foto pronta<input type="file" id="f-prod-arq" accept="image/*" hidden></label>
+  </div><div id="foto-msg" role="status"></div>`;
+  const mandarFoto = async e => {
     const f = e.target.files[0]; e.target.value = ""; if(!f) return;
     $("#foto-msg").textContent = "Enviando a foto…";
     try{
@@ -602,6 +613,8 @@ function desenharFoto(p){
         : "Não consegui salvar a foto: " + err.message;
     }
   };
+  $("#f-prod").onchange = mandarFoto;
+  $("#f-prod-arq").onchange = mandarFoto;
 }
 $("#d-zoom").addEventListener("click", () => $("#d-zoom").close());
 function seguir(){
