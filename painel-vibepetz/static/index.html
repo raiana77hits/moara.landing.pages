@@ -345,11 +345,11 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
   </div>
   <div class="acoes">
     <a class="btn pri" href="/conferir">Conferir prateleira</a>
-    <details class="menu-loja" id="menu-loja"><summary class="btn pri">Loja online ▾</summary><div class="menu-itens">
+    <details class="menu-loja" data-canal="nuvemshop ifood 99food" id="menu-loja"><summary class="btn pri">Loja online ▾</summary><div class="menu-itens">
       <button id="b-sync">Enviar estoque</button><button id="b-foto">Enviar fotos</button>
       <button id="b-cad">Cadastrar produtos novos</button><button id="b-pub">Publicar produtos</button>
       <button id="b-ifood">Planilhas dos apps (iFood e 99)</button></div></details>
-    <button id="b-org">Organizar categorias</button>
+    <button data-canal="nuvemshop" id="b-org">Organizar categorias</button>
     <button id="b-mov">Notas e vendas</button>
     <button id="b-imp">Atualizar dados</button>
     <a class="btn" id="b-exp" href="#">Baixar lista (CSV)</a>
@@ -401,14 +401,14 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 
       <div class="bloco ferramentas">
         <h2>Ferramentas</h2>
-        <button class="btn-lista" id="b-sync2"><span class="ic">🚚</span>Enviar estoque para a Nuvemshop</button>
-        <button class="btn-lista" id="b-cad2"><span class="ic">🆕</span>Cadastrar produtos novos no site</button>
-        <button class="btn-lista" id="b-ifood2"><span class="ic">🍔</span>Planilhas dos apps (iFood e 99)</button>
-        <button class="btn-lista" id="b-pub2"><span class="ic">🟢</span>Publicar produtos no site</button>
-        <button class="btn-lista" id="b-foto2"><span class="ic">📷</span>Enviar fotos para a Nuvemshop</button>
-        <button class="btn-lista" id="b-org2"><span class="ic">🗂️</span>Organizar categorias dos produtos</button>
+        <button class="btn-lista" data-canal="nuvemshop" id="b-sync2"><span class="ic">🚚</span>Enviar estoque para a Nuvemshop</button>
+        <button class="btn-lista" data-canal="nuvemshop" id="b-cad2"><span class="ic">🆕</span>Cadastrar produtos novos no site</button>
+        <button class="btn-lista" data-canal="ifood 99food" id="b-ifood2"><span class="ic">🍔</span>Planilhas dos apps (iFood e 99)</button>
+        <button class="btn-lista" data-canal="nuvemshop" id="b-pub2"><span class="ic">🟢</span>Publicar produtos no site</button>
+        <button class="btn-lista" data-canal="nuvemshop" id="b-foto2"><span class="ic">📷</span>Enviar fotos para a Nuvemshop</button>
+        <button class="btn-lista" data-canal="nuvemshop" id="b-org2"><span class="ic">🗂️</span>Organizar categorias dos produtos</button>
         <a class="btn-lista" href="/prioridades"><span class="ic">🚦</span>Prioridades: o que contar e comprar</a>
-        <button class="btn-lista" id="b-ifa"><span class="ic">🍔</span>iFood (API): conectar e testar</button>
+        <button class="btn-lista" data-canal="ifood" id="b-ifa"><span class="ic">🍔</span>iFood (API): conectar e testar</button>
         <button class="btn-lista" id="b-mov2"><span class="ic">🧾</span>Notas e vendas (estoque estimado)</button>
         <button class="btn-lista" id="b-cruz"><span class="ic">🔀</span>Cruzamento de dados (preços)</button>
         <button class="btn-lista" id="b-imp2"><span class="ic">🔄</span>Atualizar dados</button>
@@ -500,12 +500,12 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 <dialog id="dimp">
   <div class="topo"><h3>Atualizar dados</h3><button id="i-x">Fechar</button></div>
   <div class="corpo imp">
-    <section>
+    <section data-canal="nuvemshop">
       <b>Nuvemshop</b>
       <p>Lê todos os produtos do site (só leitura, leva cerca de 1 minuto).</p>
       <button class="pri" id="i-nuvem">Ler a Nuvemshop agora</button>
     </section>
-    <section>
+    <section data-canal="nuvemshop">
       <b>Pedidos do site</b>
       <p id="i-ped-txt">O painel lê os pedidos novos sozinho a cada 10 minutos, para o estoque estimado descontar as vendas do site.</p>
       <button id="i-ped">Ler os pedidos agora</button>
@@ -528,6 +528,14 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 const VERSAO = "9";
 const $ = s => document.querySelector(s);
 // divisor de preco dos apps: vem de marca.json pela rota /api/marca
+const CANAIS_NOMES = {nuvemshop:"Site (Nuvemshop)", ifood:"iFood", "99food":"99Food"};
+const CANAIS_CURTO = {nuvemshop:"Site", ifood:"iFood", "99food":"99Food"};
+const CANAIS_ICONE = {nuvemshop:"🌐", ifood:"🍔", "99food":"🛵"};
+const DESTINOS_NOMES = {anota:"Anota Aí", ifood:"iFood", n99:"99Food", site:"Site (Nuvemshop)"};
+// lojas e destinos ligados vem de marca.json (rota /api/marca)
+const CANAIS_ON = (window.MARCA && window.MARCA.canais) || ["nuvemshop","ifood","99food"];
+const DESTINOS_ON = (window.MARCA && window.MARCA.destinos) || ["anota","ifood","n99","site"];
+const TITULO_PAINEL = (window.MARCA && window.MARCA.titulo) || "Painel de Estoque";
 const DIV_APPS = String((window.MARCA && window.MARCA.divisor_apps) || 0.70).replace(".", ",");
 const DIV_APPS_PCT = (((1 / Number(DIV_APPS.replace(",", "."))) - 1) * 100).toFixed(2).replace(".", ",");
 const est = {q:"", filtro:"todos", grupo:"", pagina:1, total:0};
@@ -536,10 +544,8 @@ const NAV = [
   ["Conferência", [["todos","Todos os produtos"],["nao_conferido","Falta conferir"],["conferido","Já conferidos"],["zerado","Estoque zero"]]],
   ["Estoque estimado", [["tem_estimado","Com estimativa"],["est_negativo","Vendeu mais do que contei"],["est_baixo","Estimado em 3 ou menos"]]],
   ["Problemas", [["vende_sem_estoque","Sem estoque, mas à venda"],["parado_com_estoque","Com estoque, mas fora de venda"]]],
-  ["Contados ainda não enviados", [["novo_anota","Anota Aí"],["novo_ifood","iFood"],["novo_n99","99Food"],["novo_site","Site (Nuvemshop)"]]],
-  ["Nuvemshop", [["vendendo_nuvemshop","À venda"],["no_nuvemshop","Cadastrado"],["fora_nuvemshop","Não está"]]],
-  ["iFood", [["vendendo_ifood","À venda"],["no_ifood","Cadastrado"],["fora_ifood","Não está"]]],
-  ["99Food", [["vendendo_99food","À venda"],["no_99food","Cadastrado"],["fora_99food","Não está"]]],
+  ["Contados ainda não enviados", DESTINOS_ON.map(d => ["novo_" + d, DESTINOS_NOMES[d]])],
+  ...CANAIS_ON.map(c => [CANAIS_NOMES[c], [["vendendo_" + c,"À venda"],["no_" + c,"Cadastrado"],["fora_" + c,"Não está"]]]),
   ["Cadastro", [["sem_gestorz","Fora do Gestor Z"],["sem_ean","Sem código de barras real"],["em_nenhum_canal","Em nenhuma loja online"],["sem_foto","Sem foto"],["foto_tirada","Fotos tiradas na prateleira"],["cadastro_manual","Cadastrados à mão"]]],
 ];
 const NOME_FILTRO = {};
@@ -553,7 +559,7 @@ const ATENCAO = [
   ["cadastro_manual","Cadastrados à mão: falta cadastrar nas lojas","warn"],
   ["est_negativo","Vendeu mais do que contei","bad"],["est_baixo","Estimado em 3 ou menos","warn"],
 ];
-const LOJAS = [["nuvemshop","Site (Nuvemshop)","🌐"],["ifood","iFood","🍔"],["99food","99Food","🛵"]];
+const LOJAS = CANAIS_ON.map(c => [c, CANAIS_NOMES[c], CANAIS_ICONE[c]]);
 const ICONES = [["embala","📦"],["descart","🥤"],["utilid","🍳"],["higiene","🧼"],["limpeza","🧽"],["papelar","✏️"],["escrit","📝"],["brinq","🧸"],["festa","🎉"],["balc","🛍️"],["merce","🛒"],["diverso","🧩"],["cozinha","🍽️"],["eletr","🔌"],["jardim","🌱"],["pet","🐾"],["decor","🖼️"],["cosmet","💄"],["aliment","🥫"],["bebida","🥤"],["ferrag","🔧"],["vela","🕯️"]];
 const icone = nome => { const n = String(nome).toLowerCase(); for(const [k, i] of ICONES) if(n.includes(k)) return i; return "🏷️"; };
 const mini = (u, t) => u && /-\d+-\d+\.\w+$/.test(u) ? u.replace(/-\d+-\d+(\.\w+)$/, "-" + t + "-0$1") : u;
@@ -676,12 +682,12 @@ async function carregarResumo(){
   g.value = est.grupo;
   desenharNav(); desenharChips(); desenharInicio();
   $("#datas").textContent = " · " + datasTexto();
-  $("#rodape").innerHTML = esc(datasTexto()) + "<br>Painel de Estoque · tela versão " + BUILD + " · programa versão " + esc(r.servidor || "?") + (r.pasta ? "<br><small>Pasta do programa: " + esc(r.pasta) + "</small>" : "");
+  $("#rodape").innerHTML = esc(datasTexto()) + "<br>" + TITULO_PAINEL + " · tela versão " + BUILD + " · programa versão " + esc(r.servidor || "?") + (r.pasta ? "<br><small>Pasta do programa: " + esc(r.pasta) + "</small>" : "");
   $("#i-nuvem").disabled = !r.nuvemshop_configurada;
   if(!r.nuvemshop_configurada) $("#i-nuvem").textContent = "Falta conectar: use “Enviar para as lojas”";
 }
 
-const ROT = {nuvemshop:"Site", ifood:"iFood", "99food":"99Food"};
+const ROT = CANAIS_CURTO;
 function canal(itens, nome){
   const cs = itens.filter(c => c.canal === nome), rot = ROT[nome];
   if(!cs.length) return `<span class="pill p-idle"><span class="rot">${rot}: </span>não está</span>`;
@@ -703,7 +709,7 @@ async function carregar(){
     <div class="gp"><div class="grupo">${esc((p.grupo || "").toLowerCase())}</div>
     <div class="preco">${brl(p.preco)}</div></div>
     <div class="est"><input type="number" min="0" step="1" inputmode="numeric" value="${p.estoque ?? ""}" placeholder="—" aria-label="Estoque de ${esc(p.nome)}"><small>${p.conferido_em ? "conferido " + data(p.conferido_em) : "não conferido"}${textoEst(p)}</small></div>
-    <div class="canais">${canal(p.canais,"nuvemshop")}${canal(p.canais,"ifood")}${canal(p.canais,"99food")}</div></div>`).join("");
+    <div class="canais">${CANAIS_ON.map(c => canal(p.canais, c)).join("")}</div></div>`).join("");
   $("#vazio").hidden = r.itens.length > 0;
   const pags = Math.max(1, Math.ceil(r.total / r.por_pagina));
   $("#conta").textContent = num(r.total) + (r.total === 1 ? " produto" : " produtos");
@@ -847,6 +853,11 @@ $("#cats").addEventListener("click", e => {
   const b = e.target.closest("[data-g]"); if(!b) return;
   $("#dcats").close(); irPara({grupo: b.dataset.g});
 });
+// esconde o que for de uma loja que este painel nao usa (marca.json)
+document.querySelectorAll("[data-canal]").forEach(el => {
+  if(!el.dataset.canal.split(" ").some(c => CANAIS_ON.includes(c))) el.hidden = true;
+});
+
 $("#tela-inicio").addEventListener("click", e => {
   const b = e.target.closest("[data-f],[data-g]"); if(!b) return;
   irPara(b.dataset.f ? {filtro: b.dataset.f} : {grupo: b.dataset.g});

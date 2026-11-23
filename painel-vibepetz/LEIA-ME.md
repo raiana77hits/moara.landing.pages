@@ -1,12 +1,16 @@
-# Painel de Estoque · VibePetz
+# Painel de Estoque · Vibe Pet
 
-Cadastro central dos produtos da VibePetz, com a situação de cada um na Nuvemshop, no iFood e na
-99Food. Roda só neste computador. **Não altera nada nas lojas online nem no Gestor Z.**
+Cadastro central dos produtos da Vibe Pet, com a situação de cada um no iFood e na 99Food.
+Roda só neste computador. **Não altera nada nas lojas online nem no Gestor Z.**
+
+A Vibe Pet **não tem Nuvemshop**: as telas da Nuvemshop ficam escondidas. A **Anota Aí** aparece
+como destino em "Contados ainda não enviados" (para você saber o que falta subir lá), ainda sem
+leitura automática do catálogo.
 
 É o mesmo painel da Casa de Embalagens, em pasta separada: **banco de dados próprio, porta própria
 e cores próprias**. Os dois podem ficar abertos ao mesmo tempo; um não enxerga o outro.
 
-| | Casa de Embalagens | VibePetz |
+| | Casa de Embalagens | Vibe Pet |
 |---|---|---|
 | Pasta | `painel-estoque` | `painel-vibepetz` |
 | Endereço | http://127.0.0.1:8765 | **http://127.0.0.1:8766** |
@@ -30,11 +34,13 @@ escrito no meio do programa. Abra no Bloco de Notas para mudar:
 
 ```json
 {
-  "loja": "VibePetz",
+  "loja": "Vibe Pet",
   "titulo": "Painel de Estoque",
   "porta": 8766,
   "divisor_apps": 0.70,
-  "canais": ["nuvemshop", "ifood", "99food"],
+  "arredondar_preco": "cima",
+  "canais": ["ifood", "99food"],
+  "destinos": ["anota", "ifood", "n99"],
   "cores": { "principal": "#1E3FAE", "escuro": "#152E86", "suave": "#E6ECFB", "apoio": "#B07A00" }
 }
 ```
@@ -42,7 +48,12 @@ escrito no meio do programa. Abra no Bloco de Notas para mudar:
 - **loja / titulo**: aparecem no topo da tela, na aba do navegador e na tela de senha.
 - **porta**: o número do endereço. Só mude se precisar; tem que ser diferente da do outro painel.
 - **divisor_apps**: a conta do preço dos apps. 0,70 significa *preço do Gestor Z ÷ 0,70*.
-- **canais**: quais lojas online este painel acompanha. Pode tirar o que a VibePetz não usar.
+- **arredondar_preco**: `"cima"` sempre sobe para o centavo seguinte (R$ 20,00 ÷ 0,70 = 28,5714
+  vira **28,58**); `"normal"` arredonda do jeito comum (28,57). A Vibe Pet usa `"cima"`.
+- **canais**: quais lojas online este painel acompanha, entre `nuvemshop`, `ifood` e `99food`.
+  O que não estiver na lista some da tela (cartões, filtros, etiquetas e ferramentas daquela loja).
+- **destinos**: quais lojas aparecem em "Contados ainda não enviados", entre `anota` (Anota Aí),
+  `ifood`, `n99` (99Food) e `site` (Nuvemshop).
 - **cores**: use o formato `#RRGGBB`.
 
 Depois de salvar: feche a janela preta, abra o `iniciar.bat` de novo e dê **Ctrl+F5** no navegador.
@@ -56,12 +67,12 @@ prioridades, cruzamento de preços, planilhas e as telas de envio (com prévia).
 
 Falta, e fazemos juntas, uma coisa de cada vez:
 
-1. **Importar o cadastro da VibePetz** (planilha do Gestor Z: CSV ou XLSX) em
+1. **Importar o cadastro da Vibe Pet** (planilha do Gestor Z: CSV ou XLSX) em
    *Ferramentas → Atualizar dados*. Enquanto não importar, o painel fica vazio — é o esperado.
-2. **Nuvemshop**: colar o token e o número da loja da VibePetz no `config.json`.
-3. **iFood (API)**: a VibePetz precisa do **aplicativo dela** no Portal do Parceiro e da
+2. **iFood (API)**: a Vibe Pet precisa do **aplicativo dela** no Portal do Parceiro e da
    homologação do módulo Item. As chaves da Casa de Embalagens **não servem** aqui.
-4. **99Food**: planilhas de catálogo.
+3. **99Food**: importar o catálogo quando a loja abrir (o modelo de planilha ainda não chegou).
+4. **Anota Aí**: ligar a leitura do catálogo, quando soubermos de que jeito ela exporta.
 
 **A pasta `static/modelos` não veio neste pacote** (são as planilhas-modelo do iFood e da 99).
 Quando for usar *Planilhas dos apps*, copie a pasta `static\modelos` do painel da Casa de
@@ -84,12 +95,12 @@ painel.
 
 - **Só vale o estoque contado ou estimado do painel.** Nenhum número é inventado.
 - **Preço oficial = Gestor Z** (`preco_gz`), que só muda quando você importa o cadastro.
-  Esperado: Nuvemshop = preço do Gestor Z; iFood e 99Food = preço do Gestor Z ÷ 0,70.
+  Esperado: iFood e 99Food = preço do Gestor Z ÷ 0,70, arredondado para cima no centavo.
 - **Nada vai para loja real sem prévia e sem você confirmar.** No iFood real: o primeiro envio é
   de **1 produto**, depois no máximo 100 por vez, é preciso **digitar ENVIAR**, e a **carga
   completa (reset) nunca** é feita na loja real. Cada envio grava backup em `backups/`.
-- Nuvemshop: nunca apaga nada; produto novo nasce **não publicado**; produto com variações não é
-  tocado; por padrão é só leitura.
+- As ferramentas da Nuvemshop continuam no programa, mas escondidas: se um dia a Vibe Pet tiver
+  um site, é só acrescentar `"nuvemshop"` em `canais`.
 - O iFood responde **202** e processa depois: a conferência é no Portal do Parceiro.
 - Chaves e senhas ficam só no `config.json` deste computador, nunca no repositório.
 

@@ -62,6 +62,8 @@ MARCA_PADRAO = {
     "porta": 8765,
     "divisor_apps": 0.70,
     "canais": list(CANAIS_CONHECIDOS),
+    "destinos": ["anota", "ifood", "n99", "site"],
+    "arredondar_preco": "normal",
     "cores": {"principal": "#1E3FAE", "escuro": "#152E86",
               "suave": "#E6ECFB", "apoio": "#B07A00"},
 }
@@ -72,7 +74,8 @@ def carregar_marca():
 
     Nada aqui é obrigatório: o que faltar ou vier errado volta ao padrão e entra
     na lista de avisos, que aparece na janela preta ao abrir o painel."""
-    m = {"cores": dict(MARCA_PADRAO["cores"]), "canais": list(MARCA_PADRAO["canais"])}
+    m = {"cores": dict(MARCA_PADRAO["cores"]), "canais": list(MARCA_PADRAO["canais"]),
+         "destinos": list(MARCA_PADRAO["destinos"])}
     for k, v in MARCA_PADRAO.items():
         m.setdefault(k, v)
     try:
@@ -115,6 +118,18 @@ def carregar_marca():
                               % ", ".join(CANAIS_CONHECIDOS))
         else:
             avisos.append("Nenhum canal valido no marca.json; usando todos.")
+    modo = str(lido.get("arredondar_preco") or "").strip().lower()
+    if modo in ("cima", "normal"):
+        m["arredondar_preco"] = modo
+    elif modo:
+        avisos.append("arredondar_preco so aceita cima ou normal; usando %s." % m["arredondar_preco"])
+    pedidos = lido.get("destinos")
+    if isinstance(pedidos, list):
+        bons = [d for d in dict.fromkeys(pedidos) if d in ("anota", "ifood", "n99", "site")]
+        if bons:
+            m["destinos"] = bons
+        else:
+            avisos.append("Nenhum destino valido no marca.json; valem so: anota, ifood, n99, site.")
     cores = lido.get("cores")
     if isinstance(cores, dict):
         for nome, cor in cores.items():
@@ -131,6 +146,18 @@ MARCA, MARCA_AVISOS = carregar_marca()
 LOJA = MARCA["loja"]
 TITULO = MARCA["titulo"]
 DIVISOR_APPS = MARCA["divisor_apps"]
+ARREDONDAR = MARCA["arredondar_preco"]
+
+
+def preco_app(preco, divisor=None):
+    """Preço do produto nos apps = preço do painel ÷ divisor.
+
+    marca.json manda no arredondamento: 'cima' sempre sobe para o centavo seguinte
+    (20,00 ÷ 0,70 = 28,5714 -> 28,58), 'normal' arredonda do jeito comum (28,57)."""
+    bruto = float(preco) / (DIVISOR_APPS if divisor is None else divisor)
+    if ARREDONDAR == "cima":
+        return math.ceil(bruto * 100 - 1e-9) / 100
+    return round(bruto + 1e-9, 2)
 PORTA = int(os.environ.get("PAINEL_PORTA") or os.environ.get("PORT") or MARCA["porta"])
 HOST = os.environ.get("PAINEL_HOST", "127.0.0.1")
 SESSAO_DIAS = 30
@@ -847,7 +874,7 @@ def ifood_item_corpo(p, divisor=DIVISOR_APPS):
     corpo["active"] = True if qtd is None else qtd > 0
     pe = preco_efetivo(p)
     if pe and pe > 0:
-        corpo["prices"] = {"price": round(pe / divisor + 1e-9, 2)}
+        corpo["prices"] = {"price": preco_app(pe, divisor)}
     else:
         avisos.append("sem preço")
     det = {}
@@ -902,7 +929,7 @@ def motivos_ifood(p, cat, divisor=DIVISOR_APPS):
     m = []
     pe = preco_efetivo(p)
     if pe and pe > 0 and cat["preco"] is not None:
-        esp = round(pe / divisor + 1e-9, 2)
+        esp = preco_app(pe, divisor)
         if abs(cat["preco"] - esp) > TOLERANCIA_PRECO:
             m.append(f"preço: iFood R$ {cat['preco']:.2f} → R$ {esp:.2f}".replace(".", ","))
     qtd = _estoque_para_ifood(p)
@@ -2011,7 +2038,8 @@ FILTROS = {
 FILTROS["est_negativo"] = "p.estimado IS NOT NULL AND p.estimado < 0"
 FILTROS["est_baixo"] = "p.estimado IS NOT NULL AND p.estimado >= 0 AND p.estimado <= 3"
 FILTROS["tem_estimado"] = "p.estimado IS NOT NULL"
-DESTINOS_ENVIO = {"anota": "Anota Aí", "ifood": "iFood", "n99": "99Food", "site": "Site (Nuvemshop)"}
+DESTINOS_CONHECIDOS = {"anota": "Anota Aí", "ifood": "iFood", "n99": "99Food", "site": "Site (Nuvemshop)"}
+DESTINOS_ENVIO = {d: n for d, n in DESTINOS_CONHECIDOS.items() if d in MARCA["destinos"]}
 for _d in DESTINOS_ENVIO:   # contados depois da última vez que você marcou "já enviei" para esse destino
     FILTROS["novo_" + _d] = ("p.estoque IS NOT NULL AND COALESCE(p.conferido_em,'') > "
                              f"COALESCE((SELECT valor FROM meta WHERE chave='envio_{_d}_em'),'')")
@@ -2239,7 +2267,7 @@ def cruzamento_precos(con, tipo="", divisor=DIVISOR_APPS, limite=400):
     for p in con.execute("SELECT * FROM produtos ORDER BY nome COLLATE NOCASE"):
         ean = norm_ean(p["ean"])
         oficial = p["preco_gz"] if p["preco_gz"] and p["preco_gz"] > 0 else None
-        esp_ap = round(oficial / divisor + 1e-9, 2) if oficial else None
+        esp_ap = preco_app(oficial, divisor) if oficial else None
         pi, p9 = ifood.get(ean) if ean else None, n99.get(ean) if ean else None
         ps = site.get(p["id"])
         ps = ps[0] if ps and len(ps) == 1 else None
@@ -2570,7 +2598,7 @@ def planilha_ifood(con, divisor=DIVISOR_APPS, so_novos=None):
         qtd = max(0, int(math.floor(base)))
         cat = catalogo.get(ean)
         ruptura = bool(cat and "Ruptura" in (cat["bloqueio"] or ""))
-        preco = round(pe / divisor + 1e-9, 2)
+        preco = preco_app(pe, divisor)
         itens.append({"ean": int(ean), "nome": p["nome"], "preco": preco, "qtd": qtd, "ativo": 1 if qtd > 0 else 0,
                       "no_ifood": bool(cat), "ruptura": ruptura, "caixa": pe})
     enviados = {str(i["ean"]) for i in itens}
@@ -4139,7 +4167,8 @@ def _rodar_sync():
 def marca_para_tela():
     """O que as telas precisam saber da marca (nenhum segredo entra aqui)."""
     return {"loja": LOJA, "titulo": TITULO, "divisor_apps": DIVISOR_APPS,
-            "canais": list(CANAIS), "cores": dict(MARCA["cores"])}
+            "canais": list(CANAIS), "destinos": list(MARCA["destinos"]),
+            "cores": dict(MARCA["cores"])}
 
 
 def aplicar_marca(corpo):
