@@ -408,6 +408,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
         <button class="btn-lista" id="b-org2"><span class="ic">🗂️</span>Organizar categorias dos produtos</button>
         <a class="btn-lista" href="/prioridades"><span class="ic">🚦</span>Prioridades: o que contar e comprar</a>
         <button class="btn-lista" id="b-ifa"><span class="ic">🍔</span>iFood (API): conectar e testar</button>
+        <button class="btn-lista" id="b-n99"><span class="ic">🟡</span>99Food (API): só prévia</button>
         <button class="btn-lista" id="b-mov2"><span class="ic">🧾</span>Notas e vendas (estoque estimado)</button>
         <button class="btn-lista" id="b-cruz"><span class="ic">🔀</span>Cruzamento de dados (preços)</button>
         <button class="btn-lista" id="b-imp2"><span class="ic">🔄</span>Atualizar dados</button>
@@ -461,6 +462,21 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 <dialog id="difa">
   <div class="topo"><h3>iFood (API): conectar e testar</h3><button id="if-x">Fechar</button></div>
   <div class="corpo imp" id="if-corpo"></div>
+</dialog>
+
+<dialog id="dn99">
+  <div class="topo"><h3>99Food (API): prévia</h3><button id="n9-x">Fechar</button></div>
+  <div class="corpo imp">
+    <div style="position:sticky;top:0;background:#fff3cd;border:2px solid #e0a800;border-radius:12px;padding:10px 14px;font-weight:800;margin-bottom:10px">🔒 SEM ENVIO — só prévia. Nada é mandado para a 99.</div>
+    <div id="n9-estado" class="peq"></div>
+    <p><b>1. Escolha uma lista rápida</b></p>
+    <div id="n9-rapidas" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    <p id="n9-cab" class="peq"></p>
+    <div id="n9-ac" style="display:none;gap:8px;margin:6px 0"><button id="n9-todos">Marcar todos (até 50)</button><button id="n9-nenhum">Desmarcar</button> <span id="n9-cont" class="peq"></span></div>
+    <div id="n9-lista"></div>
+    <p><button id="n9-ver" class="pri">Ver o que seria enviado</button></p>
+    <div id="n9-prev"></div>
+  </div>
 </dialog>
 
 <dialog id="dcad">
@@ -1270,6 +1286,43 @@ document.addEventListener("click", e => {          // fecha o menu "Loja online"
 /* ------------------------------------------------ cadastrar produtos novos no site */
 const ca = {sel:new Set(), ultimo:""};
 $("#b-ifa").onclick = () => abrirIfoodApi();
+$("#b-n99").onclick = () => abrirN99();
+$("#n9-x").onclick = () => $("#dn99").close();
+async function abrirN99(){
+  $("#dn99").showModal();
+  $("#n9-lista").innerHTML = ""; $("#n9-prev").innerHTML = ""; $("#n9-cab").textContent = ""; $("#n9-ac").style.display = "none";
+  try{
+    const [e, l] = await Promise.all([api("/api/n99-api/estado"), api("/api/n99-api/listas")]);
+    const ok = x => x ? "✔" : "—";
+    $("#n9-estado").innerHTML = `Aplicativo de teste: id ${ok(e.teste.id)} · segredo ${ok(e.teste.segredo)} · loja ${ok(e.teste.loja)} &nbsp;|&nbsp; Envio: <b>${e.envio_liberado ? "liberado" : "travado"}</b>`;
+    $("#n9-rapidas").innerHTML = l.listas.map(x => `<button data-l="${x.chave}">${esc(x.nome)}</button>`).join("");
+    $("#n9-rapidas").querySelectorAll("button").forEach(b => b.onclick = () => n9Lista(b.dataset.l));
+  }catch(err){ $("#n9-estado").textContent = err.message; }
+}
+function n9Cont(){ $("#n9-cont").textContent = $("#n9-lista").querySelectorAll("input:checked").length + " marcados"; }
+async function n9Lista(l){
+  $("#n9-prev").innerHTML = "";
+  try{
+    const r = await api("/api/n99-api/candidatos?lista=" + encodeURIComponent(l));
+    $("#n9-cab").textContent = r.nome + ": " + r.itens.length + " produtos" + (r.cortou ? " (lista cortada)" : "") + (r.catalogo_em ? "" : " · catálogo da 99 ainda não importado");
+    $("#n9-ac").style.display = r.itens.length ? "flex" : "none";
+    $("#n9-lista").innerHTML = r.itens.map(i => `<label style="display:block;padding:8px;border-bottom:1px solid var(--line)"><input type="checkbox" value="${i.id}" ${i.pronto ? "" : "disabled"}> <b>${esc(i.nome)}</b><br><span class="peq">${esc(i.ean || "sem código")} · estoque ${i.estoque ?? "—"} · 99 enviaria ${i.preco_n99 != null ? brl(i.preco_n99/100) : "sem preço"}${[...i.motivos, ...i.avisos].map(m => " · " + esc(m)).join("")}</span></label>`).join("");
+    $("#n9-lista").querySelectorAll("input").forEach(c => c.onchange = n9Cont); n9Cont();
+  }catch(err){ $("#n9-cab").textContent = err.message; }
+}
+$("#n9-todos").onclick = () => { [...$("#n9-lista").querySelectorAll("input:not(:disabled)")].forEach((c, k) => c.checked = k < 50); n9Cont(); };
+$("#n9-nenhum").onclick = () => { $("#n9-lista").querySelectorAll("input").forEach(c => c.checked = false); n9Cont(); };
+$("#n9-ver").onclick = async () => {
+  const ids = [...$("#n9-lista").querySelectorAll("input:checked")].map(c => c.value);
+  if(!ids.length){ $("#n9-prev").textContent = "Marque pelo menos 1 produto."; return; }
+  try{
+    const r = await api("/api/n99-api/previa?ids=" + ids.join(","));
+    $("#n9-prev").innerHTML = `<p><b>Seria enviado: ${r.enviaveis} produtos</b> (preço oficial ÷ ${r.preco_dividido_por})</p>` +
+      r.itens.map(i => `<div style="border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px"><b>${esc(i.nome)}</b><br>Código ${esc(i.item.app_item_id)} · preço ${i.item.price != null ? brl(i.item.price/100) + " (" + i.item.price + " centavos)" : "não muda"} · ${i.item.status == null ? "ativo não muda" : i.item.status == 1 ? "disponível" : "indisponível"} · estoque ${i.estoque ?? "—"}${i.avisos.map(a => `<br>⚠️ ${esc(a)}`).join("")}</div>`).join("") +
+      `<p><button id="n9-json">Baixar o texto que seria enviado (JSON)</button> <button disabled title="A 99 ainda não liberou">Enviar (travado)</button></p>`;
+    $("#n9-json").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify({preco_e_ativo: r.corpo_preco_ativo, estoque: r.corpo_estoque}, null, 2)], {type:"application/json"})); a.download = "previa-99food.json"; a.click(); };
+  }catch(err){ $("#n9-prev").textContent = err.message; }
+};
 $("#if-x").onclick = () => $("#difa").close();
 async function abrirIfoodApi(){
   $("#difa").showModal(); const c = $("#if-corpo");

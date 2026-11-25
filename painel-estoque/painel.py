@@ -25,6 +25,7 @@ import hmac
 import io
 import json
 import math
+from decimal import Decimal, ROUND_HALF_UP
 import zlib
 import os
 import re
@@ -1072,6 +1073,151 @@ def enviar_ifood_item(con, ids, ambiente="teste", quem="painel", modo="post", pr
     msg = str((resp.get("error") or {}).get("message") or "")[:200] if isinstance(resp, dict) else ""
     return {"ok": ok_tudo, "status": codigo, "enviados": len(itens), "modo": modo,
             "resposta": resp if isinstance(resp, (dict, list)) else str(resp)[:300], "mensagem": msg, "backup": nome}
+
+
+# ================================================================ 99Food (API de itens): só prévia
+# O envio fica TRAVADO até a 99 liberar o aplicativo (ver LEIA-ME). Nada aqui chama a 99.
+
+N99_ENVIO_LIBERADO = False
+LIMITE_N99_LOTE = 50          # conservador até a 99 confirmar o limite de batchUpdateItems
+
+
+def preco_centavos(preco, divisor=0.70):
+    """Preço oficial ÷ divisor, em centavos inteiros (R$ 14,29 = 1429). Usa Decimal, nunca float."""
+    v = (Decimal(str(preco)) / Decimal(str(divisor))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return int((v * 100).to_integral_value(rounding=ROUND_HALF_UP))
+
+
+def n99_assinar(params, segredo):
+    """sign = MD5("k1=v1&k2=v2..." + app_secret), chaves em ordem ASCII, sem valores vazios."""
+    corpo = "&".join(f"{k}={params[k]}" for k in sorted(params) if params[k] not in ("", None))
+    return hashlib.md5((corpo + str(segredo)).encode("utf-8")).hexdigest()
+
+
+def n99_config(ambiente="teste"):
+    cfg = _ler_config_bruto()
+    pre = "n99_" + ("real" if ambiente == "real" else "teste") + "_"
+    return {"app_id": cfg.get(pre + "app_id", "") or os.environ.get("N99_APP_ID", ""),
+            "app_secret": cfg.get(pre + "app_secret", ""), "app_shop_id": cfg.get(pre + "app_shop_id", "")}
+
+
+def estado_n99():
+    """Só mostra se cada dado existe (✔ ou —). Nunca devolve o valor."""
+    r = {"envio_liberado": N99_ENVIO_LIBERADO}
+    for amb in ("teste", "real"):
+        c = n99_config(amb)
+        r[amb] = {"id": bool(c["app_id"]), "segredo": bool(c["app_secret"]), "loja": bool(c["app_shop_id"])}
+    return r
+
+
+def n99_item(p, divisor=0.70):
+    """Um produto no formato do batchUpdateItems da 99: app_item_id (o código de barras), price em centavos
+    e status (1 disponível, 2 indisponível). Sem contagem: só o preço. Devolve (item, estoque, avisos)."""
+    avisos = []
+    ean = "".join(c for c in str(p["ean"] or "") if c.isdigit())
+    if not 6 <= len(ean) <= 14:
+        avisos.append("sem código de barras válido")
+    elif ean.startswith("2"):
+        avisos.append("código interno do caixa (começa com 2): confirme se a 99 o conhece")
+    item = {"app_item_id": ean}
+    pe = preco_efetivo(p)
+    if pe and pe > 0:
+        item["price"] = preco_centavos(pe, divisor)
+    else:
+        avisos.append("sem preço")
+    qtd = _estoque_para_ifood(p)
+    if qtd is None:
+        avisos.append("sem contagem (estoque e ativo não vão no envio)")
+    else:
+        item["status"] = 1 if qtd > 0 else 2
+    return item, qtd, avisos
+
+
+def previa_n99(con, ids, divisor=0.70):
+    ids = list(dict.fromkeys(int(i) for i in ids))
+    if len(ids) > LIMITE_N99_LOTE:
+        raise ValueError(f"Marque no máximo {LIMITE_N99_LOTE} produtos por vez (você marcou {len(ids)}). Envie em lotes.")
+    itens = []
+    for pid in ids:
+        p = con.execute("SELECT * FROM produtos WHERE id=?", (pid,)).fetchone()
+        if not p:
+            continue
+        item, qtd, avisos = n99_item(p, divisor)
+        bloqueia = any(a.startswith("sem código") for a in avisos) or ("price" not in item and "status" not in item)
+        if "price" not in item and "status" not in item:
+            avisos.append("nada para atualizar (sem preço e sem contagem)")
+        itens.append({"pid": pid, "nome": p["nome"], "item": item, "estoque": qtd, "avisos": avisos, "bloqueia": bloqueia})
+    ok = [i for i in itens if not i["bloqueia"]]
+    return {"itens": itens, "enviaveis": len(ok),
+            "preco_dividido_por": divisor,
+            "chamadas": {"preco_e_ativo": "POST /v3/item/item/batchUpdateItems  (item_list com app_item_id, price em centavos, status)",
+                         "estoque": "POST /v1/item/item/setStockSync  (stock_list com app_item_id, stock) — precisa de liberação da 99"},
+            "corpo_preco_ativo": {"item_list": [i["item"] for i in ok]},
+            "corpo_estoque": {"stock_list": [{"app_item_id": i["item"]["app_item_id"], "stock": i["estoque"]} for i in ok if i["estoque"] is not None]}}
+
+
+def enviar_n99(*_a, **_k):
+    raise ValueError("O envio à 99Food ainda não está liberado: falta criar o aplicativo na 99, pedir a liberação da API de "
+                     "estoque e testar com 1 produto. Por enquanto só dá para ver a prévia.")
+
+
+def motivos_n99(p, cat, divisor=0.70):
+    """Diferenças entre o painel e o catálogo da 99 que você importou (preço, estoque, disponível)."""
+    if not cat:
+        return []
+    m = []
+    pe = preco_efetivo(p)
+    if pe and pe > 0 and cat["preco"] is not None:
+        esp = round(pe / divisor + 1e-9, 2)
+        if abs(cat["preco"] - esp) > TOLERANCIA_PRECO:
+            m.append(f"preço: 99 R$ {cat['preco']:.2f} → R$ {esp:.2f}".replace(".", ","))
+    qtd = _estoque_para_ifood(p)
+    if qtd is not None:
+        if cat["qtd"] is not None and int(cat["qtd"]) != qtd:
+            m.append(f"estoque: 99 {int(cat['qtd'])} → {qtd}")
+        disp = str(cat["disp"] or "").lower().startswith("dispon")
+        if disp != (qtd > 0):
+            m.append("está INDISPONÍVEL na 99 e tem estoque: ativar" if qtd > 0 else "está disponível na 99 e o estoque é zero: desativar")
+    return m
+
+
+LISTAS_N99 = {
+    "contados_hoje": "Contados hoje",
+    "cadastrados": "Cadastrados à mão no painel",
+    "zerados": "Estoque zero: desativar na 99",
+    "diferente": "Preço ou estoque diferente da 99",
+    "sem_n99": "Não estão no catálogo da 99",
+}
+
+
+def candidatos_n99(con, lista, divisor=0.70):
+    if lista not in LISTAS_N99:
+        raise ValueError("Lista desconhecida.")
+    cat = {}
+    for r in con.execute("SELECT ean, preco, qtd, disp FROM n99_catalogo"):
+        cat[norm_ean(r["ean"])] = r
+    produtos = con.execute("SELECT * FROM produtos ORDER BY conferido_em DESC, nome COLLATE NOCASE").fetchall()
+    hoje = datetime.now().strftime("%Y-%m-%d")
+    saida = []
+    for p in produtos:
+        c = cat.get(norm_ean(p["ean"])) if p["ean"] else None
+        motivos = motivos_n99(p, c, divisor)
+        if lista == "contados_hoje" and not (p["estoque"] is not None and (p["conferido_em"] or "")[:10] == hoje):
+            continue
+        if lista == "cadastrados" and p["origem"] != "manual":
+            continue
+        if lista == "zerados" and not (p["estoque"] == 0 and c):
+            continue
+        if lista == "diferente" and not motivos:
+            continue
+        if lista == "sem_n99" and (c or p["estoque"] is None):
+            continue
+        item, qtd, avisos = n99_item(p, divisor)
+        saida.append({"id": p["id"], "nome": p["nome"], "ean": p["ean"], "preco_n99": item.get("price"), "n99_atual": c["preco"] if c else None,
+                      "estoque": p["estoque"], "no_catalogo": bool(c), "motivos": motivos, "avisos": avisos,
+                      "pronto": not any(a.startswith(("sem código", "sem preço")) for a in avisos)})
+    return {"lista": lista, "nome": LISTAS_N99[lista], "itens": saida[:LIMITE_LISTA_IFOOD], "cortou": len(saida) > LIMITE_LISTA_IFOOD,
+            "catalogo_em": (con.execute("SELECT valor FROM meta WHERE chave='n99_catalogo_em'").fetchone() or [None])[0]}
 
 
 def previa_nuvemshop(con, modo="zerar"):
@@ -4167,6 +4313,20 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(cruzamento_precos(con, qs.get("tipo", "")))
             if u.path == "/api/ifood-api/comparar":
                 return self._json(comparar_canais(con))
+            if u.path == "/api/n99-api/estado":
+                return self._json(estado_n99())
+            if u.path == "/api/n99-api/listas":
+                return self._json({"listas": [{"chave": k, "nome": v} for k, v in LISTAS_N99.items()]})
+            if u.path == "/api/n99-api/candidatos":
+                try:
+                    return self._json(candidatos_n99(con, qs.get("lista", "")))
+                except ValueError as e:
+                    return self._json({"erro": str(e)}, 400)
+            if u.path == "/api/n99-api/previa":
+                try:
+                    return self._json(previa_n99(con, [x for x in qs.get("ids", "").split(",") if x.strip().isdigit()]))
+                except ValueError as e:
+                    return self._json({"erro": str(e)}, 400)
             if u.path == "/api/ifood-api/estado":
                 return self._json(estado_ifood())
             if u.path == "/api/central":
@@ -4339,6 +4499,11 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if not self._logado(con):
                 return self._json({"erro": "Entre com a senha.", "login": True}, 401)
+            if u.path == "/api/n99-api/enviar":
+                try:
+                    return self._json(enviar_n99())
+                except ValueError as e:
+                    return self._json({"erro": str(e)}, 400)
             if u.path == "/api/cruzamento/definir":
                 d = json.loads(self._corpo() or b"{}")
                 return self._json(definir_preco_oficial(con, d.get("pares") or [], unquote(self.headers.get("X-Quem") or "painel")[:40]))

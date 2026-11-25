@@ -208,3 +208,11 @@ Em **Ferramentas > Cruzamento de dados (preços)**: o **preço oficial é o do G
 A tela mostra, por produto, o que está diferente no painel, no site, no catálogo do iFood e no da 99 (os dois últimos vêm das planilhas de catálogo que você importa), e lista os produtos **sem preço oficial** (cadastrados à mão, sem correspondente no Gestor Z), com sugestões de preços parecidos. O botão **Aplicar o preço oficial no painel** só corrige o painel; depois você leva o preço certo às lojas pelas ferramentas de envio. Nada é enviado por essa tela.
 
 As listas e planilhas do iFood e da 99 passam a usar sempre o preço oficial quando ele existe. Depois de instalar esta versão, **importe o cadastro do Gestor Z de novo** para o painel gravar o preço oficial de todos os produtos.
+
+## 99Food (API): só prévia
+
+Em **Ferramentas → 99Food (API): só prévia** você escolhe uma lista rápida, marca produtos e vê **o que seria enviado** (preço em centavos = preço oficial ÷ 0,70, disponível/indisponível e estoque). Dá para baixar o JSON.
+
+- **O envio está travado no código** (`N99_ENVIO_LIBERADO = False`). Só será liberado depois que a 99 liberar a API de estoque e você testar com 1 produto.
+- O painel **não mexe em pedidos, clientes nem webhooks** da 99.
+- Os dados do aplicativo de teste (`n99_teste_app_id`, `n99_teste_app_secret`, `n99_teste_app_shop_id`) ficam só no `config.json`; a tela só mostra ✔ ou —, nunca o valor.
