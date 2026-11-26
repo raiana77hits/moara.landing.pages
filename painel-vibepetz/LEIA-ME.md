@@ -85,6 +85,29 @@ Foto no Drive? · Arquivo da foto · Foto no Anota?
 > Na planilha de 04/11 os títulos "Categoria no Anota" e "Nome no Anota" estão trocados. O painel
 > percebe sozinho (categoria se repete muito, nome quase não se repete) e arruma.
 
+## Os botões de "Precisa de atenção"
+
+Os blocos coloridos da tela inicial são atalhos para as mesmas listas da sua planilha:
+
+| Botão | O que mostra |
+|---|---|
+| Novos itens (fotos) | produtos criados pela aba "Novos itens (fotos …)" da planilha |
+| Estoque geral | todos os produtos do painel |
+| Falta no iFood | produto da loja que **não está à venda** no iFood (fora, em análise ou recusado) |
+| Falta no Anota Aí | produto da loja que não está no cardápio da Anota Aí |
+| Falta no estoque da loja | está no app mas não no estoque da loja (sem preço e sem contagem) |
+| Preços diferentes | Anota Aí diferente do preço da loja, ou app diferente de preço ÷ 0,70 |
+| Sem foto | sem foto no painel e sem foto no Drive |
+| Sem preço | preço em branco ou zero |
+| Sem código EAN | sem código de barras real (vazio ou começando com 2) |
+| Cadastrado hoje | produtos criados hoje |
+| Em nenhuma loja online | não está no Anota Aí, no iFood nem na 99Food |
+
+A planilha também pode trazer a aba **"Novos itens (fotos …)"** (colunas: Nome como está na
+embalagem, EAN, Categoria sugerida no Anota, Foto da frente, Foto do código de barras,
+Observação, Preço loja, Qtd loja). Ao importar, o painel cria esses produtos e eles ficam no
+botão "Novos itens (fotos)". Produto que já existe não é duplicado.
+
 ## Fotos: tirar na hora ou subir as que você já tem
 
 Em cada produto (no computador e no celular) há dois botões lado a lado:

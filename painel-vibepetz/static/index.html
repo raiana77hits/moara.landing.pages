@@ -579,16 +579,20 @@ const NAV = [
 const NOME_FILTRO = {};
 NAV.forEach(([t, its]) => its.forEach(([k, n]) => NOME_FILTRO[k] = (["Nuvemshop","iFood","99Food"].includes(t) ? t + ": " : t.startsWith("Contados") ? "Contados e não enviados: " : "") + n));
 const ATENCAO = [
-  ["nao_conferido","Falta conferir","warn"],["conferido","Já conferidos","ok"],
-  ["zerado","Estoque zero","bad"],["vende_sem_estoque","Sem estoque, mas à venda","bad"],
-  ["parado_com_estoque","Com estoque, mas fora de venda","warn"],["sem_ean","Sem código de barras real",""],
-  ...(USA_CAIXA ? [["sem_gestorz","Fora do Gestor Z",""]] : []),
+  ["novos_fotos","Novos itens (fotos)","warn"],
+  ["todos","Estoque geral",""],
+  ...(CANAIS_ON.includes("ifood") ? [["falta_ifood","Falta no iFood","bad"]] : []),
+  ...(CANAIS_ON.includes("anota") ? [["falta_anota","Falta no Anota Aí","bad"]] : []),
+  ["falta_na_loja","Falta no estoque da loja","warn"],
+  ["precos_diferentes","Preços diferentes","bad"],
+  ["sem_foto","Sem foto","warn"],
+  ["sem_preco","Sem preço","warn"],
+  ["sem_ean","Sem código EAN",""],
+  ["cadastrado_hoje","Cadastrado hoje","ok"],
   ["em_nenhum_canal","Em nenhuma loja online",""],
-  ["sem_foto","Sem foto","warn"],["foto_tirada","Fotos tiradas na prateleira","ok"],
-  ["cadastro_manual","Cadastrados à mão: falta cadastrar nas lojas","warn"],
-  ...(USA_CAIXA ? [["est_negativo","Vendeu mais do que contei","bad"],
-                   ["est_baixo","Estimado em 3 ou menos","warn"]] : []),
 ];
+// o nome do filtro na etiqueta também sai daqui (há filtros que só existem nos blocos)
+ATENCAO.forEach(([k, n]) => { if(!NOME_FILTRO[k]) NOME_FILTRO[k] = n; });
 const LOJAS = CANAIS_ON.map(c => [c, CANAIS_NOMES[c], CANAIS_ICONE[c]]);
 const ICONES = [["embala","📦"],["descart","🥤"],["utilid","🍳"],["higiene","🧼"],["limpeza","🧽"],["papelar","✏️"],["escrit","📝"],["brinq","🧸"],["festa","🎉"],["balc","🛍️"],["merce","🛒"],["diverso","🧩"],["cozinha","🍽️"],["eletr","🔌"],["jardim","🌱"],["pet","🐾"],["decor","🖼️"],["cosmet","💄"],["aliment","🥫"],["bebida","🥤"],["ferrag","🔧"],["vela","🕯️"]];
 const icone = nome => { const n = String(nome).toLowerCase(); for(const [k, i] of ICONES) if(n.includes(k)) return i; return "🏷️"; };

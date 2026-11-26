@@ -153,6 +153,7 @@ MARCA, MARCA_AVISOS = carregar_marca()
 LOJA = MARCA["loja"]
 TITULO = MARCA["titulo"]
 DIVISOR_APPS = MARCA["divisor_apps"]
+TOLERANCIA_PRECO = 0.05      # diferença de preço que não conta como divergência
 ARREDONDAR = MARCA["arredondar_preco"]
 
 
@@ -353,7 +354,7 @@ def conectar():
         con.commit()
     for col, tipo in (("estimado", "REAL"), ("est_aviso", "TEXT"), ("categoria_id", "TEXT"),
                       ("categoria_nome", "TEXT"), ("ifood_depto", "TEXT"), ("ifood_cat", "TEXT"),
-                      ("foto_drive", "TEXT")):
+                      ("foto_drive", "TEXT"), ("criado_em", "TEXT")):
         if col not in colunas:
             con.execute(f"ALTER TABLE produtos ADD COLUMN {col} {tipo}")
         con.commit()
@@ -545,6 +546,9 @@ def importar_estoque_geral(con, raw, data_contagem="", quem="painel"):
         if pid is None:
             cols = ",".join(campos)
             vals = ",".join(":" + k for k in campos)
+            campos["criado_em"] = agora()
+            cols = ",".join(campos)
+            vals = ",".join(":" + k for k in campos)
             pid = con.execute(f"INSERT INTO produtos({cols},origem) VALUES({vals},'planilha')",
                               campos).lastrowid
             novos += 1
@@ -607,6 +611,54 @@ def importar_estoque_geral(con, raw, data_contagem="", quem="painel"):
     return {"lidos": len(linhas) - 1, "novos": novos, "atualizados": atualizados,
             "contados": contados, "no_anota": com_anota, "no_ifood": com_ifood,
             "com_foto_no_drive": com_foto, "dia_da_contagem": dia}
+
+
+def importar_novos_das_fotos(con, raw, quem="painel"):
+    """Aba "Novos itens (fotos ...)" da planilha: produtos vistos nas fotos e que ainda não
+    estão no painel. Cria o produto com nome, código, categoria e foto, sem inventar preço."""
+    try:
+        linhas = ler_xlsx(bytes(raw), exigir=[["NOME COMO ESTA NA EMBALAGEM"],
+                                              ["CATEGORIA SUGERIDA NO ANOTA"]])
+    except Exception:
+        return None                      # a planilha não tem essa aba: tudo bem
+    cab = [_cab(c) for c in (linhas[0] if linhas else [])]
+    if "NOME COMO ESTA NA EMBALAGEM" not in cab:
+        return None
+    ix = lambda *n: next((cab.index(x) for x in n if x in cab), None)
+    col = {"nome": ix("NOME COMO ESTA NA EMBALAGEM"), "ean": ix("EAN"),
+           "cat": ix("CATEGORIA SUGERIDA NO ANOTA"), "foto": ix("FOTO DA FRENTE"),
+           "obs": ix("OBSERVACAO"), "preco": ix("PRECO LOJA"), "qtd": ix("QTD LOJA")}
+    g = lambda l, c: (l[col[c]] if col[c] is not None and col[c] < len(l) else None)
+    txt = lambda v: str(v if v is not None else "").strip()
+    novos = ja_tinha = 0
+    for l in linhas[1:]:
+        nome = txt(g(l, "nome"))
+        if not nome:
+            continue
+        ean_txt = txt(g(l, "ean"))
+        if not ean_txt.replace(" ", "").isdigit():
+            ean_txt = ""
+        ean_n = norm_ean(ean_txt)
+        achado = None
+        if ean_n:
+            achado = con.execute("SELECT id FROM produtos WHERE ean_norm=?", (ean_n,)).fetchone()
+        if achado is None:
+            achado = con.execute("SELECT id FROM produtos WHERE UPPER(nome)=UPPER(?)", (nome,)).fetchone()
+        if achado:
+            ja_tinha += 1
+            continue
+        preco = num_br(txt(g(l, "preco"))) if txt(g(l, "preco")) else None
+        con.execute(
+            "INSERT INTO produtos(nome,ean,ean_norm,categoria_nome,foto_drive,preco,preco_gz,"
+            "obs,origem,criado_em,atualizado_em) VALUES(?,?,?,?,?,?,?,?,'fotos',?,?)",
+            (nome[:120], ean_txt, ean_n, txt(g(l, "cat")) or None,
+             txt(g(l, "foto")) or None, preco, preco, txt(g(l, "obs")) or None,
+             agora(), agora()))
+        novos += 1
+    if novos:
+        set_meta(con, "novos_fotos_em", agora())
+    con.commit()
+    return {"novos": novos, "ja_estavam": ja_tinha}
 
 
 def _vendendo_ifood(s):
@@ -2195,7 +2247,24 @@ FILTROS = {
                 "(SELECT 1 FROM fotos f WHERE f.produto_id=p.id)",
     "foto_tirada": "EXISTS (SELECT 1 FROM fotos f WHERE f.produto_id=p.id)",
     "cadastro_manual": "p.origem = 'manual'",
+    "sem_preco": "p.preco IS NULL OR p.preco <= 0",
+    "cadastrado_hoje": "DATE(p.criado_em) = DATE('now','localtime')",
+    "novos_fotos": "p.origem = 'fotos'",
+    "falta_na_loja": ("p.grupo LIKE 'Só no %' OR (p.preco IS NULL AND p.estoque IS NULL "
+                      "AND EXISTS (SELECT 1 FROM canais c WHERE c.produto_id=p.id))"),
 }
+# preço diferente do esperado em alguma loja (Anota Aí = preço da loja; apps = preço ÷ divisor)
+_DA_LOJA = ("p.grupo NOT LIKE 'Só no %' AND (p.preco IS NOT NULL OR p.estoque IS NOT NULL)")
+# "falta no iFood" = produto da loja que não está à venda lá (fora, em análise ou recusado)
+for _c, _n in (("anota", "falta_anota"), ("ifood", "falta_ifood"), ("99food", "falta_99food")):
+    FILTROS[_n] = (f"{_DA_LOJA} AND NOT EXISTS (SELECT 1 FROM canais c "
+                   f"WHERE c.produto_id=p.id AND c.canal='{_c}' AND c.vendendo=1)")
+FILTROS["precos_diferentes"] = (
+    "p.preco IS NOT NULL AND p.preco > 0 AND EXISTS (SELECT 1 FROM canais c "
+    "WHERE c.produto_id=p.id AND c.preco IS NOT NULL AND c.preco > 0 AND ("
+    "   (c.canal='anota' AND ABS(c.preco - p.preco) > %(tol)s)"
+    " OR (c.canal IN ('ifood','99food') AND ABS(c.preco - (p.preco / %(div)s)) > %(tol)s)))"
+    % {"tol": TOLERANCIA_PRECO, "div": DIVISOR_APPS})
 FILTROS["est_negativo"] = "p.estimado IS NOT NULL AND p.estimado < 0"
 FILTROS["est_baixo"] = "p.estimado IS NOT NULL AND p.estimado >= 0 AND p.estimado <= 3"
 FILTROS["tem_estimado"] = "p.estimado IS NOT NULL"
@@ -2404,7 +2473,6 @@ def alterar(con, pid, dados):
 
 # ------------------------------------------------------------- cruzamento de preços (Gestor Z manda)
 
-TOLERANCIA_PRECO = 0.05
 FONTE_OFICIAL = "Gestor Z" if MARCA["usa_caixa"] else "planilha da loja"
 TIPOS_CRUZAMENTO = {k: v for k, v in (
     ("painel", "Painel diferente do preço oficial"),
@@ -4854,9 +4922,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(importar_gestorz(con, self._corpo()))
             if u.path == "/api/importar/estoque-geral":
                 dia = {k: v[0] for k, v in parse_qs(u.query).items()}.get("data", "")
-                return self._json(importar_estoque_geral(
-                    con, self._corpo(), dia,
-                    unquote(self.headers.get("X-Quem") or "painel")[:40]))
+                corpo = self._corpo()
+                quem = unquote(self.headers.get("X-Quem") or "painel")[:40]
+                extra = importar_novos_das_fotos(con, corpo, quem)
+                r = importar_estoque_geral(con, corpo, dia, quem)
+                if extra:
+                    r["novos_das_fotos"] = extra["novos"]
+                    r["novos_das_fotos_ja_tinha"] = extra["ja_estavam"]
+                return self._json(r)
             if u.path == "/api/importar/painel":
                 return self._json(importar_painel(con, self._corpo()))
             if u.path == "/api/sync/pedidos":
