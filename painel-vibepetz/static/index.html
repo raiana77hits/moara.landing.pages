@@ -550,7 +550,7 @@ label.pv input{width:22px;height:22px;flex:none;margin-top:2px}
 </dialog>
 
 <script>
-const VERSAO = "9";
+const VERSAO = "10";
 const $ = s => document.querySelector(s);
 // divisor de preco dos apps: vem de marca.json pela rota /api/marca
 const CANAIS_NOMES = {anota:"Anota Aí", nuvemshop:"Site (Nuvemshop)", ifood:"iFood", "99food":"99Food"};
@@ -693,7 +693,7 @@ function desenharInicio(){
   const semSite = !(r.categorias_n && r.categorias_n.length);
   const aviso = document.getElementById("aviso-cats");
   if(aviso) aviso.remove();
-  if(semSite) $("#cats").insertAdjacentHTML("beforebegin", `<div id="aviso-cats" class="aviso">Estas são as categorias do Gestor Z. Para usar as <b>categorias da loja</b>: <button id="b-lercats" class="pri" style="margin-left:6px">Ler categorias da loja</button></div>`);
+  if(semSite) $("#cats").insertAdjacentHTML("beforebegin", `<div id="aviso-cats" class="aviso">${USA_CAIXA ? "Estas são as categorias do Gestor Z." : "Estas são as categorias da planilha."} Para usar as <b>categorias da loja</b>: <button id="b-lercats" class="pri" style="margin-left:6px">Ler categorias da loja</button></div>`);
   if(semSite) document.getElementById("b-lercats").onclick = e => lerCategorias(e.target, async () => { desenharInicio(); desenharChips(); });
   $("#n-cats").textContent = num(listaCats().length) + " categorias · toque para ver";
   $("#cats").innerHTML = listaCats().map(x =>
@@ -744,7 +744,7 @@ async function carregar(){
   est.total = r.total;
   $("#linhas").innerHTML = r.itens.map(p => `<div class="lin" data-id="${p.id}">
     ${p.foto ? `<img class="foto" loading="lazy" src="${esc(mini(p.foto, 320))}" alt="">` : `<div class="foto sem">sem foto</div>`}
-    <div class="nome">${esc(p.nome)}<span class="meta">${esc(p.ean || codigoDoApp(p) || "sem código de barras")}${p.sku ? " · SKU " + esc(p.sku) : ""}${p.gz_codigo ? " · GZ " + esc(p.gz_codigo) : ""}</span></div>
+    <div class="nome">${esc(p.nome)}<span class="meta">${esc(p.ean || codigoDoApp(p) || "sem código de barras")}${p.sku && CANAIS_ON.includes("nuvemshop") ? " · SKU " + esc(p.sku) : ""}${p.gz_codigo && USA_CAIXA ? " · GZ " + esc(p.gz_codigo) : ""}</span></div>
     <div class="gp"><div class="grupo">${esc((p.grupo || "").toLowerCase())}</div>
     <div class="preco">${brl(p.preco)}</div></div>
     <div class="est"><input type="number" min="0" step="1" inputmode="numeric" value="${p.estoque ?? ""}" placeholder="—" aria-label="Estoque de ${esc(p.nome)}"><small>${p.conferido_em ? "conferido " + data(p.conferido_em) : "não conferido"}${textoEst(p)}</small></div>
@@ -793,7 +793,6 @@ async function abrir(id){
   const p = await api("/api/produto/" + id);
   let catsLista = []; try{ catsLista = (await api("/api/categorias")).itens; }catch(e){}
   $("#d-nome").textContent = p.nome;
-  const nomes = {nuvemshop:"Nuvemshop", ifood:"iFood", "99food":"99Food"};
   const fotoTxt = p.foto_local ? "📷 Trocar a foto tirada" : (p.foto ? "📷 Tirar outra foto" : "📷 Sem foto: tirar foto na prateleira");
   $("#d-corpo").innerHTML = `
     <div>${p.foto ? `<img class="foto-grande" src="${esc(mini(p.foto, 480))}" alt="">` : ""}
@@ -812,25 +811,25 @@ async function abrir(id){
       ${p.canais.filter(c => c.canal === "nuvemshop").length === 1 ? '<button id="e-site">Salvar e enviar ao site</button>' : ""}</div>
       <div id="e-msg" role="status" style="margin-top:6px"></div></details>
     <dl>
-      <dt>Código de barras</dt><dd>${esc(p.ean) || "—"}</dd>
-      <dt>SKU (Nuvemshop)</dt><dd>${esc(p.sku) || "—"}</dd>
-      <dt>Código Gestor Z</dt><dd>${esc(p.gz_codigo) || "—"}</dd>
+      <dt>Código de barras</dt><dd>${esc(p.ean) || codigoDoApp(p) || "—"}</dd>
+      ${CANAIS_ON.includes("nuvemshop") ? `<dt>SKU (Nuvemshop)</dt><dd>${esc(p.sku) || "—"}</dd>` : ""}
+      ${USA_CAIXA ? `<dt>Código Gestor Z</dt><dd>${esc(p.gz_codigo) || "—"}</dd>` : ""}
       <dt>Categoria da loja</dt><dd>${esc(p.categoria_nome) || "—"}</dd>
-      <dt>Grupo (Gestor Z)</dt><dd>${esc(p.grupo) || "—"}</dd>
+      ${USA_CAIXA ? `<dt>Grupo (Gestor Z)</dt><dd>${esc(p.grupo) || "—"}</dd>` : (p.grupo ? `<dt>Grupo</dt><dd>${esc(p.grupo)}</dd>` : "")}
       ${p.origem === "manual" ? "<dt>Origem</dt><dd>Cadastrado à mão no painel (falta cadastrar nas lojas)</dd>" : ""}
-      <dt>Preço no caixa</dt><dd>${brl(p.preco) || "—"}</dd>
-      <dt>Custo</dt><dd>${p.custo ? brl(p.custo) : "—"}</dd>
+      <dt>${USA_CAIXA ? "Preço no caixa" : "Preço de venda na loja"}</dt><dd>${brl(p.preco) || "—"}</dd>
+      ${USA_CAIXA || p.custo ? `<dt>Custo</dt><dd>${p.custo ? brl(p.custo) : "—"}</dd>` : ""}
       <dt>Estoque oficial</dt><dd><b>${p.estoque ?? "não conferido"}</b>${p.conferido_em ? " · " + data(p.conferido_em) : ""}</dd>
-      <dt>Estoque estimado</dt><dd>${p.estimado != null ? "<b>" + fmtN(p.estimado) + "</b> (contagem + notas − vendas do caixa e do site; iFood e 99 ainda não entram)" : (p.est_aviso === "peso" ? "vende por peso: sem estimativa" : "precisa de contagem")}</dd>
-      <dt>Saldo no Gestor Z</dt><dd>${esc(p.gz_saldo) || "sem controle"}</dd>
+      <dt>Estoque estimado</dt><dd>${p.estimado != null ? "<b>" + fmtN(p.estimado) + "</b> " + (USA_CAIXA ? "(contagem + notas − vendas do caixa e do site; iFood e 99 ainda não entram)" : "(vem da contagem; as vendas dos aplicativos ainda não são descontadas)") : (p.est_aviso === "peso" ? "vende por peso: sem estimativa" : "precisa de contagem")}</dd>
+      ${USA_CAIXA ? `<dt>Saldo no Gestor Z</dt><dd>${esc(p.gz_saldo) || "sem controle"}</dd>` : ""}
       <dt>Situação estimada</dt><dd>${esc(p.situacao) || "—"}</dd>
-      <dt>Ação sugerida</dt><dd>${esc(p.acao) || "—"}</dd>
+      ${USA_CAIXA ? `<dt>Ação sugerida</dt><dd>${esc(p.acao) || "—"}</dd>
       <dt>Vendas no ano (caixa)</dt><dd>${p.vendas_ano ?? "—"}</dd>
-      <dt>Última compra</dt><dd>${esc(p.ultima_compra) || "—"}</dd>
+      <dt>Última compra</dt><dd>${esc(p.ultima_compra) || "—"}</dd>` : ""}
     </dl>
     <div><h4>Lojas online</h4>${p.canais.length ? `<div class="rolagem"><table class="mini"><thead><tr><th>Loja</th><th>Nome lá</th><th>Preço</th><th>Estoque</th><th>Situação</th></tr></thead><tbody>${
-      p.canais.map(c => `<tr><td>${nomes[c.canal]}</td><td>${esc(c.nome) || "—"}</td><td>${brl(c.preco) || "—"}</td><td>${esc(c.estoque) || "—"}</td><td><span class="pill ${c.vendendo ? "p-ok" : "p-bad"}">${esc(c.status)}</span></td></tr>`).join("")}</tbody></table></div>` : "Este produto não está em nenhuma loja online."}</div>
-    ${p.movimento ? `<div><h4>Desde a contagem (${esc(p.movimento.contagem_em)})</h4>
+      p.canais.map(c => `<tr><td>${CANAIS_NOMES[c.canal] || esc(c.canal)}</td><td>${esc(c.nome) || "—"}</td><td>${brl(c.preco) || "—"}</td><td>${esc(c.estoque) || "—"}</td><td><span class="pill ${c.vendendo ? "p-ok" : "p-bad"}">${esc(c.status)}</span></td></tr>`).join("")}</tbody></table></div>` : "Este produto não está em nenhuma loja online."}</div>
+    ${USA_CAIXA && p.movimento ? `<div><h4>Desde a contagem (${esc(p.movimento.contagem_em)})</h4>
       <div class="rolagem"><table class="mini"><tbody>${
         p.movimento.entradas.map(e => `<tr><td>${esc(e.emissao)}</td><td>entrou</td><td>+${fmtN(e.unidades)} un (${fmtN(e.quantidade)} × ${fmtN(e.fator)}) · ${esc(e.fornecedor)}</td></tr>`).join("") +
         p.movimento.vendas.map(v => `<tr><td>${esc(v.inicio)} a ${esc(v.fim)}</td><td>vendeu</td><td>−${fmtN(v.qtd)} ${esc(v.unidade)} no caixa</td></tr>`).join("") +
@@ -1175,7 +1174,7 @@ async function abrirCruzamento(tipo, manter){
   const q = d.quando || {}, tx = (k, n) => q[k] ? n + " " + esc(data(q[k])) : n + " nunca";
   const ruim = (i, f) => i.flags.includes(f) ? ' style="background:var(--bad-bg,#fde8e6);font-weight:700"' : "";
   const aplicaveis = d.itens.filter(i => i.oficial || (cz.tipo === "sem_oficial" && i.painel));
-  const fonte = d.fonte_oficial || "Gestor Z";
+  const fonte = d.fonte_oficial || (USA_CAIXA ? "Gestor Z" : "planilha da loja");
   const esperado = [...(CANAIS_ON.includes("anota") ? ["<b>Anota Aí = preço da loja</b>"] : []),
                     ...(CANAIS_ON.includes("nuvemshop") ? ["<b>Site = preço oficial</b>"] : []),
                     ...(CANAIS_ON.includes("ifood") || CANAIS_ON.includes("99food")
@@ -1189,9 +1188,9 @@ async function abrirCruzamento(tipo, manter){
     <p style="font-size:13px">Esperado: ${esperado} · diferenças de até ${br(d.tolerancia)} não contam.</p>
     <p style="font-size:12px;color:var(--muted)">Dados usados: ${usados}. Para o cruzamento valer, importe os dados de novo quando mudarem.</p>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${Object.entries(d.tipos).map(([k, n]) => `<button type="button" class="${cz.tipo === k ? "pri" : ""}" data-t="${k}">${esc(n)} (${num(d.contagens[k])})</button>`).join("")}<button type="button" class="${cz.tipo === "" ? "pri" : ""}" data-t="">Tudo com alerta</button></div></section>
-    <section>${d.itens.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${cz.tipo === "sem_oficial" ? '<button type="button" class="pri" id="cz-massa">🔎 Preencher os preços pelo Gestor Z (ver sugestões de todos)</button>' : ""}<button type="button" id="cz-todos">Marcar todos desta lista</button><button type="button" id="cz-nenhum">Desmarcar</button><button type="button" class="pri" id="cz-aplicar">Aplicar o preço oficial no painel (<span id="cz-n">0</span>)</button>${cz.tipo === "sem_oficial" ? '<button type="button" class="pri" id="cz-painel-oficial">Usar o preço que já está no painel como oficial nos marcados</button>' : ""}<button type="button" id="cz-csv">Baixar esta lista (CSV)</button></div>
+    <section>${d.itens.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${cz.tipo === "sem_oficial" && USA_CAIXA ? '<button type="button" class="pri" id="cz-massa">🔎 Preencher os preços pelo Gestor Z (ver sugestões de todos)</button>' : ""}<button type="button" id="cz-todos">Marcar todos desta lista</button><button type="button" id="cz-nenhum">Desmarcar</button><button type="button" class="pri" id="cz-aplicar">Aplicar o preço oficial no painel (<span id="cz-n">0</span>)</button>${cz.tipo === "sem_oficial" ? '<button type="button" class="pri" id="cz-painel-oficial">Usar o preço que já está no painel como oficial nos marcados</button>' : ""}<button type="button" id="cz-csv">Baixar esta lista (CSV)</button></div>
       <p style="font-size:12px;color:var(--muted)">“Aplicar” só muda o preço <b>no painel</b>. Depois use as ferramentas de envio${CANAIS_ON.includes("nuvemshop") ? " (iFood API, Planilhas dos apps, Nuvemshop)" : " (iFood API, Planilhas dos apps)"} para levar o preço certo às lojas${CANAIS_ON.includes("anota") ? ", e corrija a Anota Aí no painel dela" : ""}. Nada é enviado por aqui.${d.cortou ? " Mostrando só os primeiros " + d.itens.length + " de " + d.total + "." : ""}</p>
-      <div class="rolagem"><table class="mini"><thead><tr><th></th><th>Produto</th><th>Oficial</th><th>Apps ÷</th>${CRUZ_COLS.map(([, n]) => `<th>${n}</th>`).join("")}</tr></thead><tbody>${d.itens.map(i => `<tr data-id="${i.id}"><td>${i.oficial || (cz.tipo === "sem_oficial" && i.painel) ? `<input type="checkbox" data-i="${i.id}" ${cz.marcados.has(i.id) ? "checked" : ""}>` : ""}</td><td>${esc(i.nome)}<br><small style="color:var(--muted)">${esc(i.ean || "sem código")}${i.contado != null ? " · contado " + i.contado : ""}</small></td><td><b>${br(i.oficial)}</b>${i.oficial ? "" : `<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap"><input class="cz-pin" data-i="${i.id}" inputmode="decimal" placeholder="R$" style="width:70px"><button type="button" class="cz-salvar pri" data-i="${i.id}" style="font-size:12px">Salvar preço</button></div>${i.painel ? `<button type="button" class="cz-usar-painel" data-i="${i.id}" data-p="${i.painel}" style="font-size:12px;margin-top:3px">Usar ${br(i.painel)} (do painel)</button><br>` : ""}${cz.sugPorId[i.id] ? `<div style="margin-top:4px;font-size:12px;border-top:1px dashed var(--line);padding-top:3px">Sugestão do Gestor Z (${Math.round(cz.sugPorId[i.id].parecido * 100)}%): <b>${esc(cz.sugPorId[i.id].nome)}</b>${cz.sugPorId[i.id].tamanho_igual === false ? ' <b style="color:var(--bad)">(tamanho diferente)</b>' : ""}<br><button type="button" class="cz-usar-sug" data-i="${i.id}" data-r="${cz.sugPorId[i.id].id}" style="font-size:12px;margin-top:3px">Usar ${br(cz.sugPorId[i.id].preco)}</button></div>` : '<div style="margin-top:4px;font-size:12px;color:var(--muted)">sem sugestão no Gestor Z</div>'}`}</td><td>${br(i.esperado_apps)}</td>${CRUZ_COLS.map(([k]) => `<td${ruim(i, k)}>${br(i[k])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : "<p>Nada com alerta nesta lista. 👍</p>"}</section>
+      <div class="rolagem"><table class="mini"><thead><tr><th></th><th>Produto</th><th>Oficial</th><th>Apps ÷</th>${CRUZ_COLS.map(([, n]) => `<th>${n}</th>`).join("")}</tr></thead><tbody>${d.itens.map(i => `<tr data-id="${i.id}"><td>${i.oficial || (cz.tipo === "sem_oficial" && i.painel) ? `<input type="checkbox" data-i="${i.id}" ${cz.marcados.has(i.id) ? "checked" : ""}>` : ""}</td><td>${esc(i.nome)}<br><small style="color:var(--muted)">${esc(i.ean || "sem código")}${i.contado != null ? " · contado " + i.contado : ""}</small></td><td><b>${br(i.oficial)}</b>${i.oficial ? "" : `<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap"><input class="cz-pin" data-i="${i.id}" inputmode="decimal" placeholder="R$" style="width:70px"><button type="button" class="cz-salvar pri" data-i="${i.id}" style="font-size:12px">Salvar preço</button></div>${i.painel ? `<button type="button" class="cz-usar-painel" data-i="${i.id}" data-p="${i.painel}" style="font-size:12px;margin-top:3px">Usar ${br(i.painel)} (do painel)</button><br>` : ""}${!USA_CAIXA ? "" : cz.sugPorId[i.id] ? `<div style="margin-top:4px;font-size:12px;border-top:1px dashed var(--line);padding-top:3px">Sugestão do Gestor Z (${Math.round(cz.sugPorId[i.id].parecido * 100)}%): <b>${esc(cz.sugPorId[i.id].nome)}</b>${cz.sugPorId[i.id].tamanho_igual === false ? ' <b style="color:var(--bad)">(tamanho diferente)</b>' : ""}<br><button type="button" class="cz-usar-sug" data-i="${i.id}" data-r="${cz.sugPorId[i.id].id}" style="font-size:12px;margin-top:3px">Usar ${br(cz.sugPorId[i.id].preco)}</button></div>` : '<div style="margin-top:4px;font-size:12px;color:var(--muted)">sem sugestão no Gestor Z</div>'}`}</td><td>${br(i.esperado_apps)}</td>${CRUZ_COLS.map(([k]) => `<td${ruim(i, k)}>${br(i[k])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : "<p>Nada com alerta nesta lista. 👍</p>"}</section>
     <div id="cz-res" role="status"></div>`;
   const cont = () => { const n = $("#cz-n"); if(n) n.textContent = cz.marcados.size; };
   cont();
@@ -1284,7 +1283,7 @@ async function abrirCruzamento(tipo, manter){
     }
     if(e.target.closest("#cz-csv")){
       const q2 = t => '"' + String(t ?? "").replace(/"/g, '""') + '"', n2 = v => v == null ? "" : String(v).replace(".", ",");
-      const linhas = [["Produto", "Código", "Contado", "Preço oficial (Gestor Z)", "Esperado iFood/99", "Painel", "Site", "iFood", "99Food", "Alertas"].map(q2).join(";")]
+      const linhas = [["Produto", "Código", "Contado", (USA_CAIXA ? "Preço oficial (Gestor Z)" : "Preço oficial (planilha da loja)"), "Esperado iFood/99", "Painel", "Site", "iFood", "99Food", "Alertas"].map(q2).join(";")]
         .concat(cz.dados.itens.map(i => [i.nome, i.ean, i.contado, n2(i.oficial), n2(i.esperado_apps), n2(i.painel), n2(i.site), n2(i.ifood), n2(i.n99), i.flags.map(f => cz.dados.tipos[f]).join(" | ")].map(q2).join(";")));
       const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + linhas.join("\r\n")], {type:"text/csv;charset=utf-8"}));
       a.download = "cruzamento_precos.csv"; a.click();
@@ -1441,7 +1440,7 @@ async function abrirIfoodApi(){
       <p>Cria ou atualiza o produto (sem apagar nada). Primeiro você vê o que seria enviado.</p>
       <label class="op"><input type="radio" name="if-dest" value="teste" checked><span><b>Loja de teste</b></span></label>
       <label class="op"><input type="radio" name="if-dest" value="real"><span><b style="color:var(--bad)">Loja REAL</b> (clientes de verdade veem)<br><small>O <b>primeiro envio é de 1 produto só</b>, para você conferir no iFood. Depois, até 100 por vez. A carga completa (reset) nunca é feita na loja real. Precisa do ID, segredo e loja reais acima (ID ${ok(e.real.id)} · segredo ${ok(e.real.segredo)} · loja ${ok(e.real.loja)}).</small></span></label>
-      <label class="op"><input type="radio" name="if-modo" value="atualizar" checked><span><b>Atualizar produto</b> (preço, estoque e ativo)<br><small>Para produto que <b>já está no iFood</b>. Manda o preço (Gestor Z ÷ ${DIV_APPS}) e, se o produto foi contado, o estoque e o ativo juntos: estoque maior que zero = ativo; zero = inativo. <b>Sem contagem, muda só o preço.</b> Não mexe em categoria, foto nem descrição. Use o botão "💲 Atualizar preço e estoque do iFood".</small></span></label>
+      <label class="op"><input type="radio" name="if-modo" value="atualizar" checked><span><b>Atualizar produto</b> (preço, estoque e ativo)<br><small>Para produto que <b>já está no iFood</b>. Manda o preço (${USA_CAIXA ? "Gestor Z" : "preço da loja"} ÷ ${DIV_APPS}) e, se o produto foi contado, o estoque e o ativo juntos: estoque maior que zero = ativo; zero = inativo. <b>Sem contagem, muda só o preço.</b> Não mexe em categoria, foto nem descrição. Use o botão "💲 Atualizar preço e estoque do iFood".</small></span></label>
       <label class="op"><input type="radio" name="if-modo" value="post"><span><b>Enviar o produto completo</b> (cadastrar produto novo)<br><small>Manda todos os dados (nome, preço, estoque, categoria). Pode trocar a categoria de produto que já existe lá. Não apaga nada.</small></span></label>
       <label class="op"><input type="radio" name="if-modo" value="reset"><span><b>Carga completa</b> (só na loja de teste) <b style="color:var(--warn,#b54708)">cuidado</b><br><small>Substitui o catálogo inteiro da loja de TESTE pelos produtos marcados. Nunca na loja real.</small></span></label>
       <label class="campo">Preço promocional (opcional, para todos os marcados)<input id="if-promo" inputmode="decimal" placeholder="ex.: 9,90 (precisa ser menor que o preço)"></label>
@@ -1479,7 +1478,7 @@ async function abrirIfoodApi(){
     if(!ultimaLista) return;
     const L = ultimaLista, prontos = L.itens.filter(i => i.pronto).length;
     $("#if-cab").innerHTML = `<div class="aviso" style="margin:8px 0"><b>${esc(L.nome)}</b>: ${L.itens.length}${L.cortou ? "+ (mostrando os primeiros " + L.itens.length + ")" : ""} produtos · <b>${prontos}</b> prontos para o iFood
-      ${L.itens.some(i => !i.pronto && (i.avisos || []).some(a => a.startsWith("sem preço"))) ? '<div style="margin:6px 0"><b style="color:var(--bad)">Há produtos sem preço nesta lista.</b> <button type="button" id="if-sem-preco" class="pri">Preencher os preços pelo Gestor Z</button></div>' : ""}
+      ${USA_CAIXA && L.itens.some(i => !i.pronto && (i.avisos || []).some(a => a.startsWith("sem preço"))) ? '<div style="margin:6px 0"><b style="color:var(--bad)">Há produtos sem preço nesta lista.</b> <button type="button" id="if-sem-preco" class="pri">Preencher os preços pelo Gestor Z</button></div>' : ""}
       <div style="margin-top:4px;font-size:13px"><label><input type="checkbox" id="if-ver-env" ${verEnviados ? "checked" : ""}> Mostrar também os que já enviei à loja real</label>${L.escondidos ? " <span style='color:var(--muted)'>(" + L.escondidos + " já enviados estão escondidos)</span>" : ""}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button type="button" id="if-todos">Marcar os próximos prontos (até o limite)</button><button type="button" id="if-nenhum">Desmarcar</button><button type="button" id="if-csv">Baixar esta lista (CSV)</button><span id="if-cont" style="align-self:center;color:var(--muted)"></span></div></div>`;
     $("#if-lista").innerHTML = L.itens.map(i => `<label class="pv" style="display:flex;gap:8px;align-items:flex-start;${i.pronto ? "" : "opacity:.75"}"><input type="checkbox" data-i="${i.id}" ${marcados.has(i.id) ? "checked" : ""} ${i.pronto ? "" : "disabled"}><span>${esc(i.nome)}<br><small>${esc(i.ean || "sem código")} · painel ${brl2(i.preco)} → iFood ${brl2(i.preco_ifood)}${i.ifood_atual != null ? " (hoje no iFood " + brl2(i.ifood_atual) + ")" : ""} · contado ${i.estoque ?? "—"}${i.estimado != null && Math.round(i.estimado) !== i.estoque ? " (estimado " + Math.round(i.estimado) + ")" : ""}${i.conferido_em ? " em " + esc(data(i.conferido_em)) : ""}<br>Site ${i.site ? "✔" : "—"} · iFood ${i.ifood ? "✔" : "—"} · 99Food ${i.n99 ? "✔" : "—"}${(i.motivos || []).length ? '<br><b style="color:var(--bad)">' + i.motivos.map(esc).join(" · ") + "</b>" : ""}${i.avisos.length ? '<br><span style="color:var(--warn)">' + i.avisos.map(esc).join("; ") + "</span>" : ""}</small></span></label>`).join("");
@@ -1537,7 +1536,7 @@ async function abrirIfoodApi(){
     pv.innerHTML = p.itens.map(i => { const r = i.resumo || {};
       return `<div class="aviso" style="margin:8px 0" data-pid="${i.pid}"><b>${esc(i.nome)}</b>${r.ja_no_ifood ? ' <span class="pill">já está no iFood</span>' : ""}
         <div style="margin:4px 0;font-size:13px">Preço no iFood <b>${brl2(r.preco)}</b> · estoque <b>${r.estoque ?? "não muda"}</b> · ativo <b>${r.ativo == null ? "não muda" : ver(r.ativo)}</b>${modoIf() === "atualizar" ? "" : ` · foto <b>${r.imagem ? "vai" : "não vai"}</b>${r.imagem ? "" : " <small>(o iFood precisa de um endereço público de imagem; a foto da prateleira não serve)</small>"}`}</div>
-        ${r.preco == null ? '<div class="if-sug" style="margin-top:6px;font-size:13px">Sem preço: procurando no Gestor Z…</div>' : ""}
+        ${r.preco == null && USA_CAIXA ? '<div class="if-sug" style="margin-top:6px;font-size:13px">Sem preço: procurando no Gestor Z…</div>' : ""}
         ${r.ja_no_ifood && modoIf() !== "atualizar" ? '<div style="color:var(--warn);font-size:13px">Já foi enviado antes: reenviar o produto completo pode trocar a categoria que está lá.</div>' : ""}
         ${modoIf() === "atualizar" ? '<div style="font-size:12px;color:var(--muted)">Neste modo a categoria, a foto e a descrição <b>não são enviadas</b>: o que já está no iFood continua.</div>' : ""}
         <div style="display:${modoIf() === "atualizar" ? "none" : "flex"};gap:6px;flex-wrap:wrap;align-items:end;margin-top:6px">

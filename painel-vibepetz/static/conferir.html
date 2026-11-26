@@ -521,6 +521,13 @@ async function buscar(texto, daCamera){
 
 const NOMES = {anota:"Anota Aí", nuvemshop:"Site", ifood:"iFood", "99food":"99Food"};
 // só as lojas que este painel usa (marca.json)
+// esta loja usa caixa (Gestor Z)? vem de marca.json
+const USA_CAIXA = !(window.MARCA && window.MARCA.usa_caixa === false);
+// produto sem codigo de barras pode ter o codigo da biblioteca do iFood
+const codigoDoApp = p => {
+  const c = (p.canais || []).find(x => x.canal === "ifood" && String(x.id_externo || "").trim());
+  return c ? "código do iFood " + c.id_externo : "";
+};
 const CANAIS_ON = ((window.MARCA && window.MARCA.canais) || ["nuvemshop","ifood","99food"])
                   .filter(c => NOMES[c]);
 function cartao(p){
@@ -534,7 +541,7 @@ function cartao(p){
   $("#resultado").innerHTML = `<div class="cartao">
     <div class="topo-cartao"><div id="foto-img"></div><div>
       <h2>${esc(p.nome)}</h2>
-      <div class="cod">${esc(p.ean || "sem código de barras")}${p.gz_codigo ? " · Gestor Z " + esc(p.gz_codigo) : ""}</div>
+      <div class="cod">${esc(p.ean || codigoDoApp(p) || "sem código de barras")}${USA_CAIXA && p.gz_codigo ? " · Gestor Z " + esc(p.gz_codigo) : ""}</div>
     </div></div>
     <div class="pills">${pills}</div>
     <div id="foto-acao"></div>
@@ -546,7 +553,7 @@ function cartao(p){
           <button type="button" id="mais" aria-label="Mais um">+</button></div></div>
       <div class="blk"><label for="preco-in">Preço (R$)</label>
         <input id="preco-in" class="preco-in" inputmode="decimal" autocomplete="off" placeholder="sem preço" value="${p.preco != null ? Number(p.preco).toFixed(2).replace(".", ",") : ""}">
-        <div class="nota-preco">Preço do caixa. Muda só aqui no painel.</div></div>
+        <div class="nota-preco">${USA_CAIXA ? "Preço do caixa." : "Preço de venda na loja."} Muda só aqui no painel.</div></div>
     </div>
     <div class="dois"><button class="zero" id="b-zero">Não tem (0)</button><button class="pri" id="b-salvar">Salvar</button></div>
     <button id="b-pular">Pular sem salvar</button>
