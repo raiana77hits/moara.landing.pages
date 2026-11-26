@@ -722,6 +722,11 @@ async function carregarResumo(){
 }
 
 const ROT = CANAIS_CURTO;
+// produto sem código de barras pode ter o código da biblioteca do iFood (granel, por exemplo)
+const codigoDoApp = p => {
+  const c = (p.canais || []).find(x => x.canal === "ifood" && String(x.id_externo || "").trim());
+  return c ? "código do iFood " + c.id_externo : "";
+};
 function canal(itens, nome){
   const cs = itens.filter(c => c.canal === nome), rot = ROT[nome];
   if(!cs.length) return `<span class="pill p-idle"><span class="rot">${rot}: </span>não está</span>`;
@@ -739,7 +744,7 @@ async function carregar(){
   est.total = r.total;
   $("#linhas").innerHTML = r.itens.map(p => `<div class="lin" data-id="${p.id}">
     ${p.foto ? `<img class="foto" loading="lazy" src="${esc(mini(p.foto, 320))}" alt="">` : `<div class="foto sem">sem foto</div>`}
-    <div class="nome">${esc(p.nome)}<span class="meta">${esc(p.ean || "sem código de barras")}${p.sku ? " · SKU " + esc(p.sku) : ""}${p.gz_codigo ? " · GZ " + esc(p.gz_codigo) : ""}</span></div>
+    <div class="nome">${esc(p.nome)}<span class="meta">${esc(p.ean || codigoDoApp(p) || "sem código de barras")}${p.sku ? " · SKU " + esc(p.sku) : ""}${p.gz_codigo ? " · GZ " + esc(p.gz_codigo) : ""}</span></div>
     <div class="gp"><div class="grupo">${esc((p.grupo || "").toLowerCase())}</div>
     <div class="preco">${brl(p.preco)}</div></div>
     <div class="est"><input type="number" min="0" step="1" inputmode="numeric" value="${p.estoque ?? ""}" placeholder="—" aria-label="Estoque de ${esc(p.nome)}"><small>${p.conferido_em ? "conferido " + data(p.conferido_em) : "não conferido"}${textoEst(p)}</small></div>
